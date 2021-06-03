@@ -1,11 +1,6 @@
-package exporter
+package transfer
 
-import (
-	"pmm-transferer/pkg/dump"
-)
-
-type Exporter struct {
-}
+import "pmm-transferer/pkg/dump"
 
 type DataSource interface {
 	ReadChunk(dump.ChunkMeta) (*dump.Chunk, error)
