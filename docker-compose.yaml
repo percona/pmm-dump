@@ -1,0 +1,18 @@
+version: '2'
+services:
+  pmm-server:
+    image: percona/pmm-server:2
+    hostname: pmm-server
+    container_name: pmm-server
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    ports:
+      - "8282:80"
+    volumes:
+      - data:/srv
+volumes:
+  data:
