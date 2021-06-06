@@ -1,4 +1,5 @@
-version: '2'
+version: '3'
+
 services:
   pmm-server:
     image: percona/pmm-server:2
@@ -12,7 +13,34 @@ services:
         max-file: "5"
     ports:
       - "8282:80"
+      - "8383:443"
     volumes:
-      - data:/srv
+      - pmm-server-data:/srv
+  pmm-client:
+    image: percona/pmm-client:2
+    hostname: pmm-client
+    container_name: pmm-client
+    restart: always
+    ports:
+      - "42000:42000"
+      - "42001:42001"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - pmm-server
+    volumes:
+      - ./pmm/agent.yaml:/etc/pmm-agent.yaml
+      - pmm-client-data:/srv
+    environment:
+      - PMM_AGENT_CONFIG_FILE=/etc/pmm-agent.yaml
+      - PMM_AGENT_SERVER_USERNAME=admin
+      - PMM_AGENT_SERVER_PASSWORD=admin
+      - PMM_AGENT_SERVER_ADDRESS=pmm-server:443
+      - PMM_AGENT_SERVER_INSECURE_TLS=true
+
 volumes:
-  data:
+  pmm-server-data:
+  pmm-client-data:
