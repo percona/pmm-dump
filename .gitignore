@@ -3,4 +3,5 @@
 main
 pmm-transferer
 
-pmm/
+setup/pmm/
+setup/mongo/db/

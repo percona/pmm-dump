@@ -32,7 +32,7 @@ services:
     depends_on:
       - pmm-server
     volumes:
-      - ./pmm/agent.yaml:/etc/pmm-agent.yaml
+      - ./setup/pmm/agent.yaml:/etc/pmm-agent.yaml
       - pmm-client-data:/srv
     environment:
       - PMM_AGENT_CONFIG_FILE=/etc/pmm-agent.yaml
@@ -40,7 +40,23 @@ services:
       - PMM_AGENT_SERVER_PASSWORD=admin
       - PMM_AGENT_SERVER_ADDRESS=pmm-server:443
       - PMM_AGENT_SERVER_INSECURE_TLS=true
+  mongodb:
+    image : mongo
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_DATABASE: admin
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    volumes:
+      - ./setup/mongo/init.js:/docker-entrypoint-initdb.d/init.js:ro
+#      - ./setup/mongo/db:/data/db
+      - mongodb-data:/data/db
+      - ./setup/mongo/mongod.conf:/etc/mongod.conf
+    ports:
+      - 27017:27017
+    command: ["--config", "/etc/mongod.conf"]
 
 volumes:
   pmm-server-data:
   pmm-client-data:
+  mongodb-data:
