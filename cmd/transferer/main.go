@@ -8,6 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TODO: lint checker; readme; version command
+
 func main() {
 	var (
 		transferer = kingpin.New("pmm-transferer", "Percona PMM Transferer")
