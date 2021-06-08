@@ -21,7 +21,7 @@ pmm-up:
 
 pmm-down:
 	docker-compose down --volumes
-	rm -rf pmm
+	rm -rf setup/pmm
 
 pmm-status:
 	docker exec pmm-client pmm-admin status
