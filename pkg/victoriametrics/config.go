@@ -1,5 +1,6 @@
 package victoriametrics
 
 type Config struct {
-	ConnectionURL string
+	ConnectionURL      string
+	TimeSeriesSelector string
 }
