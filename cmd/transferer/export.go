@@ -23,7 +23,7 @@ type exportParams struct {
 func runExport(p exportParams) error {
 	exportTS := time.Now().UTC()
 
-	filepath := fmt.Sprintf("pmm-dump-%v.gz", exportTS.Unix())
+	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
 	if p.outPath != "" {
 		filepath = path.Join(p.outPath, filepath)
 	}
