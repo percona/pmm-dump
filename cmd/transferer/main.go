@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"pmm-transferer/pkg/clickhouse"
+	"pmm-transferer/pkg/transfer/exporter"
 	"pmm-transferer/pkg/victoriametrics"
 
 	"github.com/alecthomas/kingpin"
@@ -47,7 +48,9 @@ func main() {
 	switch cmd {
 	case exportCmd.FullCommand():
 		p := exportParams{
-			outPath: *outPath,
+			exporter: exporter.Config{
+				OutPath: *outPath,
+			},
 		}
 
 		if url := *victoriaMetricsURL; url != "" {
