@@ -5,3 +5,5 @@ pmm-transferer
 
 setup/pmm/
 setup/mongo/db/
+
+pmm-dump-*.tar.gz

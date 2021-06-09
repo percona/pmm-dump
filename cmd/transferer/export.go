@@ -78,7 +78,7 @@ func runExport(p exportParams) error {
 		defer tw.Close()
 
 		err = tw.WriteHeader(&tar.Header{
-			Name: "name", // path.Join("/vm", "native.bin"),
+			Name: path.Join("vm", "native.bin"),
 			Size: int64(len(body)),
 			Mode: 0600,
 		})

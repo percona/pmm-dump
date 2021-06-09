@@ -1,6 +1,8 @@
 .PHONY= build up down re pmm-status mongo-insert vm-export
 
 PMMT_BIN_NAME?=pmm-transferer
+PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
+
 PMM_VM_URL?="http://admin:admin@localhost:8282/prometheus"
 
 PMM_MONGO_USERNAME?=pmm_mongodb
@@ -40,3 +42,6 @@ mongo-insert:
 
 vm-export:
 	./$(PMMT_BIN_NAME) export --victoria_metrics_url=$(PMM_VM_URL)
+
+clean:
+	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN)

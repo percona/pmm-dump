@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// TODO: lint checker; readme; git version command
+// TODO: lint checker; readme; git version command; import paths
 
 func main() {
 	var (
