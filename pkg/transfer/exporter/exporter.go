@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type Exporter struct {
@@ -30,19 +31,18 @@ func New(cfg Config, s ...dump.Source) *Exporter {
 func (e *Exporter) Export() error {
 	exportTS := time.Now().UTC()
 
-	// TODO: no .gz if no compression set?
 	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
 	if e.cfg.OutPath != "" {
 		filepath = path.Join(e.cfg.OutPath, filepath)
 	}
 
+	log.Info().Msgf("Preparing dump file: %s", filepath)
 	file, err := os.Create(filepath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create %s", filepath)
 	}
 	defer file.Close()
 
-	// TODO: configurable compression level
 	w, err := gzip.NewWriterLevel(file, gzip.BestCompression)
 	if err != nil {
 		return errors.Wrap(err, "failed to create gzip writer")
@@ -55,8 +55,8 @@ func (e *Exporter) Export() error {
 	for _, s := range e.sources {
 		ch, err := s.ReadChunk(dump.ChunkMeta{
 			Source: s.Type(),
-			Start:  nil, // TODO: configurable start and end
-			End:    nil,
+			Start:  e.cfg.Start,
+			End:    e.cfg.End,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to read chunk")

@@ -5,13 +5,23 @@ import (
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/transfer/exporter"
 	"pmm-transferer/pkg/victoriametrics"
+	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-// TODO: lint checker; readme; git version command; import paths
+// TODO:
+//  lint checker;
+//  readme;
+//  git version command;
+//  import paths;
+//  end points ping;
+//  panic -> errors;
+//  vendor;
+//  short versions of commands;
+//  more logs;
 
 func main() {
 	var (
@@ -24,6 +34,8 @@ func main() {
 		exportCmd  = transferer.Command("export", "Export PMM Server metrics to dump file")
 		outPath    = exportCmd.Flag("out", "Path to put out file").Short('o').String()
 		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
+		start      = exportCmd.Flag("start", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
+		end        = exportCmd.Flag("end", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 
 		importCmd = transferer.Command("import", "Import PMM Server metrics from dump file")
 	)
@@ -31,9 +43,8 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	if *enableVerboseMode {
 		log.Logger = log.Logger.
-			Level(zerolog.DebugLevel).
-			With().Caller().
-			Logger()
+			With().Caller().Logger(). // TODO: fix with caller log
+			Level(zerolog.DebugLevel)
 	}
 
 	cmd, err := transferer.DefaultEnvars().Parse(os.Args[1:])
@@ -53,17 +64,35 @@ func main() {
 			},
 		}
 
+		if *start != "" {
+			start, err := time.Parse(time.RFC3339, *start)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing start date-time: %v", err)
+			}
+			p.exporter.Start = &start
+		}
+
+		if *end != "" {
+			end, err := time.Parse(time.RFC3339, *end)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing end date-time: %v", err)
+			}
+			p.exporter.End = &end
+		}
+
 		if url := *victoriaMetricsURL; url != "" {
 			p.victoriaMetrics = &victoriametrics.Config{
 				ConnectionURL:      url,
 				TimeSeriesSelector: *tsSelector,
 			}
+			log.Info().Msgf("Setting up Victoria Metrics export from %s", p.victoriaMetrics.ConnectionURL)
 		}
 
 		if url := *clickHouseURL; url != "" {
 			p.clickHouse = &clickhouse.Config{
 				ConnectionURL: url,
 			}
+			log.Info().Msgf("Setting up ClickHouse export from %s", p.clickHouse.ConnectionURL)
 		}
 
 		if err = runExport(p); err != nil {

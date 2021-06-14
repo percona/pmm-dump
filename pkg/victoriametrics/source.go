@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
 
@@ -16,7 +17,7 @@ type Source struct {
 }
 
 func NewSource(c *fasthttp.Client, cfg Config) *Source {
-	if cfg.TimeSeriesSelector == "" { // TODO: ts validation
+	if cfg.TimeSeriesSelector == "" {
 		cfg.TimeSeriesSelector = `{__name__=~".*"}`
 	}
 
@@ -47,7 +48,8 @@ func (s *Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	// TODO: configurable native/json formats
 	url := fmt.Sprintf("%s/api/v1/export/native?%s", s.cfg.ConnectionURL, q.String())
 
-	// TODO: configurable timeout
+	log.Debug().Msgf("Sending request to Victoria Metrics endpoint: %v", url)
+
 	status, body, err := s.c.GetTimeout(nil, url, time.Second*30)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send HTTP request to victoria metrics")

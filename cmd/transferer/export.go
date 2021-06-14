@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
 
@@ -18,7 +19,6 @@ type exportParams struct {
 }
 
 func runExport(p exportParams) error {
-	// TODO: configurable http client
 	c := &fasthttp.Client{
 		MaxConnsPerHost:           2,
 		MaxIdleConnDuration:       time.Minute,
@@ -39,6 +39,8 @@ func runExport(p exportParams) error {
 	if err := e.Export(); err != nil {
 		return errors.Wrap(err, "failed to export")
 	}
+
+	log.Info().Msg("Successfully exported!")
 
 	return nil
 }
