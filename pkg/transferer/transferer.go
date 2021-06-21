@@ -1,4 +1,4 @@
-package transfer
+package transferer
 
 import (
 	"archive/tar"
@@ -13,33 +13,28 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Exporter struct {
-	cfg     ExportConfig
-	sources []dump.Source
+type Transferer struct {
+	dumpPath string
+	sources  []dump.Source
 }
 
-type ExportConfig struct {
-	OutPath string
-	Start   *time.Time
-	End     *time.Time
-}
-
-func NewExporter(cfg ExportConfig, s ...dump.Source) (*Exporter, error) {
+func New(dumpPath string, s []dump.Source) (*Transferer, error) {
 	if len(s) == 0 {
-		return nil, errors.New("failed to create exporter with no sources")
+		return nil, errors.New("failed to create transferer with no sources")
 	}
-	return &Exporter{
-		cfg:     cfg,
-		sources: s,
+
+	return &Transferer{
+		dumpPath: dumpPath,
+		sources:  s,
 	}, nil
 }
 
-func (e *Exporter) Export() error {
+func (t Transferer) Export(start, end *time.Time) error {
 	exportTS := time.Now().UTC()
 
 	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
-	if e.cfg.OutPath != "" {
-		filepath = path.Join(e.cfg.OutPath, filepath)
+	if t.dumpPath != "" {
+		filepath = path.Join(t.dumpPath, filepath)
 	}
 
 	log.Info().Msgf("Preparing dump file: %s", filepath)
@@ -58,11 +53,11 @@ func (e *Exporter) Export() error {
 	tw := tar.NewWriter(w)
 	defer tw.Close()
 
-	for _, s := range e.sources {
+	for _, s := range t.sources {
 		ch, err := s.ReadChunk(dump.ChunkMeta{
 			Source: s.Type(),
-			Start:  e.cfg.Start,
-			End:    e.cfg.End,
+			Start:  start,
+			End:    end,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to read chunk")
@@ -87,4 +82,8 @@ func (e *Exporter) Export() error {
 	}
 
 	return nil
+}
+
+func (t Transferer) Import() error {
+	return nil // TODO: implement
 }

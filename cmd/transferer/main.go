@@ -3,7 +3,8 @@ package main
 import (
 	"os"
 	"pmm-transferer/pkg/clickhouse"
-	"pmm-transferer/pkg/transfer"
+	"pmm-transferer/pkg/dump"
+	"pmm-transferer/pkg/transferer"
 	"pmm-transferer/pkg/victoriametrics"
 	"time"
 
@@ -23,19 +24,20 @@ import (
 
 func main() {
 	var (
-		transferer = kingpin.New("pmm-transferer", "Percona PMM Transferer")
+		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
 
-		clickHouseURL      = transferer.Flag("click_house_url", "ClickHouse connection string").String()
-		victoriaMetricsURL = transferer.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
-		enableVerboseMode  = transferer.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
+		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
+		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
+		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 
-		exportCmd  = transferer.Command("export", "Export PMM Server metrics to dump file")
+		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
 		outPath    = exportCmd.Flag("out", "Path to put out file").Short('o').String()
 		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
 		start      = exportCmd.Flag("start", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		end        = exportCmd.Flag("end", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 
-		importCmd = transferer.Command("import", "Import PMM Server metrics from dump file")
+		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
+		dumpPath  = importCmd.Flag("dump_path", "Path to dump file").Short('d').Required().String()
 	)
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
@@ -45,7 +47,7 @@ func main() {
 			Level(zerolog.DebugLevel)
 	}
 
-	cmd, err := transferer.DefaultEnvars().Parse(os.Args[1:])
+	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
 	}
@@ -54,42 +56,41 @@ func main() {
 		log.Fatal().Msg("Please, specify at least one data source via connection string")
 	}
 
-	var (
-		vmConfig *victoriametrics.Config
-		chConfig *clickhouse.Config
-	)
+	var sources []dump.Source
+
+	httpC := newClientHTTP()
 
 	if url := *victoriaMetricsURL; url != "" {
-		vmConfig = &victoriametrics.Config{
+		c := &victoriametrics.Config{
 			ConnectionURL:      url,
 			TimeSeriesSelector: *tsSelector,
 		}
-		log.Info().Msgf("Got Victoria Metrics URL: %s", vmConfig.ConnectionURL)
+
+		sources = append(sources, victoriametrics.NewSource(httpC, *c))
+
+		log.Info().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 	}
 
 	if url := *clickHouseURL; url != "" {
-		chConfig = &clickhouse.Config{
+		c := &clickhouse.Config{
 			ConnectionURL: url,
 		}
-		log.Info().Msgf("Got ClickHouse URL: %s", chConfig.ConnectionURL)
+
+		// TODO: add clickhouse source
+
+		log.Info().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
 
 	switch cmd {
 	case exportCmd.FullCommand():
-		p := exportParams{
-			exporter: transfer.ExportConfig{
-				OutPath: *outPath,
-			},
-			victoriaMetrics: vmConfig,
-			clickHouse:      chConfig,
-		}
+		var startTime, endTime *time.Time
 
 		if *start != "" {
 			start, err := time.Parse(time.RFC3339, *start)
 			if err != nil {
 				log.Fatal().Msgf("Error parsing start date-time: %v", err)
 			}
-			p.exporter.Start = &start
+			startTime = &start
 		}
 
 		if *end != "" {
@@ -97,14 +98,30 @@ func main() {
 			if err != nil {
 				log.Fatal().Msgf("Error parsing end date-time: %v", err)
 			}
-			p.exporter.End = &end
+			endTime = &end
 		}
 
-		if err = runExport(p); err != nil {
+		t, err := transferer.New(*outPath, sources)
+		if err != nil {
+			log.Fatal().Msgf("Failed to transfer: %v", err)
+		}
+
+		if err = t.Export(startTime, endTime); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
+
+		log.Info().Msg("Successfully exported!")
 	case importCmd.FullCommand():
-		log.Fatal().Msg("TO BE DONE") // TODO: import
+		t, err := transferer.New(*dumpPath, sources)
+		if err != nil {
+			log.Fatal().Msgf("Failed to transfer: %v", err)
+		}
+
+		if err = t.Import(); err != nil {
+			log.Fatal().Msgf("Failed to import: %v", err)
+		}
+
+		log.Info().Msg("Successfully imported!")
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}
