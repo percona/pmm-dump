@@ -17,7 +17,6 @@ import (
 //  readme;
 //  git version command;
 //  end points ping;
-//  panic -> errors;
 //  vendor;
 //  short versions of commands;
 //  more logs;
@@ -55,12 +54,34 @@ func main() {
 		log.Fatal().Msg("Please, specify at least one data source via connection string")
 	}
 
+	var (
+		vmConfig *victoriametrics.Config
+		chConfig *clickhouse.Config
+	)
+
+	if url := *victoriaMetricsURL; url != "" {
+		vmConfig = &victoriametrics.Config{
+			ConnectionURL:      url,
+			TimeSeriesSelector: *tsSelector,
+		}
+		log.Info().Msgf("Got Victoria Metrics URL: %s", vmConfig.ConnectionURL)
+	}
+
+	if url := *clickHouseURL; url != "" {
+		chConfig = &clickhouse.Config{
+			ConnectionURL: url,
+		}
+		log.Info().Msgf("Got ClickHouse URL: %s", chConfig.ConnectionURL)
+	}
+
 	switch cmd {
 	case exportCmd.FullCommand():
 		p := exportParams{
 			exporter: transfer.ExportConfig{
 				OutPath: *outPath,
 			},
+			victoriaMetrics: vmConfig,
+			clickHouse:      chConfig,
 		}
 
 		if *start != "" {
@@ -77,21 +98,6 @@ func main() {
 				log.Fatal().Msgf("Error parsing end date-time: %v", err)
 			}
 			p.exporter.End = &end
-		}
-
-		if url := *victoriaMetricsURL; url != "" {
-			p.victoriaMetrics = &victoriametrics.Config{
-				ConnectionURL:      url,
-				TimeSeriesSelector: *tsSelector,
-			}
-			log.Info().Msgf("Setting up Victoria Metrics export from %s", p.victoriaMetrics.ConnectionURL)
-		}
-
-		if url := *clickHouseURL; url != "" {
-			p.clickHouse = &clickhouse.Config{
-				ConnectionURL: url,
-			}
-			log.Info().Msgf("Setting up ClickHouse export from %s", p.clickHouse.ConnectionURL)
 		}
 
 		if err = runExport(p); err != nil {

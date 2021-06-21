@@ -24,14 +24,14 @@ type ExportConfig struct {
 	End     *time.Time
 }
 
-func NewExporter(cfg ExportConfig, s ...dump.Source) *Exporter {
+func NewExporter(cfg ExportConfig, s ...dump.Source) (*Exporter, error) {
 	if len(s) == 0 {
-		panic("BUG: failed to create exporter with no sources")
+		return nil, errors.New("failed to create exporter with no sources")
 	}
 	return &Exporter{
 		cfg:     cfg,
 		sources: s,
-	}
+	}, nil
 }
 
 func (e *Exporter) Export() error {

@@ -34,7 +34,10 @@ func runExport(p exportParams) error {
 		sources = append(sources, victoriametrics.NewSource(c, *p.victoriaMetrics))
 	}
 
-	e := transfer.NewExporter(p.exporter, sources...)
+	e, err := transfer.NewExporter(p.exporter, sources...)
+	if err != nil {
+		return err
+	}
 
 	if err := e.Export(); err != nil {
 		return errors.Wrap(err, "failed to export")
