@@ -1,4 +1,4 @@
-.PHONY= build up down re pmm-status mongo-insert vm-export
+.PHONY= build up down re pmm-status mongo-reg mongo-insert vm-export clean
 
 PMMT_BIN_NAME?=pmm-transferer
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
