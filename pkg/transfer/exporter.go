@@ -1,4 +1,4 @@
-package exporter
+package transfer
 
 import (
 	"archive/tar"
@@ -14,11 +14,17 @@ import (
 )
 
 type Exporter struct {
-	cfg     Config
+	cfg     ExportConfig
 	sources []dump.Source
 }
 
-func New(cfg Config, s ...dump.Source) *Exporter {
+type ExportConfig struct {
+	OutPath string
+	Start   *time.Time
+	End     *time.Time
+}
+
+func NewExporter(cfg ExportConfig, s ...dump.Source) *Exporter {
 	if len(s) == 0 {
 		panic("BUG: failed to create exporter with no sources")
 	}

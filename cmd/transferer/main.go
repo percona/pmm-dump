@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 	"pmm-transferer/pkg/clickhouse"
-	"pmm-transferer/pkg/transfer/exporter"
+	"pmm-transferer/pkg/transfer"
 	"pmm-transferer/pkg/victoriametrics"
 	"time"
 
@@ -16,7 +16,6 @@ import (
 //  lint checker;
 //  readme;
 //  git version command;
-//  import paths;
 //  end points ping;
 //  panic -> errors;
 //  vendor;
@@ -59,7 +58,7 @@ func main() {
 	switch cmd {
 	case exportCmd.FullCommand():
 		p := exportParams{
-			exporter: exporter.Config{
+			exporter: transfer.ExportConfig{
 				OutPath: *outPath,
 			},
 		}

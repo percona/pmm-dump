@@ -3,7 +3,7 @@ package main
 import (
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/dump"
-	"pmm-transferer/pkg/transfer/exporter"
+	"pmm-transferer/pkg/transfer"
 	"pmm-transferer/pkg/victoriametrics"
 	"time"
 
@@ -15,7 +15,7 @@ import (
 type exportParams struct {
 	clickHouse      *clickhouse.Config
 	victoriaMetrics *victoriametrics.Config
-	exporter        exporter.Config
+	exporter        transfer.ExportConfig
 }
 
 func runExport(p exportParams) error {
@@ -34,7 +34,7 @@ func runExport(p exportParams) error {
 		sources = append(sources, victoriametrics.NewSource(c, *p.victoriaMetrics))
 	}
 
-	e := exporter.New(p.exporter, sources...)
+	e := transfer.NewExporter(p.exporter, sources...)
 
 	if err := e.Export(); err != nil {
 		return errors.Wrap(err, "failed to export")
