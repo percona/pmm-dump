@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"pmm-transferer/pkg/dump"
@@ -44,13 +45,13 @@ func (t Transferer) Export(start, end *time.Time) error {
 	}
 	defer file.Close()
 
-	w, err := gzip.NewWriterLevel(file, gzip.BestCompression)
+	gzw, err := gzip.NewWriterLevel(file, gzip.BestCompression)
 	if err != nil {
 		return errors.Wrap(err, "failed to create gzip writer")
 	}
-	defer w.Close()
+	defer gzw.Close()
 
-	tw := tar.NewWriter(w)
+	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
 	for _, s := range t.sources {
@@ -85,5 +86,60 @@ func (t Transferer) Export(start, end *time.Time) error {
 }
 
 func (t Transferer) Import() error {
-	return nil // TODO: implement
+	file, err := os.Open(t.dumpPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to open file")
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return errors.Wrap(err, "failed to open as gzip")
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	for {
+		header, err := tr.Next()
+
+		if err == io.EOF {
+			log.Info().Msg("Processed complete dump")
+			break
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "failed to read file from dump")
+		}
+
+		log.Info().Msgf("Processing chunk '%s'", header.Name)
+
+		dir, filename := path.Split(header.Name)
+
+		st := dump.ParseSourceType(dir[:len(dir)-1])
+		if st == dump.UndefinedSource {
+			return errors.Errorf("corrupted dump: found undefined source: %s", dir)
+		}
+
+		s, ok := t.sourceByType(st)
+		if !ok {
+			log.Warn().Msgf("Found dump data for %v, but it's not specified - skipped", st)
+			continue
+		}
+
+		if err = s.WriteChunk(filename, tr); err != nil {
+			return errors.Wrap(err, "failed to write chunk")
+		}
+	}
+
+	return nil
+}
+
+func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) {
+	for _, s := range t.sources {
+		if s.Type() == st {
+			return s, true
+		}
+	}
+	return nil, false
 }

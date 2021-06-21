@@ -2,6 +2,7 @@ package victoriametrics
 
 import (
 	"fmt"
+	"io"
 	"pmm-transferer/pkg/dump"
 	"strconv"
 	"time"
@@ -27,11 +28,11 @@ func NewSource(c *fasthttp.Client, cfg Config) *Source {
 	}
 }
 
-func (s *Source) Type() dump.SourceType {
+func (s Source) Type() dump.SourceType {
 	return dump.VictoriaMetrics
 }
 
-func (s *Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
+func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
@@ -66,4 +67,8 @@ func (s *Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	}
 
 	return chunk, nil
+}
+
+func (s Source) WriteChunk(filename string, r io.Reader) error {
+	return nil // TODO: implement
 }
