@@ -6,6 +6,7 @@ type Source interface {
 	Type() SourceType
 	ReadChunk(ChunkMeta) (*Chunk, error)
 	WriteChunk(filename string, r io.Reader) error
+	FinalizeWrites() error
 }
 
 type SourceType int

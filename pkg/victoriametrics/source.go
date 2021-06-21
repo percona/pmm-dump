@@ -3,6 +3,7 @@ package victoriametrics
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"pmm-transferer/pkg/dump"
 	"strconv"
 	"time"
@@ -69,6 +70,44 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	return chunk, nil
 }
 
-func (s Source) WriteChunk(filename string, r io.Reader) error {
-	return nil // TODO: implement
+func (s Source) WriteChunk(_ string, r io.Reader) error {
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+
+	chunkContent, err := ioutil.ReadAll(r)
+	if err != nil {
+		return errors.Wrap(err, "failed to read chunk content")
+	}
+
+	req.SetBody(chunkContent)
+	req.Header.SetMethod(fasthttp.MethodPost)
+	req.SetRequestURI(fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL))
+
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	if err = s.c.Do(req, resp); err != nil {
+		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
+	}
+
+	if s := resp.StatusCode(); s != fasthttp.StatusOK && s != fasthttp.StatusNoContent {
+		return errors.Errorf("non-OK response from victoria metrics: %d: %s", s, string(resp.Body()))
+	}
+
+	return nil
+}
+
+func (s Source) FinalizeWrites() error {
+	url := fmt.Sprintf("%s/internal/resetRollupResultCache", s.cfg.ConnectionURL)
+
+	status, body, err := s.c.GetTimeout(nil, url, time.Second*30)
+	if err != nil {
+		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
+	}
+
+	if status != fasthttp.StatusOK {
+		return errors.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
+	}
+
+	return nil
 }

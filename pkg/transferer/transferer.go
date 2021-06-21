@@ -132,6 +132,12 @@ func (t Transferer) Import() error {
 		}
 	}
 
+	for _, s := range t.sources {
+		if err = s.FinalizeWrites(); err != nil {
+			return errors.Wrap(err, "failed to finalize import")
+		}
+	}
+
 	return nil
 }
 
