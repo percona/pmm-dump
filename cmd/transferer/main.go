@@ -18,7 +18,6 @@ import (
 //  readme;
 //  git version command;
 //  end points ping;
-//  vendor;
 //  short versions of commands;
 //  more logs;
 

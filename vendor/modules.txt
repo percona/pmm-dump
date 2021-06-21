@@ -1,0 +1,26 @@
+# github.com/alecthomas/kingpin v2.2.6+incompatible
+github.com/alecthomas/kingpin
+# github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
+github.com/alecthomas/template
+github.com/alecthomas/template/parse
+# github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15
+github.com/alecthomas/units
+# github.com/andybalholm/brotli v1.0.2
+github.com/andybalholm/brotli
+# github.com/klauspost/compress v1.12.2
+github.com/klauspost/compress/flate
+github.com/klauspost/compress/gzip
+github.com/klauspost/compress/zlib
+# github.com/pkg/errors v0.9.1
+github.com/pkg/errors
+# github.com/rs/zerolog v1.22.0
+github.com/rs/zerolog
+github.com/rs/zerolog/internal/cbor
+github.com/rs/zerolog/internal/json
+github.com/rs/zerolog/log
+# github.com/valyala/bytebufferpool v1.0.0
+github.com/valyala/bytebufferpool
+# github.com/valyala/fasthttp v1.26.0
+github.com/valyala/fasthttp
+github.com/valyala/fasthttp/fasthttputil
+github.com/valyala/fasthttp/stackless
