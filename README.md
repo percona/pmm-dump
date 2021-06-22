@@ -34,3 +34,21 @@ Dump file is a `tar` archive compressed via `gzip`. Here is the shape of dump fi
 * `dump.tar.gz/meta.json` - contains metadata about the dump (TBD)
 * `dump.tar.gz/vm/` - contains Victoria Metrics data chunks split by timeframe (in native VM format)
 * `dump.tar.gz/ch/` - contains ClickHouse data chunks (TBD)
+
+
+## Using Makefile - local dev env
+
+There is a Makefile for easier testing locally. It uses docker-compose to set up PMM Server, Client and MongoDB.
+
+You will need to have Go 1.16+ and Docker installed.
+
+| Rule | Description |
+|------|-------------|
+| make | Shortcut for `build up mongo-reg mongo-insert` |
+| make build | Builds transferer binary |
+| make up | Sets up docker containers |
+| mongo-reg | Registers MongoDB in PMM |
+| mongo-insert | Executes MongoDB insert |
+| make down | Shuts down docker containers |
+| make re | Shortcut for `down up` |
+| make vm-export | Runs Victoria Metrics export from local PMM |

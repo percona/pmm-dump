@@ -15,7 +15,6 @@ import (
 
 // TODO:
 //  lint checker;
-//  readme;
 //  git version command;
 //  end points ping;
 //  short versions of commands;
