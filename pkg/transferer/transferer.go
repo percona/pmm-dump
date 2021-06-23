@@ -55,6 +55,8 @@ func (t Transferer) Export(start, end *time.Time) error {
 	defer tw.Close()
 
 	for _, s := range t.sources {
+		log.Info().Msgf("Reading metrics from %v...", s.Type())
+
 		ch, err := s.ReadChunk(dump.ChunkMeta{
 			Source: s.Type(),
 			Start:  start,
@@ -63,6 +65,8 @@ func (t Transferer) Export(start, end *time.Time) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to read chunk")
 		}
+
+		log.Info().Msgf("Writing retrieved metrics to the dump...")
 
 		err = tw.WriteHeader(&tar.Header{
 			Typeflag:   tar.TypeReg,
@@ -80,12 +84,16 @@ func (t Transferer) Export(start, end *time.Time) error {
 		if _, err = tw.Write(ch.Content); err != nil {
 			return errors.Wrap(err, "failed to write chunk content")
 		}
+
+		log.Info().Msgf("Processed %v data source...", s.Type())
 	}
 
 	return nil
 }
 
 func (t Transferer) Import() error {
+	log.Info().Msgf("Opening dump file: %v", t.dumpPath)
+
 	file, err := os.Open(t.dumpPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to open file")
@@ -101,6 +109,8 @@ func (t Transferer) Import() error {
 	tr := tar.NewReader(gzr)
 
 	for {
+		log.Info().Msgf("Reading file from dump...")
+
 		header, err := tr.Next()
 
 		if err == io.EOF {
@@ -127,10 +137,16 @@ func (t Transferer) Import() error {
 			continue
 		}
 
+		log.Info().Msgf("Writing chunk to %v", s.Type())
+
 		if err = s.WriteChunk(filename, tr); err != nil {
 			return errors.Wrap(err, "failed to write chunk")
 		}
+
+		log.Info().Msgf("Successfully processed %v", header.Name)
 	}
+
+	log.Info().Msg("Finalizing writes...")
 
 	for _, s := range t.sources {
 		if err = s.FinalizeWrites(); err != nil {

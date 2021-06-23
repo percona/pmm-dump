@@ -50,7 +50,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	// TODO: configurable native/json formats
 	url := fmt.Sprintf("%s/api/v1/export/native?%s", s.cfg.ConnectionURL, q.String())
 
-	log.Debug().Msgf("Sending request to Victoria Metrics endpoint: %v", url)
+	log.Info().Msgf("Sending request to Victoria Metrics endpoint: %v", url)
 
 	status, body, err := s.c.GetTimeout(nil, url, time.Second*30)
 	if err != nil {
@@ -60,6 +60,8 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	if status != fasthttp.StatusOK {
 		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
 	}
+
+	log.Info().Msgf("Got successful response from Victoria Metrics")
 
 	chunk := &dump.Chunk{
 		ChunkMeta: m,

@@ -45,6 +45,8 @@ func main() {
 			Level(zerolog.DebugLevel)
 	}
 
+	log.Info().Msg("Parsing cli params...")
+
 	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
@@ -55,6 +57,8 @@ func main() {
 	}
 
 	var sources []dump.Source
+
+	log.Info().Msg("Setting up HTTP client...")
 
 	httpC := newClientHTTP()
 
@@ -81,6 +85,8 @@ func main() {
 
 	switch cmd {
 	case exportCmd.FullCommand():
+		log.Info().Msg("Processing export...")
+
 		var startTime, endTime *time.Time
 
 		if *start != "" {
@@ -110,6 +116,8 @@ func main() {
 
 		log.Info().Msg("Successfully exported!")
 	case importCmd.FullCommand():
+		log.Info().Msg("Processing import...")
+
 		t, err := transferer.New(*dumpPath, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
