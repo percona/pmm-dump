@@ -52,3 +52,57 @@ You will need to have Go 1.16+ and Docker installed.
 | make down | Shuts down docker containers |
 | make re | Shortcut for `down up` |
 | make vm-export | Runs Victoria Metrics export from local PMM |
+
+
+## Transfer Example
+
+In this example:
+* Victoria Metrics is available at `http://admin:admin@localhost:8282/prometheus`
+* transferer binary name - `pmm-transferer`
+* monitored service - MongoDB
+
+Running export with filter:
+```
+./pmm-transferer export \
+    --victoria_metrics_url="http://admin:admin@localhost:8282/prometheus" \
+    --ts_selector='{__name__=~".*mongo.*"}'
+```
+
+You should see the following:
+```
+3:28PM INF Parsing cli params...
+3:28PM INF Setting up HTTP client...
+3:28PM INF Got Victoria Metrics URL: http://admin:admin@localhost:8282/prometheus
+3:28PM INF Processing export...
+3:28PM INF Preparing dump file: pmm-dump-1624451309.tar.gz
+3:28PM INF Reading metrics from vm...
+3:28PM INF Sending request to Victoria Metrics endpoint: http://admin:admin@localhost:8282/prometheus/api/v1/export/native?match%5B%5D=%7B__name__%3D~%22.%2Amongo.%2A%22%7D
+3:28PM INF Got successful response from Victoria Metrics
+3:28PM INF Writing retrieved metrics to the dump...
+3:28PM INF Processed vm data source...
+3:28PM INF Successfully exported!
+```
+
+Running import:
+```
+./pmm-transferer import \
+    --dump_path pmm-dump-1624451309.tar.gz \
+    --victoria_metrics_url="http://admin:admin@localhost:8282/prometheus"
+```
+
+You should see the following:
+```
+3:30PM INF Parsing cli params...
+3:30PM INF Setting up HTTP client...
+3:30PM INF Got Victoria Metrics URL: http://admin:admin@localhost:8282/prometheus
+3:30PM INF Processing import...
+3:30PM INF Opening dump file: pmm-dump-1624451309.tar.gz
+3:30PM INF Reading file from dump...
+3:30PM INF Processing chunk 'vm/0-0.bin'
+3:30PM INF Writing chunk to vm
+3:30PM INF Successfully processed vm/0-0.bin
+3:30PM INF Reading file from dump...
+3:30PM INF Processed complete dump
+3:30PM INF Finalizing writes...
+3:30PM INF Successfully imported!
+```
