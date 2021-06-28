@@ -113,3 +113,37 @@ func (s Source) FinalizeWrites() error {
 
 	return nil
 }
+
+func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
+	const ( // TODO: make configurable
+		deltaPercentage  = 0.1
+		minDeltaDuration = 3 * time.Minute
+		maxDeltaDuration = time.Hour
+	)
+
+	timeRange := end.Sub(start)
+
+	delta := time.Duration(float64(timeRange) * deltaPercentage)
+	if delta < minDeltaDuration {
+		delta = minDeltaDuration
+	} else if delta > maxDeltaDuration {
+		delta = maxDeltaDuration
+	}
+
+	chunkStart := start
+	for {
+		s, e := chunkStart, chunkStart.Add(delta)
+		chunks = append(chunks, dump.ChunkMeta{
+			Source: dump.VictoriaMetrics,
+			Start:  &s,
+			End:    &e,
+		})
+
+		chunkStart = e
+		if chunkStart.After(end) {
+			break
+		}
+	}
+
+	return
+}

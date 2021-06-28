@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/dump"
@@ -37,6 +38,8 @@ func main() {
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 		dumpPath  = importCmd.Flag("dump_path", "Path to dump file").Short('d').Required().String()
 	)
+
+	ctx := context.Background()
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	if *enableVerboseMode {
@@ -78,7 +81,7 @@ func main() {
 			ConnectionURL: url,
 		}
 
-		// TODO: add clickhouse source
+		// TODO\CH: add clickhouse source
 
 		log.Info().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
@@ -87,22 +90,28 @@ func main() {
 	case exportCmd.FullCommand():
 		log.Info().Msg("Processing export...")
 
-		var startTime, endTime *time.Time
-
-		if *start != "" {
-			start, err := time.Parse(time.RFC3339, *start)
-			if err != nil {
-				log.Fatal().Msgf("Error parsing start date-time: %v", err)
-			}
-			startTime = &start
-		}
+		var startTime, endTime time.Time
 
 		if *end != "" {
-			end, err := time.Parse(time.RFC3339, *end)
+			endTime, err = time.ParseInLocation(time.RFC3339, *end, time.UTC)
 			if err != nil {
 				log.Fatal().Msgf("Error parsing end date-time: %v", err)
 			}
-			endTime = &end
+		} else {
+			endTime = time.Now().UTC()
+		}
+
+		if *start != "" {
+			startTime, err = time.ParseInLocation(time.RFC3339, *start, time.UTC)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing start date-time: %v", err)
+			}
+		} else {
+			startTime = endTime.Add(-1 * time.Hour * 4)
+		}
+
+		if startTime.After(endTime) {
+			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
 		t, err := transferer.New(*outPath, sources)
@@ -110,7 +119,20 @@ func main() {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
 
-		if err = t.Export(startTime, endTime); err != nil {
+		var chunks []dump.ChunkMeta
+
+		if *victoriaMetricsURL != "" {
+			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
+		}
+
+		// TODO\CH: add chunks from clickhouse
+
+		pool, err := dump.NewChunkPool(chunks)
+		if err != nil {
+			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
+		}
+
+		if err = t.Export(ctx, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 

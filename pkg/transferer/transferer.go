@@ -3,6 +3,7 @@ package transferer
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,7 +31,42 @@ func New(dumpPath string, s []dump.Source) (*Transferer, error) {
 	}, nil
 }
 
-func (t Transferer) Export(start, end *time.Time) error {
+type ChunkPool interface {
+	Next() (dump.ChunkMeta, bool)
+}
+
+const ( // TODO: make configurable
+	GoroutinesCount = 4
+	MaxChunksInMem  = 3
+)
+
+func (t Transferer) readChunksFromSource(ctx context.Context, p ChunkPool, chunkC chan<- *dump.Chunk) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			chMeta, ok := p.Next()
+			if !ok {
+				return nil
+			}
+
+			s, ok := t.sourceByType(chMeta.Source)
+			if !ok {
+				return errors.New("failed to find source to read chunk")
+			}
+
+			c, err := s.ReadChunk(chMeta)
+			if err != nil {
+				return errors.Wrap(err, "failed to read chunk")
+			}
+
+			chunkC <- c
+		}
+	}
+}
+
+func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.Chunk) error {
 	exportTS := time.Now().UTC()
 
 	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
@@ -54,38 +90,65 @@ func (t Transferer) Export(start, end *time.Time) error {
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	for _, s := range t.sources {
-		log.Info().Msgf("Reading metrics from %v...", s.Type())
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			c, ok := <-chunkC
+			if !ok {
+				return nil
+			}
 
-		ch, err := s.ReadChunk(dump.ChunkMeta{
-			Source: s.Type(),
-			Start:  start,
-			End:    end,
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to read chunk")
+			s, ok := t.sourceByType(c.Source)
+			if !ok {
+				return errors.New("failed to find source to write chunk")
+			}
+
+			log.Info().Msgf("Writing retrieved metrics to the dump...")
+
+			err = tw.WriteHeader(&tar.Header{
+				Typeflag: tar.TypeReg,
+				Name:     path.Join(s.Type().String(), c.Filename),
+				Size:     int64(len(c.Content)),
+				Mode:     0600,
+			})
+			if err != nil {
+				return errors.Wrap(err, "failed to write file header")
+			}
+
+			if _, err = tw.Write(c.Content); err != nil {
+				return errors.Wrap(err, "failed to write chunk content")
+			}
 		}
+	}
+}
 
-		log.Info().Msgf("Writing retrieved metrics to the dump...")
+func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
+	chunksCh := make(chan *dump.Chunk, MaxChunksInMem)
 
-		err = tw.WriteHeader(&tar.Header{
-			Typeflag:   tar.TypeReg,
-			Name:       path.Join(s.Type().String(), ch.Filename),
-			Size:       int64(len(ch.Content)),
-			ModTime:    exportTS,
-			AccessTime: exportTS,
-			ChangeTime: exportTS,
-			Mode:       0600,
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to write file header")
+	readErrCh := make(chan error, GoroutinesCount)
+	for i := 0; i < GoroutinesCount; i++ {
+		go func() {
+			readErrCh <- t.readChunksFromSource(ctx, pool, chunksCh)
+		}()
+	}
+
+	writeErrCh := make(chan error, 1)
+	go func() {
+		writeErrCh <- t.writeChunksToFile(ctx, chunksCh)
+	}()
+
+	for i := 0; i < GoroutinesCount; i++ {
+		if err := <-readErrCh; err != nil {
+			return err
 		}
+	}
 
-		if _, err = tw.Write(ch.Content); err != nil {
-			return errors.Wrap(err, "failed to write chunk content")
-		}
+	close(chunksCh)
 
-		log.Info().Msgf("Processed %v data source...", s.Type())
+	if err := <-writeErrCh; err != nil {
+		return err
 	}
 
 	return nil
