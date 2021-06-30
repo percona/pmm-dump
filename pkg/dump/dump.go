@@ -14,6 +14,9 @@ type ChunkMeta struct {
 	Source SourceType
 	Start  *time.Time
 	End    *time.Time
+
+	Index   int
+	RowsLen int
 }
 
 func (c ChunkMeta) String() string {

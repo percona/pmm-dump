@@ -76,12 +76,28 @@ func main() {
 		log.Info().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 	}
 
+	var clickhouseRowsCount int
 	if url := *clickHouseURL; url != "" {
 		c := &clickhouse.Config{
 			ConnectionURL: url,
 		}
 
-		// TODO\CH: add clickhouse source
+		source, err := clickhouse.NewSource(httpC, *c)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+			return
+		}
+		defer func(source *clickhouse.Source) {
+			if err := source.Close(); err != nil {
+				log.Error().Msgf("Failed to close ClickHouse source: %s", err.Error())
+			}
+		}(source)
+		clickhouseRowsCount, err = source.Count()
+		if err != nil {
+			log.Fatal().Msgf("Failed to get amount of ClickHouse records: %s", err.Error())
+		}
+
+		sources = append(sources, source)
 
 		log.Info().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
@@ -125,7 +141,13 @@ func main() {
 			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
 		}
 
-		// TODO\CH: add chunks from clickhouse
+		if *clickHouseURL != "" {
+			chChunks, err := clickhouse.CreateChunks(time.Now(), time.Second, clickhouseRowsCount, 1000) // TODO\CH: make delay, chunkRowsLen configurable
+			if err != nil {
+				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
+			}
+			chunks = append(chunks, chChunks...)
+		}
 
 		pool, err := dump.NewChunkPool(chunks)
 		if err != nil {
