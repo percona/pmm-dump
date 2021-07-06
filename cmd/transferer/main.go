@@ -82,7 +82,7 @@ func main() {
 			ConnectionURL: url,
 		}
 
-		source, err := clickhouse.NewSource(httpC, *c)
+		source, err := clickhouse.NewSource(*c)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
 			return
@@ -142,7 +142,7 @@ func main() {
 		}
 
 		if *clickHouseURL != "" {
-			chChunks, err := clickhouse.CreateChunks(time.Now(), time.Second, clickhouseRowsCount, 1000) // TODO\CH: make delay, chunkRowsLen configurable
+			chChunks, err := clickhouse.CreateChunks(clickhouseRowsCount, 1000) // TODO\CH: chunkRowsLen configurable
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}

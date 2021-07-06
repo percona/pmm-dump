@@ -7,19 +7,16 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
-	"github.com/valyala/fasthttp"
 	"io"
 	"pmm-transferer/pkg/dump"
-	"time"
 )
 
 type Source struct {
-	c   *fasthttp.Client
 	db  *sql.DB
 	cfg Config
 }
 
-func NewSource(c *fasthttp.Client, cfg Config) (*Source, error) {
+func NewSource(cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
 		return nil, err
@@ -33,7 +30,6 @@ func NewSource(c *fasthttp.Client, cfg Config) (*Source, error) {
 	}
 
 	return &Source{
-		c:   c,
 		cfg: cfg,
 		db:  db,
 	}, nil
@@ -44,9 +40,6 @@ func (s Source) Type() dump.SourceType {
 }
 
 func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
-	sleepTime := m.Start.Sub(time.Now())
-	time.Sleep(sleepTime)
-
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	rows, err := s.db.Query(fmt.Sprintf("SELECT * FROM metrics ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset))
@@ -62,26 +55,23 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		return nil, err
 	}
 	values := make([]interface{}, len(columns))
-	valuePtr := make([]interface{}, len(columns))
 	for i := range columns {
-		valuePtr[i] = &values[i]
+		values[i] = new(interface{})
 	}
 	buf := new(bytes.Buffer)
 	writer := newTSVWriter(buf)
-	if err := writer.Write(columns); err != nil {
-		return nil, err
-	}
-
 	for rows.Next() {
-		if err := rows.Scan(valuePtr...); err != nil {
+		if err := rows.Scan(values...); err != nil {
 			return nil, err
 		}
 		valuesStr := make([]string, 0, len(columns))
 		for _, v := range values {
-			if v == nil {
+			value, ok := v.(*interface{})
+			if !ok || value == nil {
 				valuesStr = append(valuesStr, "")
+				continue
 			}
-			valuesStr = append(valuesStr, fmt.Sprintf("%v", v))
+			valuesStr = append(valuesStr, fmt.Sprintf("%v", *value))
 		}
 		if err := writer.Write(valuesStr); err != nil {
 			return nil, err
@@ -98,7 +88,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	return &dump.Chunk{
 		ChunkMeta: m,
 		Content:   content,
-		Filename:  fmt.Sprintf("clickhouse-%d-%d.tsv", m.Index, m.Start.Unix()),
+		Filename:  fmt.Sprintf("%d.tsv", m.Index),
 	}, err
 }
 
@@ -125,21 +115,18 @@ func (s Source) Count() (int, error) {
 	return count, nil
 }
 
-func CreateChunks(start time.Time, delay time.Duration, rowsCount, chunkRowsLen int) ([]dump.ChunkMeta, error) {
+func CreateChunks(rowsCount, chunkRowsLen int) ([]dump.ChunkMeta, error) {
 	chunksLen := rowsCount/chunkRowsLen + 1
 	chunks := make([]dump.ChunkMeta, 0, chunksLen)
 	i := 0
 	for rowsCount > 0 {
-		newTime := start
 		newChunk := dump.ChunkMeta{
 			Source:  dump.ClickHouse,
-			Start:   &newTime,
 			RowsLen: chunkRowsLen,
 			Index:   i,
 		}
 		chunks = append(chunks, newChunk)
 		rowsCount -= chunkRowsLen
-		start = start.Add(delay)
 		i++
 	}
 	return chunks, nil
