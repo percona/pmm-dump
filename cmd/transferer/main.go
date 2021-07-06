@@ -14,13 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// TODO:
-//  lint checker;
-//  git version command;
-//  end points ping;
-//  short versions of commands;
-//  more logs;
-
 func main() {
 	var (
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")

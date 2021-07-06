@@ -47,7 +47,6 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		q.Add("end", strconv.FormatInt(m.End.Unix(), 10))
 	}
 
-	// TODO: configurable native/json formats
 	url := fmt.Sprintf("%s/api/v1/export/native?%s", s.cfg.ConnectionURL, q.String())
 
 	log.Info().Msgf("Sending request to Victoria Metrics endpoint: %v", url)
@@ -115,7 +114,7 @@ func (s Source) FinalizeWrites() error {
 }
 
 func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
-	const ( // TODO: make configurable
+	const (
 		deltaPercentage  = 0.1
 		minDeltaDuration = 3 * time.Minute
 		maxDeltaDuration = time.Hour

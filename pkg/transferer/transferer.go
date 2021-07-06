@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"pmm-transferer/pkg/dump"
+	"runtime"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,10 +36,9 @@ type ChunkPool interface {
 	Next() (dump.ChunkMeta, bool)
 }
 
-const ( // TODO: make configurable
-	GoroutinesCount = 4
-	MaxChunksInMem  = 3
-)
+var exportWorkersCount = runtime.NumCPU()
+
+const maxChunksInMem = 4
 
 func (t Transferer) readChunksFromSource(ctx context.Context, p ChunkPool, chunkC chan<- *dump.Chunk) error {
 	for {
@@ -125,10 +125,10 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 }
 
 func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
-	chunksCh := make(chan *dump.Chunk, MaxChunksInMem)
+	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 
-	readErrCh := make(chan error, GoroutinesCount)
-	for i := 0; i < GoroutinesCount; i++ {
+	readErrCh := make(chan error, exportWorkersCount)
+	for i := 0; i < exportWorkersCount; i++ {
 		go func() {
 			readErrCh <- t.readChunksFromSource(ctx, pool, chunksCh)
 		}()
@@ -139,7 +139,7 @@ func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
 		writeErrCh <- t.writeChunksToFile(ctx, chunksCh)
 	}()
 
-	for i := 0; i < GoroutinesCount; i++ {
+	for i := 0; i < exportWorkersCount; i++ {
 		if err := <-readErrCh; err != nil {
 			return err
 		}
