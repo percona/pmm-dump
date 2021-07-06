@@ -35,17 +35,19 @@ func main() {
 	ctx := context.Background()
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
-	if *enableVerboseMode {
-		log.Logger = log.Logger.
-			With().Caller().Logger(). // TODO: fix with caller log
-			Level(zerolog.DebugLevel)
-	}
-
-	log.Info().Msg("Parsing cli params...")
 
 	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
+	}
+
+	if *enableVerboseMode {
+		log.Logger = log.Logger.
+			With().Caller().Logger().
+			Level(zerolog.DebugLevel)
+	} else {
+		log.Logger = log.Logger.
+			Level(zerolog.InfoLevel)
 	}
 
 	if *clickHouseURL == "" && *victoriaMetricsURL == "" {
