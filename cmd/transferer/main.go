@@ -56,7 +56,7 @@ func main() {
 
 	var sources []dump.Source
 
-	log.Info().Msg("Setting up HTTP client...")
+	log.Debug().Msg("Setting up HTTP client...")
 
 	httpC := newClientHTTP()
 
@@ -68,7 +68,7 @@ func main() {
 
 		sources = append(sources, victoriametrics.NewSource(httpC, *c))
 
-		log.Info().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
+		log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 	}
 
 	if url := *clickHouseURL; url != "" {
@@ -78,13 +78,11 @@ func main() {
 
 		// TODO\CH: add clickhouse source
 
-		log.Info().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
+		log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
 
 	switch cmd {
 	case exportCmd.FullCommand():
-		log.Info().Msg("Processing export...")
-
 		var startTime, endTime time.Time
 
 		if *end != "" {
@@ -130,11 +128,7 @@ func main() {
 		if err = t.Export(ctx, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
-
-		log.Info().Msg("Successfully exported!")
 	case importCmd.FullCommand():
-		log.Info().Msg("Processing import...")
-
 		t, err := transferer.New(*dumpPath, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
@@ -143,8 +137,6 @@ func main() {
 		if err = t.Import(); err != nil {
 			log.Fatal().Msgf("Failed to import: %v", err)
 		}
-
-		log.Info().Msg("Successfully imported!")
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}

@@ -33,6 +33,8 @@ func (s Source) Type() dump.SourceType {
 	return dump.VictoriaMetrics
 }
 
+const requestTimeout = time.Second * 30
+
 func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
@@ -49,9 +51,12 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 
 	url := fmt.Sprintf("%s/api/v1/export/native?%s", s.cfg.ConnectionURL, q.String())
 
-	log.Info().Msgf("Sending request to Victoria Metrics endpoint: %v", url)
+	log.Debug().
+		Stringer("timeout", requestTimeout).
+		Str("url", url).
+		Msg("Sending GET chunk request to Victoria Metrics endpoint")
 
-	status, body, err := s.c.GetTimeout(nil, url, time.Second*30)
+	status, body, err := s.c.GetTimeout(nil, url, requestTimeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
@@ -60,7 +65,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
 	}
 
-	log.Info().Msgf("Got successful response from Victoria Metrics")
+	log.Debug().Msg("Got successful response from Victoria Metrics")
 
 	chunk := &dump.Chunk{
 		ChunkMeta: m,
@@ -80,12 +85,18 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 		return errors.Wrap(err, "failed to read chunk content")
 	}
 
+	url := fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
+
 	req.SetBody(chunkContent)
 	req.Header.SetMethod(fasthttp.MethodPost)
-	req.SetRequestURI(fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL))
+	req.SetRequestURI(url)
 
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
+
+	log.Debug().
+		Str("url", url).
+		Msg("Sending POST chunk request to Victoria Metrics endpoint")
 
 	if err = s.c.Do(req, resp); err != nil {
 		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
@@ -95,11 +106,17 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 		return errors.Errorf("non-OK response from victoria metrics: %d: %s", s, string(resp.Body()))
 	}
 
+	log.Debug().Msg("Got successful response from Victoria Metrics")
+
 	return nil
 }
 
 func (s Source) FinalizeWrites() error {
 	url := fmt.Sprintf("%s/internal/resetRollupResultCache", s.cfg.ConnectionURL)
+
+	log.Debug().
+		Str("url", url).
+		Msg("Sending reset cache request to Victoria Metrics endpoint")
 
 	status, body, err := s.c.GetTimeout(nil, url, time.Second*30)
 	if err != nil {
@@ -110,6 +127,8 @@ func (s Source) FinalizeWrites() error {
 		return errors.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
 	}
 
+	log.Debug().Msg("Got successful response from Victoria Metrics")
+
 	return nil
 }
 
@@ -119,6 +138,14 @@ func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
 		minDeltaDuration = 3 * time.Minute
 		maxDeltaDuration = time.Hour
 	)
+
+	log.Debug().
+		Time("start", start).
+		Time("end", end).
+		Float64("chunk_percentage", deltaPercentage).
+		Stringer("min_chunk_size", minDeltaDuration).
+		Stringer("max_chunk_size", maxDeltaDuration).
+		Msg("Splitting Victoria Metrics timerange into chunks...")
 
 	timeRange := end.Sub(start)
 
@@ -143,6 +170,10 @@ func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
 			break
 		}
 	}
+
+	log.Debug().
+		Stringer("chunk_size", delta).
+		Msgf("Got %d Victoria Metrics chunks", len(chunks))
 
 	return
 }

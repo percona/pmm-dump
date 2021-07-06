@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Meta struct {
@@ -44,6 +46,8 @@ func NewChunkPool(c []ChunkMeta) (*ChunkPool, error) {
 		return nil, errors.New("failed to create empty chunk pool")
 	}
 
+	log.Debug().Msgf("Created pool with %d chunks in total", len(c))
+
 	return &ChunkPool{
 		chunks: c,
 	}, nil
@@ -59,6 +63,8 @@ func (p *ChunkPool) Next() (ChunkMeta, bool) {
 
 	m := p.chunks[p.currentIdx]
 	p.currentIdx++
+
+	log.Info().Msgf("Processing %d/%d chunk...", p.currentIdx, len(p.chunks))
 
 	return m, true
 }
