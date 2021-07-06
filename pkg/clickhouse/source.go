@@ -80,6 +80,10 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	writer.Flush()
+	if err = writer.Error(); err != nil {
+		return nil, err
+	}
 	content, err := io.ReadAll(buf)
 	if err != nil {
 		return nil, err
