@@ -44,6 +44,7 @@ func main() {
 	if *enableVerboseMode {
 		log.Logger = log.Logger.
 			With().Caller().Logger().
+			Hook(goroutineLoggingHook{}).
 			Level(zerolog.DebugLevel)
 	} else {
 		log.Logger = log.Logger.
