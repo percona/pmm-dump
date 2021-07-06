@@ -1,8 +1,6 @@
-# PMM Transferer
+# PMM Transferer (pmm-import-export-tool)
 
-PMM Transferer is a tool for export/import PMM Server data (Victoria Metrics and ClickHouse).
-
-The work is in progress, so some things could change.
+A tool that will fetch data from PMM and import it into local instance. Will help Percona Services engineers to resolve issues when the customer cannot provide access to their PMM instance.
 
 ## How to build?
 
@@ -21,11 +19,12 @@ Here are main commands/flags:
 | Command | Flag | Description | Example |
 |---------|------|-------------|---------|
 | export | victoria_metrics_url | URL of Victoria Metrics | `http://admin:admin@localhost:8282/prometheus` |
-| export | out | Path to output directory | `/tmp/pmm-dumps` |
+| export | out, o | Path to output directory | `/tmp/pmm-dumps` |
 | export | ts_selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
 | export | start | Start date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
 | export | end | End date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
-| import | dump_path | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
+| import | dump_path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
+| any | verbose_mode, v | enable verbose (debug) mode | - |
 
 ## About the dump file
 
@@ -68,7 +67,7 @@ Running export with filter:
     --ts_selector='{__name__=~".*mongo.*"}'
 ```
 
-You should see the following:
+You should see the following (**outdated**):
 ```
 3:28PM INF Parsing cli params...
 3:28PM INF Setting up HTTP client...
@@ -90,7 +89,7 @@ Running import:
     --victoria_metrics_url="http://admin:admin@localhost:8282/prometheus"
 ```
 
-You should see the following:
+You should see the following (**outdated**):
 ```
 3:30PM INF Parsing cli params...
 3:30PM INF Setting up HTTP client...
