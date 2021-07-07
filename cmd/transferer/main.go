@@ -87,11 +87,6 @@ func main() {
 			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
 			return
 		}
-		defer func(source *clickhouse.Source) {
-			if err := source.Close(); err != nil {
-				log.Error().Msgf("Failed to close ClickHouse source: %s", err.Error())
-			}
-		}(source)
 		clickhouseRowsCount, err = source.Count()
 		if err != nil {
 			log.Fatal().Msgf("Failed to get amount of ClickHouse records: %s", err.Error())

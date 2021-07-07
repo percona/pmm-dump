@@ -106,10 +106,6 @@ func (s Source) FinalizeWrites() error {
 	return errors.New("not implemented")
 }
 
-func (s Source) Close() error {
-	return s.db.Close()
-}
-
 func (s Source) Count() (int, error) {
 	var count int
 	row := s.db.QueryRow("SELECT COUNT(*) FROM metrics")
