@@ -76,23 +76,19 @@ func main() {
 		log.Info().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 	}
 
-	var clickhouseRowsCount int
+	var clickhouseSource *clickhouse.Source
 	if url := *clickHouseURL; url != "" {
 		c := &clickhouse.Config{
 			ConnectionURL: url,
 		}
 
-		source, err := clickhouse.NewSource(*c)
+		clickhouseSource, err = clickhouse.NewSource(*c)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
 			return
 		}
-		clickhouseRowsCount, err = source.Count()
-		if err != nil {
-			log.Fatal().Msgf("Failed to get amount of ClickHouse records: %s", err.Error())
-		}
 
-		sources = append(sources, source)
+		sources = append(sources, clickhouseSource)
 
 		log.Info().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
@@ -137,7 +133,7 @@ func main() {
 		}
 
 		if *clickHouseURL != "" {
-			chChunks, err := clickhouse.CreateChunks(clickhouseRowsCount, 1000) // TODO\CH: chunkRowsLen configurable
+			chChunks, err := clickhouseSource.SplitIntoChunks()
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}

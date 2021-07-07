@@ -16,6 +16,10 @@ type Source struct {
 	cfg Config
 }
 
+const (
+	chunkRowsLen = 1000
+)
+
 func NewSource(cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
@@ -117,7 +121,11 @@ func (s Source) Count() (int, error) {
 	return count, nil
 }
 
-func CreateChunks(rowsCount, chunkRowsLen int) ([]dump.ChunkMeta, error) {
+func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
+	rowsCount, err := s.Count()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to get amount of ClickHouse records: %s", err))
+	}
 	chunksLen := rowsCount/chunkRowsLen + 1
 	chunks := make([]dump.ChunkMeta, 0, chunksLen)
 	i := 0
