@@ -42,12 +42,13 @@ func (s Source) Type() dump.SourceType {
 func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
-	rows, err := s.db.Query(fmt.Sprintf("SELECT * FROM metrics ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset))
+	query := fmt.Sprintf("SELECT * FROM metrics ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
 	defer func(rows *sql.Rows) {
-		err = rows.Close()
+		_ = rows.Close()
 	}(rows)
 
 	columns, err := rows.Columns()
@@ -64,15 +65,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
 		}
-		valuesStr := make([]string, 0, len(columns))
-		for _, v := range values {
-			value, ok := v.(*interface{})
-			if !ok || value == nil {
-				valuesStr = append(valuesStr, "")
-				continue
-			}
-			valuesStr = append(valuesStr, fmt.Sprintf("%v", *value))
-		}
+		valuesStr := toStringSlice(values)
 		if err := writer.Write(valuesStr); err != nil {
 			return nil, err
 		}
@@ -84,16 +77,25 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	if err = writer.Error(); err != nil {
 		return nil, err
 	}
-	content, err := io.ReadAll(buf)
-	if err != nil {
-		return nil, err
-	}
 
 	return &dump.Chunk{
 		ChunkMeta: m,
-		Content:   content,
+		Content:   buf.Bytes(),
 		Filename:  fmt.Sprintf("%d.tsv", m.Index),
 	}, err
+}
+
+func toStringSlice(iSlice []interface{}) []string {
+	values := make([]string, 0, cap(iSlice))
+	for _, v := range iSlice {
+		value := v.(*interface{})
+		if value == nil {
+			values = append(values, "")
+			continue
+		}
+		values = append(values, fmt.Sprintf("%v", *value))
+	}
+	return values
 }
 
 func (s Source) WriteChunk(_ string, _ io.Reader) error {
