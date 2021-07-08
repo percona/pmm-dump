@@ -3,11 +3,11 @@ package clickhouse
 import (
 	"bytes"
 	"database/sql"
-	"encoding/csv"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
 	"io"
+	"pmm-transferer/pkg/clickhouse/tsv"
 	"pmm-transferer/pkg/dump"
 )
 
@@ -64,7 +64,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		values[i] = new(interface{})
 	}
 	buf := new(bytes.Buffer)
-	writer := newTSVWriter(buf)
+	writer := tsv.NewWriter(buf)
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
@@ -102,14 +102,56 @@ func toStringSlice(iSlice []interface{}) []string {
 	return values
 }
 
-func (s Source) WriteChunk(_ string, _ io.Reader) error {
-	// TODO
-	return errors.New("not implemented")
+func (s Source) WriteChunk(_ string, r io.Reader) error {
+	ct, err := s.ColumnTypes()
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	reader := tsv.NewReader(r)
+
+	stmt, err := prepareStatement(tx, ct)
+	if err != nil {
+		return err
+	}
+
+	for {
+		records, err := reader.Read(ct)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		_, err = stmt.Exec(records...)
+		if err != nil {
+			return err
+		}
+	}
+	defer func(stmt *sql.Stmt) {
+		err = stmt.Close()
+	}(stmt)
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func prepareStatement(tx *sql.Tx, ct []*sql.ColumnType) (*sql.Stmt, error) {
+	query := "INSERT INTO metrics VALUES ("
+	for range ct {
+		query += "?,"
+	}
+	query = query[:len(query)-1]
+	return tx.Prepare(query)
 }
 
 func (s Source) FinalizeWrites() error {
-	// TODO
-	return errors.New("not implemented")
+	return nil
 }
 
 func (s Source) Count() (int, error) {
@@ -119,6 +161,14 @@ func (s Source) Count() (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (s Source) ColumnTypes() ([]*sql.ColumnType, error) {
+	rows, err := s.db.Query("SELECT * FROM metrics LIMIT 1")
+	if err != nil {
+		return nil, err
+	}
+	return rows.ColumnTypes()
 }
 
 func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
@@ -140,10 +190,4 @@ func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
 		i++
 	}
 	return chunks, nil
-}
-
-func newTSVWriter(w io.Writer) *csv.Writer {
-	writer := csv.NewWriter(w)
-	writer.Comma = '\t'
-	return writer
 }
