@@ -72,12 +72,19 @@ func main() {
 		log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 	}
 
+	var clickhouseSource *clickhouse.Source
 	if url := *clickHouseURL; url != "" {
 		c := &clickhouse.Config{
 			ConnectionURL: url,
 		}
 
-		// TODO\CH: add clickhouse source
+		clickhouseSource, err = clickhouse.NewSource(*c)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+			return
+		}
+
+		sources = append(sources, clickhouseSource)
 
 		log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
@@ -119,7 +126,13 @@ func main() {
 			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
 		}
 
-		// TODO\CH: add chunks from clickhouse
+		if *clickHouseURL != "" {
+			chChunks, err := clickhouseSource.SplitIntoChunks()
+			if err != nil {
+				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
+			}
+			chunks = append(chunks, chChunks...)
+		}
 
 		pool, err := dump.NewChunkPool(chunks)
 		if err != nil {
