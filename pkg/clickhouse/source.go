@@ -9,11 +9,14 @@ import (
 	"io"
 	"pmm-transferer/pkg/clickhouse/tsv"
 	"pmm-transferer/pkg/dump"
+	"strings"
 )
 
 type Source struct {
 	db  *sql.DB
 	cfg Config
+	tx  *sql.Tx
+	ct  []*sql.ColumnType
 }
 
 const (
@@ -32,11 +35,29 @@ func NewSource(cfg Config) (*Source, error) {
 			return nil, err
 		}
 	}
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
 
+	ct, err := columnTypes(db)
+	if err != nil {
+		return nil, err
+	}
 	return &Source{
 		cfg: cfg,
 		db:  db,
+		tx:  tx,
+		ct:  ct,
 	}, nil
+}
+
+func columnTypes(db *sql.DB) ([]*sql.ColumnType, error) {
+	rows, err := db.Query("SELECT * FROM metrics LIMIT 1")
+	if err != nil {
+		return nil, err
+	}
+	return rows.ColumnTypes()
 }
 
 func (s Source) Type() dump.SourceType {
@@ -103,23 +124,18 @@ func toStringSlice(iSlice []interface{}) []string {
 }
 
 func (s Source) WriteChunk(_ string, r io.Reader) error {
-	ct, err := s.ColumnTypes()
-	if err != nil {
-		return err
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
 	reader := tsv.NewReader(r)
 
-	stmt, err := prepareStatement(tx, ct)
+	stmt, err := s.prepareStatement()
 	if err != nil {
 		return err
 	}
 
+	defer func(stmt *sql.Stmt) {
+		err = stmt.Close()
+	}(stmt)
 	for {
-		records, err := reader.Read(ct)
+		records, err := reader.Read(s.ColumnTypes())
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -131,27 +147,25 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 			return err
 		}
 	}
-	defer func(stmt *sql.Stmt) {
-		err = stmt.Close()
-	}(stmt)
-	if err = tx.Commit(); err != nil {
-		return err
-	}
 
 	return err
 }
 
-func prepareStatement(tx *sql.Tx, ct []*sql.ColumnType) (*sql.Stmt, error) {
-	query := "INSERT INTO metrics VALUES ("
-	for range ct {
-		query += "?,"
+func (s Source) prepareStatement() (*sql.Stmt, error) {
+	valuesCount := len(s.ct)
+	var query strings.Builder
+
+	query.Grow(28 + valuesCount*2)
+	query.WriteString("INSERT INTO metrics VALUES (")
+	for i := 0; i < valuesCount-1; i++ {
+		query.WriteString("?,")
 	}
-	query = query[:len(query)-1]
-	return tx.Prepare(query)
+	query.WriteString("?)")
+	return s.tx.Prepare(query.String())
 }
 
 func (s Source) FinalizeWrites() error {
-	return nil
+	return s.tx.Commit()
 }
 
 func (s Source) Count() (int, error) {
@@ -163,12 +177,8 @@ func (s Source) Count() (int, error) {
 	return count, nil
 }
 
-func (s Source) ColumnTypes() ([]*sql.ColumnType, error) {
-	rows, err := s.db.Query("SELECT * FROM metrics LIMIT 1")
-	if err != nil {
-		return nil, err
-	}
-	return rows.ColumnTypes()
+func (s Source) ColumnTypes() []*sql.ColumnType {
+	return s.ct
 }
 
 func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
