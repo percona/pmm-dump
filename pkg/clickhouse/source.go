@@ -46,7 +46,11 @@ func (s Source) Type() dump.SourceType {
 func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
-	query := fmt.Sprintf("SELECT * FROM metrics ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
+	query := "SELECT * FROM metrics"
+	if m.Where != "" {
+		query += fmt.Sprintf(" WHERE %s", m.Where)
+	}
+	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -112,17 +116,21 @@ func (s Source) FinalizeWrites() error {
 	return errors.New("not implemented")
 }
 
-func (s Source) Count() (int, error) {
+func (s Source) Count(where *string) (int, error) {
 	var count int
-	row := s.db.QueryRow("SELECT COUNT(*) FROM metrics")
+	query := "SELECT COUNT(*) FROM metrics"
+	if where != nil {
+		query += fmt.Sprintf(" WHERE %s", *where)
+	}
+	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
 }
 
-func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
-	rowsCount, err := s.Count()
+func (s Source) SplitIntoChunks(where *string) ([]dump.ChunkMeta, error) {
+	rowsCount, err := s.Count(where)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to get amount of ClickHouse records: %s", err))
 	}
@@ -134,6 +142,9 @@ func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
 			Source:  dump.ClickHouse,
 			RowsLen: chunkRowsLen,
 			Index:   i,
+		}
+		if where != nil {
+			newChunk.Where = *where
 		}
 		chunks = append(chunks, newChunk)
 		rowsCount -= chunkRowsLen

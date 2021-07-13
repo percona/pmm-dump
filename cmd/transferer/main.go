@@ -27,6 +27,7 @@ func main() {
 		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
 		start      = exportCmd.Flag("start", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		end        = exportCmd.Flag("end", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
+		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
 
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 		dumpPath  = importCmd.Flag("dump_path", "Path to dump file").Short('d').Required().String()
@@ -127,7 +128,7 @@ func main() {
 		}
 
 		if *clickHouseURL != "" {
-			chChunks, err := clickhouseSource.SplitIntoChunks()
+			chChunks, err := clickhouseSource.SplitIntoChunks(where)
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}

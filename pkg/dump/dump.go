@@ -17,6 +17,7 @@ type ChunkMeta struct {
 	Start  *time.Time
 	End    *time.Time
 
+	Where   string
 	Index   int
 	RowsLen int
 }
