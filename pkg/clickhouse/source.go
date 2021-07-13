@@ -3,17 +3,21 @@ package clickhouse
 import (
 	"bytes"
 	"database/sql"
-	"encoding/csv"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
 	"io"
+	"pmm-transferer/pkg/clickhouse/tsv"
 	"pmm-transferer/pkg/dump"
+	"strings"
 )
 
 type Source struct {
-	db  *sql.DB
-	cfg Config
+	db   *sql.DB
+	cfg  Config
+	tx   *sql.Tx
+	ct   []*sql.ColumnType
+	stmt *sql.Stmt
 }
 
 const (
@@ -32,11 +36,35 @@ func NewSource(cfg Config) (*Source, error) {
 			return nil, err
 		}
 	}
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
 
+	ct, err := columnTypes(db)
+	if err != nil {
+		return nil, err
+	}
+
+	stmt, err := prepareInsertStatement(tx, len(ct))
+	if err != nil {
+		return nil, err
+	}
 	return &Source{
-		cfg: cfg,
-		db:  db,
+		cfg:  cfg,
+		db:   db,
+		tx:   tx,
+		ct:   ct,
+		stmt: stmt,
 	}, nil
+}
+
+func columnTypes(db *sql.DB) ([]*sql.ColumnType, error) {
+	rows, err := db.Query("SELECT * FROM metrics LIMIT 1")
+	if err != nil {
+		return nil, err
+	}
+	return rows.ColumnTypes()
 }
 
 func (s Source) Type() dump.SourceType {
@@ -64,7 +92,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		values[i] = new(interface{})
 	}
 	buf := new(bytes.Buffer)
-	writer := newTSVWriter(buf)
+	writer := tsv.NewWriter(buf)
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
@@ -102,14 +130,43 @@ func toStringSlice(iSlice []interface{}) []string {
 	return values
 }
 
-func (s Source) WriteChunk(_ string, _ io.Reader) error {
-	// TODO
-	return errors.New("not implemented")
+func (s Source) WriteChunk(_ string, r io.Reader) error {
+	reader := tsv.NewReader(r)
+
+	for {
+		records, err := reader.Read(s.ColumnTypes())
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		_, err = s.stmt.Exec(records...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func prepareInsertStatement(tx *sql.Tx, columnsCount int) (*sql.Stmt, error) {
+	var query strings.Builder
+
+	query.Grow(28 + columnsCount*2)
+	query.WriteString("INSERT INTO metrics VALUES (")
+	for i := 0; i < columnsCount-1; i++ {
+		query.WriteString("?,")
+	}
+	query.WriteString("?)")
+	return tx.Prepare(query.String())
 }
 
 func (s Source) FinalizeWrites() error {
-	// TODO
-	return errors.New("not implemented")
+	if err := s.stmt.Close(); err != nil {
+		return err
+	}
+	return s.tx.Commit()
 }
 
 func (s Source) Count() (int, error) {
@@ -119,6 +176,10 @@ func (s Source) Count() (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (s Source) ColumnTypes() []*sql.ColumnType {
+	return s.ct
 }
 
 func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
@@ -140,10 +201,4 @@ func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
 		i++
 	}
 	return chunks, nil
-}
-
-func newTSVWriter(w io.Writer) *csv.Writer {
-	writer := csv.NewWriter(w)
-	writer.Comma = '\t'
-	return writer
 }
