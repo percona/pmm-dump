@@ -13,10 +13,11 @@ import (
 )
 
 type Source struct {
-	db  *sql.DB
-	cfg Config
-	tx  *sql.Tx
-	ct  []*sql.ColumnType
+	db   *sql.DB
+	cfg  Config
+	tx   *sql.Tx
+	ct   []*sql.ColumnType
+	stmt *sql.Stmt
 }
 
 const (
@@ -44,11 +45,17 @@ func NewSource(cfg Config) (*Source, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	stmt, err := prepareInsertStatement(tx, len(ct))
+	if err != nil {
+		return nil, err
+	}
 	return &Source{
-		cfg: cfg,
-		db:  db,
-		tx:  tx,
-		ct:  ct,
+		cfg:  cfg,
+		db:   db,
+		tx:   tx,
+		ct:   ct,
+		stmt: stmt,
 	}, nil
 }
 
@@ -126,14 +133,6 @@ func toStringSlice(iSlice []interface{}) []string {
 func (s Source) WriteChunk(_ string, r io.Reader) error {
 	reader := tsv.NewReader(r)
 
-	stmt, err := s.prepareStatement()
-	if err != nil {
-		return err
-	}
-
-	defer func(stmt *sql.Stmt) {
-		err = stmt.Close()
-	}(stmt)
 	for {
 		records, err := reader.Read(s.ColumnTypes())
 		if err != nil {
@@ -142,29 +141,31 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 			}
 			return err
 		}
-		_, err = stmt.Exec(records...)
+		_, err = s.stmt.Exec(records...)
 		if err != nil {
 			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
-func (s Source) prepareStatement() (*sql.Stmt, error) {
-	valuesCount := len(s.ct)
+func prepareInsertStatement(tx *sql.Tx, columnsCount int) (*sql.Stmt, error) {
 	var query strings.Builder
 
-	query.Grow(28 + valuesCount*2)
+	query.Grow(28 + columnsCount*2)
 	query.WriteString("INSERT INTO metrics VALUES (")
-	for i := 0; i < valuesCount-1; i++ {
+	for i := 0; i < columnsCount-1; i++ {
 		query.WriteString("?,")
 	}
 	query.WriteString("?)")
-	return s.tx.Prepare(query.String())
+	return tx.Prepare(query.String())
 }
 
 func (s Source) FinalizeWrites() error {
+	if err := s.stmt.Close(); err != nil {
+		return err
+	}
 	return s.tx.Commit()
 }
 
