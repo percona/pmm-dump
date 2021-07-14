@@ -61,11 +61,7 @@ func main() {
 
 	log.Debug().Msg("Setting up HTTP client...")
 
-	insecureSkipVerify := false
-	if allowInsecureCerts != nil {
-		insecureSkipVerify = *allowInsecureCerts
-	}
-	httpC := newClientHTTP(insecureSkipVerify)
+	httpC := newClientHTTP(*allowInsecureCerts)
 
 	if url := *victoriaMetricsURL; url != "" {
 		c := &victoriametrics.Config{
