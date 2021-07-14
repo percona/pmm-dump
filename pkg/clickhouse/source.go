@@ -75,8 +75,8 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
-	if m.Where != "" {
-		query += fmt.Sprintf(" WHERE %s", m.Where)
+	if s.cfg.Where != "" {
+		query += fmt.Sprintf(" WHERE %s", s.cfg.Where)
 	}
 	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
 	rows, err := s.db.Query(query)
@@ -173,11 +173,11 @@ func (s Source) FinalizeWrites() error {
 	return s.tx.Commit()
 }
 
-func (s Source) Count(where *string) (int, error) {
+func (s Source) Count(where string) (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
-	if where != nil {
-		query += fmt.Sprintf(" WHERE %s", *where)
+	if where != "" {
+		query += fmt.Sprintf(" WHERE %s", where)
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
@@ -190,8 +190,8 @@ func (s Source) ColumnTypes() []*sql.ColumnType {
 	return s.ct
 }
 
-func (s Source) SplitIntoChunks(where *string) ([]dump.ChunkMeta, error) {
-	rowsCount, err := s.Count(where)
+func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
+	rowsCount, err := s.Count(s.cfg.Where)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to get amount of ClickHouse records: %s", err))
 	}
@@ -203,9 +203,6 @@ func (s Source) SplitIntoChunks(where *string) ([]dump.ChunkMeta, error) {
 			Source:  dump.ClickHouse,
 			RowsLen: chunkRowsLen,
 			Index:   i,
-		}
-		if where != nil {
-			newChunk.Where = *where
 		}
 		chunks = append(chunks, newChunk)
 		rowsCount -= chunkRowsLen

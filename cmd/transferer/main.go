@@ -78,6 +78,9 @@ func main() {
 		c := &clickhouse.Config{
 			ConnectionURL: url,
 		}
+		if where != nil {
+			c.Where = *where
+		}
 
 		clickhouseSource, err = clickhouse.NewSource(*c)
 		if err != nil {
@@ -128,7 +131,7 @@ func main() {
 		}
 
 		if *clickHouseURL != "" {
-			chChunks, err := clickhouseSource.SplitIntoChunks(where)
+			chChunks, err := clickhouseSource.SplitIntoChunks()
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}
