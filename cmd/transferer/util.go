@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"runtime"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func newClientHTTP() *fasthttp.Client {
+func newClientHTTP(insecureSkipVerify bool) *fasthttp.Client {
 	return &fasthttp.Client{
 		MaxConnsPerHost:           2,
 		MaxIdleConnDuration:       time.Minute,
@@ -19,6 +20,9 @@ func newClientHTTP() *fasthttp.Client {
 		ReadTimeout:               time.Minute,
 		WriteTimeout:              time.Minute,
 		MaxConnWaitTimeout:        time.Second * 30,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		},
 	}
 }
 

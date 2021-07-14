@@ -21,6 +21,7 @@ func main() {
 		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
 		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
+		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
 		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
 		outPath    = exportCmd.Flag("out", "Path to put out file").Short('o').String()
@@ -60,7 +61,7 @@ func main() {
 
 	log.Debug().Msg("Setting up HTTP client...")
 
-	httpC := newClientHTTP()
+	httpC := newClientHTTP(*allowInsecureCerts)
 
 	if url := *victoriaMetricsURL; url != "" {
 		c := &victoriametrics.Config{
