@@ -28,6 +28,7 @@ func main() {
 		start      = exportCmd.Flag("start", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		end        = exportCmd.Flag("end", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
+		dumpName   = exportCmd.Flag("dump_name", "Name of generated dump file").Short('n').String()
 
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 		dumpPath  = importCmd.Flag("dump_path", "Path to dump file").Short('d').Required().String()
@@ -119,7 +120,7 @@ func main() {
 			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
-		t, err := transferer.New(*outPath, sources)
+		t, err := transferer.New(*outPath, *dumpName, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
@@ -147,7 +148,7 @@ func main() {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
-		t, err := transferer.New(*dumpPath, sources)
+		t, err := transferer.New(*dumpPath, "", sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
