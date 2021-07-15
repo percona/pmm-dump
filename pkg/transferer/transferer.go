@@ -18,18 +18,16 @@ import (
 
 type Transferer struct {
 	dumpPath string
-	dumpName string
 	sources  []dump.Source
 }
 
-func New(dumpPath, dumpName string, s []dump.Source) (*Transferer, error) {
+func New(dumpPath string, s []dump.Source) (*Transferer, error) {
 	if len(s) == 0 {
 		return nil, errors.New("failed to create transferer with no sources")
 	}
 
 	return &Transferer{
 		dumpPath: dumpPath,
-		dumpName: dumpName,
 		sources:  s,
 	}, nil
 }
@@ -80,12 +78,7 @@ func (t Transferer) readChunksFromSource(ctx context.Context, p ChunkPool, chunk
 func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.Chunk) error {
 	exportTS := time.Now().UTC()
 
-	var filepath string
-	if t.dumpName != "" {
-		filepath = t.dumpName
-	} else {
-		filepath = fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
-	}
+	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
 	if t.dumpPath != "" {
 		filepath = path.Join(t.dumpPath, filepath)
 	}
