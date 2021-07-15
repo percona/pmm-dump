@@ -80,7 +80,25 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 
 	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
 	if t.dumpPath != "" {
-		filepath = path.Join(t.dumpPath, filepath)
+		fileInfo, err := os.Stat(t.dumpPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				if err := os.MkdirAll(path.Dir(t.dumpPath), 0777); err != nil {
+					return errors.Wrap(err, "failed to create folders for the dump file")
+				}
+				if os.IsPathSeparator(t.dumpPath[len(t.dumpPath)-1]) {
+					filepath = path.Join(t.dumpPath, filepath)
+				} else {
+					filepath = t.dumpPath
+				}
+			} else {
+				return errors.Wrap(err, "failed to process out path")
+			}
+		} else if fileInfo.IsDir() {
+			filepath = path.Join(t.dumpPath, filepath)
+		} else {
+			filepath = t.dumpPath
+		}
 	}
 
 	log.Debug().Msgf("Preparing dump file: %s", filepath)
