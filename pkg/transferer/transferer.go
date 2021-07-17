@@ -10,6 +10,7 @@ import (
 	"path"
 	"pmm-transferer/pkg/dump"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -101,6 +102,7 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.Chunk) error {
 	exportTS := time.Now().UTC()
 
+	log.Debug().Msgf("Trying to determine filepath")
 	filepath, err := getDumpFilepath(t.dumpPath, exportTS)
 	if err != nil {
 		return err
@@ -171,32 +173,42 @@ func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
 		Int("size", maxChunksInMem).
 		Msg("Created chunks channel")
 
-	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", exportWorkersCount)
-	readErrCh := make(chan error, exportWorkersCount)
-	for i := 0; i < exportWorkersCount; i++ {
+	errCh := make(chan error)
+
+	readWG := &sync.WaitGroup{}
+
+	readWorkersCount := exportWorkersCount - 1
+
+	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", readWorkersCount)
+	readWG.Add(readWorkersCount)
+	for i := 0; i < readWorkersCount; i++ {
 		go func() {
-			readErrCh <- t.readChunksFromSource(ctx, pool, chunksCh)
+			errCh <- t.readChunksFromSource(ctx, pool, chunksCh)
+			readWG.Done()
+			log.Debug().Msgf("Exiting from read chunks goroutine")
 		}()
 	}
 
-	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
-	writeErrCh := make(chan error, 1)
+	log.Debug().Msgf("Starting goroutine to close channel after read finish...")
 	go func() {
-		writeErrCh <- t.writeChunksToFile(ctx, chunksCh)
+		readWG.Wait()
+		close(chunksCh)
+		log.Debug().Msgf("Exiting from goroutine waiting for read to finish")
 	}()
 
-	log.Debug().Msg("Waiting for all chunks to be read...")
+	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
+	go func() {
+		errCh <- t.writeChunksToFile(ctx, chunksCh)
+		log.Debug().Msgf("Exiting from write chunks goroutine")
+	}()
+
+	log.Debug().Msg("Waiting for all chunks to be processed...")
 	for i := 0; i < exportWorkersCount; i++ {
-		if err := <-readErrCh; err != nil {
+		log.Debug().Msgf("Waiting for #%d status to be reported...", i)
+		if err := <-errCh; err != nil {
+			log.Debug().Msg("Got error, finishing export")
 			return err
 		}
-	}
-
-	close(chunksCh)
-
-	log.Debug().Msg("Waiting for all chunks to be written to the dump...")
-	if err := <-writeErrCh; err != nil {
-		return err
 	}
 
 	log.Info().Msg("Successfully exported!")
