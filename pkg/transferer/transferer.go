@@ -87,11 +87,7 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 		return "", errors.Wrap(err, "failed to get custom path info")
 	}
 
-	if err != nil { // file doesn't exist
-		if err := os.MkdirAll(path.Dir(customPath), 0777); err != nil {
-			return "", errors.Wrap(err, "failed to create folders for the dump file")
-		}
-	} else if customPathInfo.IsDir() || os.IsPathSeparator(customPath[len(customPath)-1]) {
+	if (err == nil && customPathInfo.IsDir()) || os.IsPathSeparator(customPath[len(customPath)-1]) {
 		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
@@ -109,6 +105,9 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 	}
 
 	log.Debug().Msgf("Preparing dump file: %s", filepath)
+	if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
+		return errors.Wrap(err, "failed to create folders for the dump file")
+	}
 	file, err := os.Create(filepath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create %s", filepath)
