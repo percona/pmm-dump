@@ -37,7 +37,7 @@ type ChunkPool interface {
 	Next() (dump.ChunkMeta, bool)
 }
 
-var exportWorkersCount = runtime.NumCPU()
+var readWorkersCount = runtime.NumCPU()
 
 const maxChunksInMem = 4
 
@@ -176,8 +176,6 @@ func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
 
 	readWG := &sync.WaitGroup{}
 
-	readWorkersCount := exportWorkersCount - 1
-
 	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", readWorkersCount)
 	readWG.Add(readWorkersCount)
 	for i := 0; i < readWorkersCount; i++ {
@@ -202,7 +200,7 @@ func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
 	}()
 
 	log.Debug().Msg("Waiting for all chunks to be processed...")
-	for i := 0; i < exportWorkersCount; i++ {
+	for i := 0; i < readWorkersCount+1; i++ {
 		log.Debug().Msgf("Waiting for #%d status to be reported...", i)
 		if err := <-errCh; err != nil {
 			log.Debug().Msg("Got error, finishing export")
