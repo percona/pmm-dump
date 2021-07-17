@@ -75,12 +75,35 @@ func (t Transferer) readChunksFromSource(ctx context.Context, p ChunkPool, chunk
 	}
 }
 
+func getDumpFilepath(customPath string, ts time.Time) (string, error) {
+	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz", ts.Unix())
+	if customPath == "" {
+		return autoFilename, nil
+	}
+
+	customPathInfo, err := os.Stat(customPath)
+	if err != nil && !os.IsNotExist(err) {
+		return "", errors.Wrap(err, "failed to get custom path info")
+	}
+
+	if err != nil { // file doesn't exist
+		if err := os.MkdirAll(path.Dir(customPath), 0777); err != nil {
+			return "", errors.Wrap(err, "failed to create folders for the dump file")
+		}
+	} else if customPathInfo.IsDir() || os.IsPathSeparator(customPath[len(customPath)-1]) {
+		// file exists and it's directory
+		return path.Join(customPath, autoFilename), nil
+	}
+
+	return customPath, nil
+}
+
 func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.Chunk) error {
 	exportTS := time.Now().UTC()
 
-	filepath := fmt.Sprintf("pmm-dump-%v.tar.gz", exportTS.Unix())
-	if t.dumpPath != "" {
-		filepath = path.Join(t.dumpPath, filepath)
+	filepath, err := getDumpFilepath(t.dumpPath, exportTS)
+	if err != nil {
+		return err
 	}
 
 	log.Debug().Msgf("Preparing dump file: %s", filepath)
