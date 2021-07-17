@@ -70,7 +70,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		return nil, errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
 
-	body := resp.Body()
+	body := copyBytesArr(resp.Body())
 
 	if status := resp.StatusCode(); status != fasthttp.StatusOK {
 		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
@@ -85,6 +85,12 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	}
 
 	return chunk, nil
+}
+
+func copyBytesArr(a []byte) []byte {
+	c := make([]byte, len(a))
+	copy(c, a)
+	return c
 }
 
 func (s Source) WriteChunk(_ string, r io.Reader) error {
