@@ -56,13 +56,24 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		Str("url", url).
 		Msg("Sending GET chunk request to Victoria Metrics endpoint")
 
-	status, body, err := s.c.GetTimeout(nil, url, requestTimeout)
-	if err != nil {
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+
+	req.Header.SetMethod(fasthttp.MethodGet)
+	req.SetRequestURI(url)
+	req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
+
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	if err := s.c.DoTimeout(req, resp, requestTimeout); err != nil {
 		return nil, errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
 
-	if status != fasthttp.StatusOK {
-		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
+	body := resp.Body()
+
+	if status := resp.StatusCode(); status != fasthttp.StatusOK {
+		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
@@ -77,9 +88,6 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 }
 
 func (s Source) WriteChunk(_ string, r io.Reader) error {
-	req := fasthttp.AcquireRequest()
-	defer fasthttp.ReleaseRequest(req)
-
 	chunkContent, err := ioutil.ReadAll(r)
 	if err != nil {
 		return errors.Wrap(err, "failed to read chunk content")
@@ -87,8 +95,12 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 
 	url := fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
 
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+
 	req.SetBody(chunkContent)
 	req.Header.SetMethod(fasthttp.MethodPost)
+	req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
 	req.SetRequestURI(url)
 
 	resp := fasthttp.AcquireResponse()
