@@ -87,12 +87,11 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 	}
 
 	if err != nil { // file doesn't exist
-		if err = os.MkdirAll(path.Dir(customPath), 0777); err != nil {
+		if err := os.MkdirAll(path.Dir(customPath), 0777); err != nil {
 			return "", errors.Wrap(err, "failed to create folders for the dump file")
 		}
-	}
-
-	if customPathInfo.IsDir() || os.IsPathSeparator(customPath[len(customPath)-1]) {
+	} else if customPathInfo.IsDir() || os.IsPathSeparator(customPath[len(customPath)-1]) {
+		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
 
