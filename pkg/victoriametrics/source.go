@@ -116,7 +116,7 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 		Str("url", url).
 		Msg("Sending POST chunk request to Victoria Metrics endpoint")
 
-	if err = s.c.Do(req, resp); err != nil {
+	if err = s.c.DoTimeout(req, resp, requestTimeout); err != nil {
 		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
 
@@ -151,28 +151,7 @@ func (s Source) FinalizeWrites() error {
 }
 
 func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
-	const (
-		deltaPercentage  = 0.1
-		minDeltaDuration = 3 * time.Minute
-		maxDeltaDuration = time.Hour
-	)
-
-	log.Debug().
-		Time("start", start).
-		Time("end", end).
-		Float64("chunk_percentage", deltaPercentage).
-		Stringer("min_chunk_size", minDeltaDuration).
-		Stringer("max_chunk_size", maxDeltaDuration).
-		Msg("Splitting Victoria Metrics timerange into chunks...")
-
-	timeRange := end.Sub(start)
-
-	delta := time.Duration(float64(timeRange) * deltaPercentage)
-	if delta < minDeltaDuration {
-		delta = minDeltaDuration
-	} else if delta > maxDeltaDuration {
-		delta = maxDeltaDuration
-	}
+	const delta = 15 * time.Minute
 
 	chunkStart := start
 	for {
@@ -190,8 +169,11 @@ func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
 	}
 
 	log.Debug().
+		Time("start", start).
+		Time("end", end).
 		Stringer("chunk_size", delta).
-		Msgf("Got %d Victoria Metrics chunks", len(chunks))
+		Int("chunks", len(chunks)).
+		Msg("Split Victoria Metrics timerange into chunks")
 
 	return
 }
