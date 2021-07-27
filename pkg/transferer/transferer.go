@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"pmm-transferer/pkg/dump"
+	"pmm-transferer/pkg/loadController"
 	"runtime"
 	"sync"
 	"time"
@@ -20,9 +21,10 @@ import (
 type Transferer struct {
 	dumpPath string
 	sources  []dump.Source
+	lc       *loadController.Controller
 }
 
-func New(dumpPath string, s []dump.Source) (*Transferer, error) {
+func New(dumpPath string, lc *loadController.Controller, s []dump.Source) (*Transferer, error) {
 	if len(s) == 0 {
 		return nil, errors.New("failed to create transferer with no sources")
 	}
@@ -30,6 +32,7 @@ func New(dumpPath string, s []dump.Source) (*Transferer, error) {
 	return &Transferer{
 		dumpPath: dumpPath,
 		sources:  s,
+		lc:       lc,
 	}, nil
 }
 
@@ -42,13 +45,29 @@ var readWorkersCount = runtime.NumCPU()
 const maxChunksInMem = 4
 
 func (t Transferer) readChunksFromSource(ctx context.Context, p ChunkPool, chunkC chan<- *dump.Chunk) error {
+	wg := sync.WaitGroup{}
 	for {
+		wg.Wait()
 		log.Debug().Msg("New chunks reading loop iteration has been started")
 
 		select {
 		case <-ctx.Done():
 			log.Debug().Msg("Context is done, stopping chunks reading")
 			return ctx.Err()
+		case sig := <-t.lc.Signal():
+			switch sig {
+			case loadController.Max:
+				log.Info().Msgf("Received max load signal. Setting chunk reading to sleep for %d seconds", 10)
+				wg.Add(1)
+				go func() {
+					time.Sleep(time.Second * 10)
+					wg.Done()
+				}()
+				continue
+			case loadController.Critical:
+				log.Info().Msgf("Received critical load signal. Shutting down chunk reading")
+				return nil
+			}
 		default:
 			chMeta, ok := p.Next()
 			if !ok {
@@ -166,6 +185,10 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 
 func (t Transferer) Export(ctx context.Context, pool ChunkPool) error {
 	log.Info().Msg("Exporting metrics...")
+	err := t.lc.Start(ctx, readWorkersCount)
+	if err != nil {
+		return err
+	}
 
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().

@@ -5,6 +5,7 @@ import (
 	"os"
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/dump"
+	"pmm-transferer/pkg/loadController"
 	"pmm-transferer/pkg/transferer"
 	"pmm-transferer/pkg/victoriametrics"
 	"time"
@@ -20,6 +21,7 @@ func main() {
 
 		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
 		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
+		prometheusURL      = cli.Flag("prometheus_url", "Prometheus connection string").String()
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
@@ -94,6 +96,19 @@ func main() {
 		log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 	}
 
+	lcCfg := loadController.Config{
+		ConnectionURL: *prometheusURL,
+		LoadTypes: []loadController.LoadType{
+			loadController.CPU,
+		},
+		LoadInfoDelay: time.Second,
+	}
+	lc, err := loadController.New(httpC, lcCfg)
+	if err != nil {
+		log.Fatal().Msgf("Failed to init load controller: %s", err.Error())
+		return
+	}
+
 	switch cmd {
 	case exportCmd.FullCommand():
 		var startTime, endTime time.Time
@@ -120,7 +135,7 @@ func main() {
 			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
-		t, err := transferer.New(*outPath, sources)
+		t, err := transferer.New(*outPath, lc, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
@@ -148,7 +163,7 @@ func main() {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
-		t, err := transferer.New(*dumpPath, sources)
+		t, err := transferer.New(*dumpPath, lc, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
