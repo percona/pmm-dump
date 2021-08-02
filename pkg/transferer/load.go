@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type LoadStatus int
@@ -24,14 +26,14 @@ type LoadChecker struct {
 	c             *fasthttp.Client
 	connectionURL string
 
-	metrics []Metric
+	thresholds []Threshold
 
 	m            sync.RWMutex
 	latestStatus LoadStatus
 }
 
-func NewLoadChecker() *LoadChecker {
-	metrics := []Metric{
+func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadChecker {
+	thresholds := []Threshold{
 		{
 			Key:          "cpu",
 			Query:        `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[1m])) * 100)`,
@@ -39,7 +41,14 @@ func NewLoadChecker() *LoadChecker {
 			CriticalLoad: 70,
 		},
 	}
-	// TODO: implement
+	lc := &LoadChecker{
+		c:             c,
+		connectionURL: url,
+		thresholds:    thresholds,
+		latestStatus:  LoadStatusNone,
+	}
+	lc.runStatusUpdate(ctx)
+	return lc
 }
 
 func (c *LoadChecker) GetLatestStatus() LoadStatus {
@@ -56,18 +65,42 @@ func (c *LoadChecker) setLatestStatus(s LoadStatus) {
 
 func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
 	go func() {
-		// TODO: implement
+		ticker := time.NewTicker(time.Second) // TODO: make duration configurable
+		defer ticker.Stop()
+		for range ticker.C {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			status, err := c.checkMetricsLoad()
+			if err != nil {
+				log.Error().Err(err)
+				continue
+			}
+			c.setLatestStatus(status)
+		}
 	}()
 }
 
 func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
-	for m := range c.metrics {
-		// TODO: implement
+	respStatus := LoadStatusOK
+	for _, t := range c.thresholds {
+		value, err := c.getMetricCurrentValue(t)
+		if err != nil {
+			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: ", t.Key)
+		}
+		switch {
+		case value >= t.CriticalLoad:
+			return LoadStatusTerminate, nil
+		case value >= t.MaxLoad:
+			respStatus = LoadStatusWait
+		}
 	}
-	return LoadStatusOK, nil
+	return respStatus, nil
 }
 
-func (c *LoadChecker) getMetricCurrentValue(m Metric) (float64, error) {
+func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
@@ -83,13 +116,13 @@ func (c *LoadChecker) getMetricCurrentValue(m Metric) (float64, error) {
 	var resp metricResponse
 
 	if err = json.Unmarshal(body, &resp); err != nil {
-		return 0, fmt.Errorf("error parsing metrics: %s", err)
+		return 0, fmt.Errorf("error parsing thresholds: %s", err)
 	}
 
 	return resp.getValidValue()
 }
 
-type Metric struct {
+type Threshold struct {
 	Key          string
 	Query        string
 	MaxLoad      float64
