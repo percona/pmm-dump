@@ -22,7 +22,7 @@ const (
 	LoadStatusTerminate
 )
 
-type LoadChecker struct {
+type TrLoadChecker struct {
 	c             *fasthttp.Client
 	connectionURL string
 
@@ -32,7 +32,7 @@ type LoadChecker struct {
 	latestStatus LoadStatus
 }
 
-func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *TrLoadChecker {
 	thresholds := []Threshold{
 		{
 			Key:          "cpu",
@@ -41,7 +41,7 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 			CriticalLoad: 70,
 		},
 	}
-	lc := &LoadChecker{
+	lc := &TrLoadChecker{
 		c:             c,
 		connectionURL: url,
 		thresholds:    thresholds,
@@ -51,19 +51,19 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 	return lc
 }
 
-func (c *LoadChecker) GetLatestStatus() LoadStatus {
+func (c *TrLoadChecker) GetLatestStatus() LoadStatus {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	return c.latestStatus
 }
 
-func (c *LoadChecker) setLatestStatus(s LoadStatus) {
+func (c *TrLoadChecker) setLatestStatus(s LoadStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 	c.latestStatus = s
 }
 
-func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
+func (c *TrLoadChecker) runStatusUpdate(ctx context.Context) {
 	go func() {
 		log.Debug().Msg("Started load status update")
 		ticker := time.NewTicker(time.Second) // TODO: make duration configurable
@@ -88,7 +88,7 @@ func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
 	}()
 }
 
-func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
+func (c *TrLoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	log.Debug().Msg("Started check load status")
 	respStatus := LoadStatusOK
 	for _, t := range c.thresholds {
@@ -116,7 +116,7 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	return respStatus, nil
 }
 
-func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
+func (c *TrLoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
