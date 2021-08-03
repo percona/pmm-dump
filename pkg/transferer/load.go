@@ -22,6 +22,10 @@ const (
 	LoadStatusTerminate
 )
 
+const (
+	LoadStatusWaitSleepDuration = time.Second // TODO: make duration configurable
+)
+
 type TrLoadChecker struct {
 	c             *fasthttp.Client
 	connectionURL string
@@ -45,7 +49,7 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *TrLoad
 		c:             c,
 		connectionURL: url,
 		thresholds:    thresholds,
-		latestStatus:  LoadStatusNone,
+		latestStatus:  LoadStatusWait,
 	}
 	lc.runStatusUpdate(ctx)
 	return lc
@@ -66,7 +70,7 @@ func (c *TrLoadChecker) setLatestStatus(s LoadStatus) {
 func (c *TrLoadChecker) runStatusUpdate(ctx context.Context) {
 	go func() {
 		log.Debug().Msg("Started load status update")
-		ticker := time.NewTicker(time.Second) // TODO: make duration configurable
+		ticker := time.NewTicker(LoadStatusWaitSleepDuration)
 		defer ticker.Stop()
 		for range ticker.C {
 			log.Debug().Msg("New load status update iteration started")

@@ -57,16 +57,15 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadChecker, p 
 			if lc != nil {
 				switch lc.GetLatestStatus() {
 				case LoadStatusWait:
-					time.Sleep(time.Second * 10) // TODO: make duration configurable
+					time.Sleep(LoadStatusWaitSleepDuration)
 					log.Debug().Msgf("Got wait load status: putting chunks reading to sleep for %d seconds", 10)
-					continue
-				case LoadStatusNone:
-					time.Sleep(time.Second * 2) // TODO: make duration configurable
-					log.Debug().Msgf("Got none load status: putting chunks reading to sleep for %d seconds", 2)
 					continue
 				case LoadStatusTerminate:
 					log.Debug().Msg("Got terminate load status: stopping chunks reading")
 					return errors.New("got terminate load status")
+				case LoadStatusOK:
+				default:
+					return errors.New("unknown load status")
 				}
 			}
 			chMeta, ok := p.Next()
