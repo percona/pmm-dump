@@ -18,8 +18,9 @@ func main() {
 	var (
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
 
-		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
-		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
+		pmmURL             = cli.Flag("pmm_url", "PMM connection string").String()
+		victoriaMetrics    = cli.Flag("victoria_metrics", "Specify to export/import VictoriaMetrics data").Bool()
+		clickHouse         = cli.Flag("clickhouse", "Specify to export/import ClickHouse data").Bool()
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
@@ -53,8 +54,12 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	if *clickHouseURL == "" && *victoriaMetricsURL == "" {
-		log.Fatal().Msg("Please, specify at least one data source via connection string")
+	if *pmmURL == "" {
+		log.Fatal().Msg("Please, specify PMM URL")
+	}
+
+	if !(*clickHouse || *victoriaMetrics) {
+		log.Fatal().Msg("Please, specify at least one data source")
 	}
 
 	var sources []dump.Source
@@ -63,9 +68,14 @@ func main() {
 
 	httpC := newClientHTTP(*allowInsecureCerts)
 
-	if url := *victoriaMetricsURL; url != "" {
+	ds, err := getDataSources(httpC, *pmmURL)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
+	if *victoriaMetrics {
 		c := &victoriametrics.Config{
-			ConnectionURL:      url,
+			ConnectionURL:      ds.VictoriaMetrics,
 			TimeSeriesSelector: *tsSelector,
 		}
 
@@ -75,9 +85,9 @@ func main() {
 	}
 
 	var clickhouseSource *clickhouse.Source
-	if url := *clickHouseURL; url != "" {
+	if *clickHouse {
 		c := &clickhouse.Config{
-			ConnectionURL: url,
+			ConnectionURL: ds.ClickHouse,
 		}
 		if where != nil {
 			c.Where = *where
@@ -127,11 +137,11 @@ func main() {
 
 		var chunks []dump.ChunkMeta
 
-		if *victoriaMetricsURL != "" {
+		if *victoriaMetrics {
 			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
 		}
 
-		if *clickHouseURL != "" {
+		if *clickHouse {
 			chChunks, err := clickhouseSource.SplitIntoChunks()
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
