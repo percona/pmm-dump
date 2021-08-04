@@ -72,22 +72,21 @@ func (c *TrLoadChecker) runStatusUpdate(ctx context.Context) {
 		log.Debug().Msg("Started load status update")
 		ticker := time.NewTicker(LoadStatusWaitSleepDuration)
 		defer ticker.Stop()
-		for range ticker.C {
-			log.Debug().Msg("New load status update iteration started")
+		for {
 			select {
 			case <-ctx.Done():
-				log.Debug().Msg("Context is done, stopping to update load status")
+				log.Debug().Msgf("Context is done: stopping load status update")
 				return
-			default:
+			case <-ticker.C:
+				status, err := c.checkMetricsLoad()
+				if err != nil {
+					log.Error().Err(err)
+					log.Debug().Msgf("Error while checking metrics load: %s. Skipping status update iteration", err)
+					continue
+				}
+				c.setLatestStatus(status)
+				log.Debug().Msg("Load status updated")
 			}
-			status, err := c.checkMetricsLoad()
-			if err != nil {
-				log.Error().Err(err)
-				log.Debug().Msgf("Error while checking metrics load: %s. Skipping status update iteration", err)
-				continue
-			}
-			c.setLatestStatus(status)
-			log.Debug().Msg("Load status updated")
 		}
 	}()
 }
