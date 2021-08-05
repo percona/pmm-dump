@@ -1,4 +1,4 @@
-.PHONY= build up down re pmm-status mongo-reg mongo-insert export-all clean
+.PHONY= build up down re pmm-status mongo-reg mongo-insert export-all import-all clean
 
 PMMT_BIN_NAME?=pmm-transferer
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
@@ -13,7 +13,9 @@ PMM_MONGO_URL?=mongodb:27017
 ADMIN_MONGO_USERNAME?=admin
 ADMIN_MONGO_PASSWORD?=admin
 
-all: build up mongo-reg mongo-insert
+DUMP_FILENAME=dump.tar.gz
+
+all: build up mongo-reg mongo-insert export-all re import
 
 build:
 	go build -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
@@ -42,10 +44,15 @@ mongo-insert:
 		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
-	./$(PMMT_BIN_NAME) export -v -o dump.tar.gz \
+	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
 		--victoria_metrics_url=$(PMM_VM_URL) \
 		--click_house_url=$(PMM_CH_URL) \
 		--load_checker_url=$(PMM_VM_URL)
 
+import-all:
+	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \
+		--victoria_metrics_url=$(PMM_VM_URL) \
+		--click_house_url=$(PMM_CH_URL)
+
 clean:
-	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN)
+	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
