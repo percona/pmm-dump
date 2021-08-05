@@ -82,6 +82,7 @@ func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
 				if err != nil {
 					log.Error().Err(err)
 					log.Debug().Msgf("Error while checking metrics load: %s. Skipping status update iteration", err)
+					c.setLatestStatus(LoadStatusWait)
 					continue
 				}
 				c.setLatestStatus(status)
