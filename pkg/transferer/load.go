@@ -38,7 +38,7 @@ func (s LoadStatus) String() string {
 }
 
 const (
-	MaxLoadWaitDuration = time.Second // TODO: make duration configurable
+	MaxLoadWaitDuration = time.Second
 )
 
 type LoadChecker struct {
