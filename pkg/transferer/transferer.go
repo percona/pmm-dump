@@ -54,20 +54,19 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 			log.Debug().Msg("Context is done, stopping chunks reading")
 			return ctx.Err()
 		default:
-			if lc != nil {
-				switch lc.GetLatestStatus() {
-				case LoadStatusWait:
-					time.Sleep(LoadStatusWaitSleepDuration)
-					log.Debug().Msgf("Got wait load status: putting chunks reading to sleep for %d seconds", 10)
-					continue
-				case LoadStatusTerminate:
-					log.Debug().Msg("Got terminate load status: stopping chunks reading")
-					return errors.New("got terminate load status")
-				case LoadStatusOK:
-				default:
-					return errors.New("unknown load status")
-				}
+			switch lc.GetLatestStatus() {
+			case LoadStatusWait:
+				time.Sleep(LoadStatusWaitSleepDuration)
+				log.Debug().Msgf("Got wait load status: putting chunks reading to sleep for %d seconds", 10)
+				continue
+			case LoadStatusTerminate:
+				log.Debug().Msg("Got terminate load status: stopping chunks reading")
+				return errors.New("got terminate load status")
+			case LoadStatusOK:
+			default:
+				return errors.New("unknown load status")
 			}
+
 			chMeta, ok := p.Next()
 			if !ok {
 				log.Debug().Msg("Pool is empty: stopping chunks reading")
