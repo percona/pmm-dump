@@ -40,7 +40,7 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 	thresholds := []Threshold{
 		{
 			Key:          "cpu",
-			Query:        `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[1m])) * 100)`,
+			Query:        `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`,
 			MaxLoad:      50,
 			CriticalLoad: 70,
 		},
