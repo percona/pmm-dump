@@ -20,6 +20,7 @@ Here are main commands/flags:
 |---------|------|-------------|---------|
 | export | victoria_metrics_url | URL of Victoria Metrics | `http://admin:admin@localhost:8282/prometheus` |
 | export | click_house_url | URL of Click House | TBD |
+| export | load_checker_url | URL of Prometheus to get load metrics | TBD |
 | export | out, o | Path to output file/directory | `/tmp/pmm-dumps/latest.tar.gz` |
 | export | ts_selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
 | export | where | WHERE statement (for CH only) | TBD |
