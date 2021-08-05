@@ -54,7 +54,7 @@ You will need to have Go 1.16+ and Docker installed.
 | mongo-insert | Executes MongoDB insert |
 | make down | Shuts down docker containers |
 | make re | Shortcut for `down up` |
-| make vm-export | Runs Victoria Metrics export from local PMM |
+| make export-all | Runs export from local PMM |
 
 
 ## Transfer Example

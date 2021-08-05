@@ -1,9 +1,10 @@
-.PHONY= build up down re pmm-status mongo-reg mongo-insert vm-export clean
+.PHONY= build up down re pmm-status mongo-reg mongo-insert export-all clean
 
 PMMT_BIN_NAME?=pmm-transferer
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
 PMM_VM_URL?="http://admin:admin@localhost:8282/prometheus"
+PMM_CH_URL?="http://localhost:9000?database=pmm"
 
 PMM_MONGO_USERNAME?=pmm_mongodb
 PMM_MONGO_PASSWORD?=password
@@ -40,8 +41,11 @@ mongo-insert:
 	docker exec mongodb mongo -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
 		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
 
-vm-export:
-	./$(PMMT_BIN_NAME) export --victoria_metrics_url=$(PMM_VM_URL)
+export-all:
+	./$(PMMT_BIN_NAME) export -v -o dump.tar.gz \
+		--victoria_metrics_url=$(PMM_VM_URL) \
+		--click_house_url=$(PMM_CH_URL) \
+		--load_checker_url=$(PMM_VM_URL)
 
 clean:
 	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN)
