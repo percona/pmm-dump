@@ -84,7 +84,7 @@ func main() {
 			c.Where = *where
 		}
 
-		clickhouseSource, err = clickhouse.NewSource(*c)
+		clickhouseSource, err = clickhouse.NewSource(ctx, *c)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
 			return

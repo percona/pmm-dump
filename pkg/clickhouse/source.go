@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
@@ -10,6 +11,7 @@ import (
 	"pmm-transferer/pkg/clickhouse/tsv"
 	"pmm-transferer/pkg/dump"
 	"strings"
+	"time"
 )
 
 type Source struct {
@@ -24,12 +26,16 @@ const (
 	chunkRowsLen = 1000
 )
 
-func NewSource(cfg Config) (*Source, error) {
+func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
 			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		} else {
