@@ -38,7 +38,7 @@ func (s LoadStatus) String() string {
 }
 
 const (
-	LoadStatusWaitSleepDuration = time.Second // TODO: make duration configurable
+	MaxLoadWaitDuration = time.Second // TODO: make duration configurable
 )
 
 type LoadChecker struct {
@@ -89,7 +89,7 @@ func (c *LoadChecker) setLatestStatus(s LoadStatus) {
 func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
 	go func() {
 		log.Debug().Msg("Started load status update")
-		ticker := time.NewTicker(LoadStatusWaitSleepDuration)
+		ticker := time.NewTicker(MaxLoadWaitDuration)
 		defer ticker.Stop()
 		for {
 			select {
@@ -116,7 +116,7 @@ func (c *LoadChecker) updateStatus() {
 
 func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	log.Debug().Msg("Started check load status")
-	respStatus := LoadStatusOK
+	loadStatus := LoadStatusOK
 	for _, t := range c.thresholds {
 		value, err := c.getMetricCurrentValue(t)
 		if err != nil {
@@ -124,22 +124,19 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 		}
 		switch {
 		case value >= t.CriticalLoad:
-			log.Debug().Msgf("checked %s threshold: it's exceeds critical load limit. Stopping to check other thresholds", t.Key)
+			log.Debug().Msgf("Checked %s threshold: it exceeds critical load limit. Terminating", t.Key)
 			return LoadStatusTerminate, nil
 		case value >= t.MaxLoad:
-			log.Debug().Msgf("checked %s threshold: it's exceeds max load limit", t.Key)
-			respStatus = LoadStatusWait
+			log.Debug().Msgf("Checked %s threshold: it exceeds max load limit. Continue checking", t.Key)
+			loadStatus = LoadStatusWait
 		default:
-			log.Debug().Msgf("checked %s threshold: it's ok", t.Key)
+			log.Debug().Msgf("Checked %s threshold: it's ok. Continue checking", t.Key)
 		}
 	}
-	switch respStatus {
-	case LoadStatusWait:
-		log.Debug().Msg("checked all thresholds: final result is wait load status")
-	case LoadStatusOK:
-		log.Debug().Msg("checked all thresholds: final result is ok load status")
-	}
-	return respStatus, nil
+
+	log.Debug().Msgf("Checked all thresholds: final status is %v", loadStatus)
+
+	return loadStatus, nil
 }
 
 func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
@@ -150,12 +147,14 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 
 	url := fmt.Sprintf("%s/api/v1/query?%s", c.connectionURL, q.String())
 
-	log.Debug().Msgf("sending request to %s", url)
+	log.Debug().
+		Str("url", url).
+		Msgf("Sending HTTP request to load checker endpoint")
 	status, body, err := c.c.Get(nil, url)
 	if status != http.StatusOK {
 		return 0, fmt.Errorf("non-ok response: status %d: %s", status, string(body))
 	}
-	log.Debug().Msg("got status OK")
+	log.Debug().Msg("Got HTTP status OK from load checker endpoint")
 
 	var resp metricResponse
 
@@ -167,7 +166,7 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error parsing threshold: %s", err)
 	}
-	log.Debug().Msgf("got %f threshold value", value)
+	log.Debug().Msgf("Got %f threshold value", value)
 	return value, nil
 }
 
