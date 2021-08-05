@@ -37,7 +37,7 @@ type ChunkPool interface {
 	Next() (dump.ChunkMeta, bool)
 }
 
-type LoadChecker interface {
+type LoadStatusGetter interface {
 	GetLatestStatus() LoadStatus
 }
 
@@ -45,7 +45,7 @@ var readWorkersCount = runtime.NumCPU()
 
 const maxChunksInMem = 4
 
-func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadChecker, p ChunkPool, chunkC chan<- *dump.Chunk) error {
+func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGetter, p ChunkPool, chunkC chan<- *dump.Chunk) error {
 	for {
 		log.Debug().Msg("New chunks reading loop iteration has been started")
 
@@ -182,7 +182,7 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 	}
 }
 
-func (t Transferer) Export(ctx context.Context, lc LoadChecker, pool ChunkPool) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, pool ChunkPool) error {
 	log.Info().Msg("Exporting metrics...")
 
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)

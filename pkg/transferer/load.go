@@ -26,7 +26,7 @@ const (
 	LoadStatusWaitSleepDuration = time.Second // TODO: make duration configurable
 )
 
-type TrLoadChecker struct {
+type LoadChecker struct {
 	c             *fasthttp.Client
 	connectionURL string
 
@@ -36,7 +36,7 @@ type TrLoadChecker struct {
 	latestStatus LoadStatus
 }
 
-func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *TrLoadChecker {
+func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadChecker {
 	thresholds := []Threshold{
 		{
 			Key:          "cpu",
@@ -45,7 +45,7 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *TrLoad
 			CriticalLoad: 70,
 		},
 	}
-	lc := &TrLoadChecker{
+	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
 		thresholds:    thresholds,
@@ -55,19 +55,19 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *TrLoad
 	return lc
 }
 
-func (c *TrLoadChecker) GetLatestStatus() LoadStatus {
+func (c *LoadChecker) GetLatestStatus() LoadStatus {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	return c.latestStatus
 }
 
-func (c *TrLoadChecker) setLatestStatus(s LoadStatus) {
+func (c *LoadChecker) setLatestStatus(s LoadStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 	c.latestStatus = s
 }
 
-func (c *TrLoadChecker) runStatusUpdate(ctx context.Context) {
+func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
 	go func() {
 		log.Debug().Msg("Started load status update")
 		ticker := time.NewTicker(LoadStatusWaitSleepDuration)
@@ -91,7 +91,7 @@ func (c *TrLoadChecker) runStatusUpdate(ctx context.Context) {
 	}()
 }
 
-func (c *TrLoadChecker) checkMetricsLoad() (LoadStatus, error) {
+func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	log.Debug().Msg("Started check load status")
 	respStatus := LoadStatusOK
 	for _, t := range c.thresholds {
@@ -119,7 +119,7 @@ func (c *TrLoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	return respStatus, nil
 }
 
-func (c *TrLoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
+func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
