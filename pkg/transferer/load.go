@@ -22,6 +22,21 @@ const (
 	LoadStatusTerminate
 )
 
+func (s LoadStatus) String() string {
+	switch s {
+	case LoadStatusNone:
+		return "NONE"
+	case LoadStatusOK:
+		return "OK"
+	case LoadStatusWait:
+		return "WAIT"
+	case LoadStatusTerminate:
+		return "TERMINATE"
+	default:
+		return "UNDEFINED"
+	}
+}
+
 const (
 	LoadStatusWaitSleepDuration = time.Second // TODO: make duration configurable
 )
@@ -45,12 +60,16 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 			CriticalLoad: 70,
 		},
 	}
+
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
 		thresholds:    thresholds,
 		latestStatus:  LoadStatusWait,
 	}
+
+	lc.updateStatus()
+
 	lc.runStatusUpdate(ctx)
 	return lc
 }
@@ -78,18 +97,21 @@ func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
 				log.Debug().Msgf("Context is done: stopping load status update")
 				return
 			case <-ticker.C:
-				status, err := c.checkMetricsLoad()
-				if err != nil {
-					log.Error().Err(err)
-					log.Debug().Msgf("Error while checking metrics load: %s. Skipping status update iteration", err)
-					c.setLatestStatus(LoadStatusWait)
-					continue
-				}
-				c.setLatestStatus(status)
-				log.Debug().Msg("Load status updated")
+				c.updateStatus()
 			}
 		}
 	}()
+}
+
+func (c *LoadChecker) updateStatus() {
+	status, err := c.checkMetricsLoad()
+	if err != nil {
+		status = LoadStatusWait
+		log.Warn().Err(err).Msgf("Error while checking metrics load")
+	}
+
+	c.setLatestStatus(status)
+	log.Debug().Msgf("Load status now is %v", status)
 }
 
 func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
