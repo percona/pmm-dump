@@ -47,7 +47,7 @@ func (r *Reader) Read(ct []*sql.ColumnType) ([]interface{}, error) {
 		st := ct[i].ScanType()
 		value, err := parseElement(record, st)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("parsing error: %s", err.Error()))
+			return nil, fmt.Errorf("parsing error: %s", err.Error())
 		}
 		values = append(values, value)
 	}

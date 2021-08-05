@@ -151,6 +151,9 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 		Str("url", url).
 		Msgf("Sending HTTP request to load checker endpoint")
 	status, body, err := c.c.Get(nil, url)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to send req to load checker endpoint")
+	}
 	if status != http.StatusOK {
 		return 0, fmt.Errorf("non-ok response: status %d: %s", status, string(body))
 	}
