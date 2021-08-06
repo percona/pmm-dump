@@ -20,6 +20,8 @@ const (
 	LoadStatusOK
 	LoadStatusWait
 	LoadStatusTerminate
+
+	MaxWaitStatusAttempts int = 10
 )
 
 func (s LoadStatus) String() string {
@@ -49,6 +51,8 @@ type LoadChecker struct {
 
 	m            sync.RWMutex
 	latestStatus LoadStatus
+
+	waitAttemptsCounter int
 }
 
 func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadChecker {
@@ -108,6 +112,13 @@ func (c *LoadChecker) updateStatus() {
 	if err != nil {
 		status = LoadStatusWait
 		log.Warn().Err(err).Msgf("Error while checking metrics load")
+	}
+	if status == LoadStatusWait {
+		c.waitAttemptsCounter++
+		if c.waitAttemptsCounter > MaxWaitStatusAttempts {
+			log.Debug().Msgf("Reached max WAIT status attempts. Sending TERMINATE status")
+			status = LoadStatusTerminate
+		}
 	}
 
 	c.setLatestStatus(status)
