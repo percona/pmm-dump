@@ -26,14 +26,14 @@ type dataSourceResp struct {
 	ReadOnly    bool        `json:"readOnly"`
 }
 
-type DateSources struct {
+type DataSources struct {
 	ClickHouse      string
 	VictoriaMetrics string
 	LoadChecker     string
 }
 
-func getDataSources(c *fasthttp.Client, pmmLink string) (DateSources, error) {
-	var result DateSources
+func getDataSources(c *fasthttp.Client, pmmLink string) (DataSources, error) {
+	var result DataSources
 	pmmUrl, err := url.Parse(pmmLink)
 	if err != nil {
 		return result, fmt.Errorf("failed to parse pmm_url: %s", err)
