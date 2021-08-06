@@ -59,6 +59,12 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 			MaxLoad:      50,
 			CriticalLoad: 70,
 		},
+		{
+			Key:          "memory",
+			Query:        `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`,
+			MaxLoad:      50,
+			CriticalLoad: 70,
+		},
 	}
 
 	lc := &LoadChecker{
