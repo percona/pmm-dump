@@ -29,6 +29,7 @@ type dataSourceResp struct {
 type DateSources struct {
 	ClickHouse      string
 	VictoriaMetrics string
+	LoadChecker     string
 }
 
 func getDataSources(c *fasthttp.Client, pmmLink string) (DateSources, error) {
@@ -55,6 +56,7 @@ func getDataSources(c *fasthttp.Client, pmmLink string) (DateSources, error) {
 		path:     "/prometheus",
 		userInfo: pmmUrl.User,
 	}.String()
+	result.LoadChecker = result.VictoriaMetrics
 	for _, source := range dataSources {
 		switch source.Type {
 		case "vertamedia-clickhouse-datasource":

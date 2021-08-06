@@ -21,7 +21,6 @@ func main() {
 		pmmURL             = cli.Flag("pmm_url", "PMM connection string").String()
 		victoriaMetrics    = cli.Flag("victoria_metrics", "Specify to export/import VictoriaMetrics data").Bool()
 		clickHouse         = cli.Flag("clickhouse", "Specify to export/import ClickHouse data").Bool()
-		loadCheckerURL     = cli.Flag("load_checker_url", "Load checker connection string").String()
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
@@ -155,10 +154,7 @@ func main() {
 			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
 		}
 
-		if *loadCheckerURL == "" {
-			log.Fatal().Msgf("load_checker_url should be provided")
-		}
-		lc := transferer.NewLoadChecker(ctx, httpC, *loadCheckerURL)
+		lc := transferer.NewLoadChecker(ctx, httpC, ds.LoadChecker)
 
 		if err = t.Export(ctx, lc, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
