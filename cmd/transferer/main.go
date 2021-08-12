@@ -21,6 +21,7 @@ func main() {
 		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
 		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
 		loadCheckerURL     = cli.Flag("load_checker_url", "Load checker connection string").String()
+		pmmURL             = cli.Flag("pmm_url", "PMM connection string").String()
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
@@ -140,6 +141,15 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
+		if *pmmURL == "" {
+			log.Fatal().Msgf("pmm_url should be provided")
+		}
+
+		meta, err := dump.NewMeta(*pmmURL, httpC)
+		if err != nil {
+			log.Fatal().Msgf("Failed to generate dump meta: %s", err)
+		}
+
 		pool, err := dump.NewChunkPool(chunks)
 		if err != nil {
 			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
@@ -150,7 +160,7 @@ func main() {
 		}
 		lc := transferer.NewLoadChecker(ctx, httpC, *loadCheckerURL)
 
-		if err = t.Export(ctx, lc, pool); err != nil {
+		if err = t.Export(ctx, lc, meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():

@@ -9,9 +9,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Meta struct {
-}
-
 type ChunkMeta struct {
 	Source SourceType
 	Start  *time.Time

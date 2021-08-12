@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -112,7 +113,7 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 	return customPath, nil
 }
 
-func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.Chunk) error {
+func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunkC <-chan *dump.Chunk) error {
 	exportTS := time.Now().UTC()
 
 	log.Debug().Msgf("Trying to determine filepath")
@@ -139,6 +140,25 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
+
+	log.Debug().Msg("Writing dump meta")
+	metaContent, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("failed to marshal dump meta: %s", err)
+	}
+
+	err = tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     "meta.json",
+		Size:     int64(len(metaContent)),
+		Mode:     0600,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to write dump meta")
+	}
+	if _, err = tw.Write(metaContent); err != nil {
+		return errors.Wrap(err, "failed to write dump meta content")
+	}
 
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
@@ -181,7 +201,7 @@ func (t Transferer) writeChunksToFile(ctx context.Context, chunkC <-chan *dump.C
 	}
 }
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, pool ChunkPool) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool) error {
 	log.Info().Msg("Exporting metrics...")
 
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
@@ -212,7 +232,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, pool ChunkP
 
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
 	go func() {
-		errCh <- t.writeChunksToFile(ctx, chunksCh)
+		errCh <- t.writeChunksToFile(ctx, meta, chunksCh)
 		log.Debug().Msgf("Exiting from write chunks goroutine")
 	}()
 

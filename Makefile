@@ -3,6 +3,7 @@
 PMMT_BIN_NAME?=pmm-transferer
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
+PMM_URL?="http://admin:admin@localhost:8282"
 PMM_VM_URL?="http://admin:admin@localhost:8282/prometheus"
 PMM_CH_URL?="http://localhost:9000?database=pmm"
 
@@ -15,10 +16,12 @@ ADMIN_MONGO_PASSWORD?=admin
 
 DUMP_FILENAME=dump.tar.gz
 
-all: build up mongo-reg mongo-insert export-all re import
+VERSION:=$(shell git rev-parse --short HEAD)
+
+all: build up mongo-reg mongo-insert export-all export-ch export-vm re import
 
 build:
-	go build -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
+	go build -ldflags "-X 'pmm-transferer/pkg/dump.version=$(VERSION)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
@@ -47,7 +50,20 @@ export-all:
 	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
 		--victoria_metrics_url=$(PMM_VM_URL) \
 		--click_house_url=$(PMM_CH_URL) \
-		--load_checker_url=$(PMM_VM_URL)
+		--load_checker_url=$(PMM_VM_URL) \
+		--pmm_url=$(PMM_URL)
+
+export-vm:
+	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
+		--victoria_metrics_url=$(PMM_VM_URL) \
+		--load_checker_url=$(PMM_VM_URL) \
+		--pmm_url=$(PMM_URL)
+
+export-ch:
+	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
+		--click_house_url=$(PMM_CH_URL) \
+		--load_checker_url=$(PMM_VM_URL) \
+		--pmm_url=$(PMM_URL)
 
 import-all:
 	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \
