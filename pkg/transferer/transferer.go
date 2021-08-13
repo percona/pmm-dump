@@ -149,7 +149,7 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 
 	err = tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeReg,
-		Name:     "meta.json",
+		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
 		Mode:     0600,
 	})
@@ -285,9 +285,13 @@ func (t Transferer) Import() error {
 			return errors.Wrap(err, "failed to read file from dump")
 		}
 
-		log.Info().Msgf("Processing chunk '%s'...", header.Name)
-
 		dir, filename := path.Split(header.Name)
+
+		if filename == dump.MetaFilename {
+			continue
+		}
+
+		log.Info().Msgf("Processing chunk '%s'...", header.Name)
 
 		st := dump.ParseSourceType(dir[:len(dir)-1])
 		if st == dump.UndefinedSource {

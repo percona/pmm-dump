@@ -11,6 +11,10 @@ var (
 	version string
 )
 
+const (
+	MetaFilename = "meta.json"
+)
+
 type Meta struct {
 	Version          string `json:"version"`
 	PMMServerVersion string `json:"pmm-server_version"`
