@@ -18,7 +18,7 @@ DUMP_FILENAME=dump.tar.gz
 
 VERSION:=$(shell git rev-parse --short HEAD)
 
-all: build up mongo-reg mongo-insert export-all export-ch export-vm re import
+all: build up mongo-reg mongo-insert export-all export-ch export-vm re import-all
 
 build:
 	go build -ldflags "-X 'pmm-transferer/pkg/dump.version=$(VERSION)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
@@ -48,27 +48,19 @@ mongo-insert:
 
 export-all:
 	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
-		--victoria_metrics_url=$(PMM_VM_URL) \
-		--click_house_url=$(PMM_CH_URL) \
-		--load_checker_url=$(PMM_VM_URL) \
-		--pmm_url=$(PMM_URL)
+		--pmm_url=$(PMM_URL) --clickhouse --victoria_metrics
 
 export-vm:
 	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
-		--victoria_metrics_url=$(PMM_VM_URL) \
-		--load_checker_url=$(PMM_VM_URL) \
-		--pmm_url=$(PMM_URL)
+		--pmm_url=$(PMM_URL) --victoria_metrics
 
 export-ch:
 	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
-		--click_house_url=$(PMM_CH_URL) \
-		--load_checker_url=$(PMM_VM_URL) \
-		--pmm_url=$(PMM_URL)
+		--pmm_url=$(PMM_URL) --clickhouse
 
 import-all:
 	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \
-		--victoria_metrics_url=$(PMM_VM_URL) \
-		--click_house_url=$(PMM_CH_URL)
+		--pmm_url=$(PMM_URL) --clickhouse --victoria_metrics
 
 clean:
 	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
