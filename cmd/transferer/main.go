@@ -38,12 +38,9 @@ func main() {
 	ctx := context.Background()
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out:     os.Stderr,
-		NoColor: true,
-		FormatTimestamp: func(ts interface{}) string {
-			t, _ := time.Parse("2006-01-02T15:04:05-07:00", ts.(string))
-			return t.Format("2006-01-02 3:04PM")
-		},
+		Out:        os.Stderr,
+		NoColor:    true,
+		TimeFormat: time.RFC3339,
 	})
 
 	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
