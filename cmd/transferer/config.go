@@ -7,44 +7,43 @@ import (
 )
 
 type PMMConfig struct {
-	PmmURL             string
+	PMMURL             string
 	ClickHouseURL      string
 	VictoriaMetricsURL string
 }
 
 func getPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
-	var result PMMConfig
 	pmmURL, err := url.Parse(pmmLink)
 	if err != nil {
-		return result, fmt.Errorf("failed to parse pmm_url: %s", err)
+		return PMMConfig{}, fmt.Errorf("failed to parse pmm_url: %s", err)
+	}
+	conf := PMMConfig{
+		PMMURL:             pmmLink,
+		ClickHouseURL:      chLink,
+		VictoriaMetricsURL: vmLink,
 	}
 
-	result.PmmURL = pmmLink
-	if vmLink != "" {
-		result.VictoriaMetricsURL = vmLink
-	} else {
-		result.VictoriaMetricsURL = modifyURL(*pmmURL, "/prometheus", pmmURL.User, "", "")
+	if conf.ClickHouseURL == "" {
+		conf.ClickHouseURL = composeClickHouseURL(*pmmURL)
 	}
-	if chLink != "" {
-		result.ClickHouseURL = chLink
-	} else {
-		result.ClickHouseURL = modifyURL(*pmmURL, "", nil, "9000", "database=pmm")
+	if conf.VictoriaMetricsURL == "" {
+		conf.VictoriaMetricsURL = composeVictoriaMetricsURL(*pmmURL)
 	}
-
-	return result, nil
+	return conf, nil
 }
 
-func modifyURL(u url.URL, path string, userinfo *url.Userinfo, port, query string) string {
-	if userinfo != nil {
-		u.User = userinfo
+func composeVictoriaMetricsURL(u url.URL) string {
+	u.Path = "/prometheus"
+	u.RawQuery = ""
+	return u.String()
+}
+
+func composeClickHouseURL(u url.URL) string {
+	i := strings.LastIndex(u.Host, ":")
+	if i != -1 {
+		u.Host = u.Host[:i]
 	}
-	u.Path = path
-	if port != "" {
-		i := strings.LastIndex(u.Host, ":")
-		if i != -1 {
-			u.Host = u.Host[:i] + ":" + port
-		}
-	}
-	u.RawQuery = query
+	u.Host += ":9000"
+	u.RawQuery = "database=pmm"
 	return u.String()
 }
