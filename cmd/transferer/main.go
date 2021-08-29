@@ -34,8 +34,8 @@ func main() {
 		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
 		outPath    = exportCmd.Flag("out", "Path to put out file").Short('o').String()
 		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
-		start      = exportCmd.Flag("start", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
-		end        = exportCmd.Flag("end", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
+		start      = exportCmd.Flag("start-ts", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
+		end        = exportCmd.Flag("end-ts", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
 
 		// import command options

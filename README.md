@@ -24,8 +24,8 @@ Here are main commands/flags:
 | export | out, o | Path to output file/directory | `/tmp/pmm-dumps/latest.tar.gz` |
 | export | ts_selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
 | export | where | WHERE statement (for CH only) | TBD |
-| export | start | Start date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
-| export | end | End date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
+| export | start-ts | Start date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
+| export | end-ts | End date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
 | import | dump_path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
 | any | verbose, v | Enable verbose (debug) mode | - |
 | any | allow-insecure-certs | For self-signed certificates | - |
