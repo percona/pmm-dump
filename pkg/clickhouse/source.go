@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"io"
 	"pmm-transferer/pkg/clickhouse/tsv"
 	"pmm-transferer/pkg/dump"
@@ -196,22 +197,32 @@ func (s Source) SplitIntoChunks(chunkRowsLen int) ([]dump.ChunkMeta, error) {
 	if chunkRowsLen <= 0 {
 		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
-	rowsCount, err := s.Count(s.cfg.Where)
+
+	totalRows, err := s.Count(s.cfg.Where)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
 	}
-	chunksLen := rowsCount/chunkRowsLen + 1
+
+	rowsCounter := totalRows
+	chunksLen := rowsCounter/chunkRowsLen + 1
 	chunks := make([]dump.ChunkMeta, 0, chunksLen)
 	i := 0
-	for rowsCount > 0 {
+	for rowsCounter > 0 {
 		newChunk := dump.ChunkMeta{
 			Source:  dump.ClickHouse,
 			RowsLen: chunkRowsLen,
 			Index:   i,
 		}
 		chunks = append(chunks, newChunk)
-		rowsCount -= chunkRowsLen
+		rowsCounter -= chunkRowsLen
 		i++
 	}
+
+	log.Debug().
+		Int("rows", totalRows).
+		Int("chunk_size", chunkRowsLen).
+		Int("chunks", len(chunks)).
+		Msg("Split Click House rows into chunks")
+
 	return chunks, nil
 }
