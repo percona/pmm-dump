@@ -18,9 +18,11 @@ func main() {
 	var (
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
 
-		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
+		pmmURL             = cli.Flag("pmm_url", "PMM connection string").String()
 		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
-		loadCheckerURL     = cli.Flag("load_checker_url", "Load checker connection string").String()
+		clickHouseURL      = cli.Flag("clickhouse_url", "ClickHouse connection string").String()
+		victoriaMetrics    = cli.Flag("victoria_metrics", "Specify to export/import VictoriaMetrics data").Bool()
+		clickHouse         = cli.Flag("clickhouse", "Specify to export/import ClickHouse data").Bool()
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
@@ -58,8 +60,12 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	if *clickHouseURL == "" && *victoriaMetricsURL == "" {
-		log.Fatal().Msg("Please, specify at least one data source via connection string")
+	if *pmmURL == "" {
+		log.Fatal().Msg("Please, specify PMM URL")
+	}
+
+	if !(*clickHouse || *victoriaMetrics) {
+		log.Fatal().Msg("Please, specify at least one data source")
 	}
 
 	var sources []dump.Source
@@ -68,9 +74,14 @@ func main() {
 
 	httpC := newClientHTTP(*allowInsecureCerts)
 
-	if url := *victoriaMetricsURL; url != "" {
+	pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
+	if *victoriaMetrics {
 		c := &victoriametrics.Config{
-			ConnectionURL:      url,
+			ConnectionURL:      pmmConfig.VictoriaMetricsURL,
 			TimeSeriesSelector: *tsSelector,
 		}
 
@@ -80,9 +91,9 @@ func main() {
 	}
 
 	var clickhouseSource *clickhouse.Source
-	if url := *clickHouseURL; url != "" {
+	if *clickHouse {
 		c := &clickhouse.Config{
-			ConnectionURL: url,
+			ConnectionURL: pmmConfig.ClickHouseURL,
 		}
 		if where != nil {
 			c.Where = *where
@@ -132,11 +143,11 @@ func main() {
 
 		var chunks []dump.ChunkMeta
 
-		if *victoriaMetricsURL != "" {
+		if *victoriaMetrics {
 			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
 		}
 
-		if *clickHouseURL != "" {
+		if *clickHouse {
 			chChunks, err := clickhouseSource.SplitIntoChunks()
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
@@ -149,10 +160,7 @@ func main() {
 			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
 		}
 
-		if *loadCheckerURL == "" {
-			log.Fatal().Msgf("load_checker_url should be provided")
-		}
-		lc := transferer.NewLoadChecker(ctx, httpC, *loadCheckerURL)
+		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL)
 
 		if err = t.Export(ctx, lc, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
