@@ -18,14 +18,19 @@ func main() {
 	var (
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
 
-		pmmURL             = cli.Flag("pmm_url", "PMM connection string").String()
+		// general options
+		pmmURL = cli.Flag("pmm_url", "PMM connection string").String()
+
 		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
 		clickHouseURL      = cli.Flag("clickhouse_url", "ClickHouse connection string").String()
-		victoriaMetrics    = cli.Flag("victoria_metrics", "Specify to export/import VictoriaMetrics data").Bool()
-		clickHouse         = cli.Flag("clickhouse", "Specify to export/import ClickHouse data").Bool()
+
+		dumpCore = cli.Flag("dump_core", "Specify to export/import core metrics").Bool()
+		dumpQAN  = cli.Flag("dump_qan", "Specify to export/import QAN metrics").Bool()
+
 		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
+		// export command options
 		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
 		outPath    = exportCmd.Flag("out", "Path to put out file").Short('o').String()
 		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
@@ -33,6 +38,7 @@ func main() {
 		end        = exportCmd.Flag("end", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
 
+		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 		dumpPath  = importCmd.Flag("dump_path", "Path to dump file").Short('d').Required().String()
 	)
@@ -64,7 +70,7 @@ func main() {
 		log.Fatal().Msg("Please, specify PMM URL")
 	}
 
-	if !(*clickHouse || *victoriaMetrics) {
+	if !(*dumpQAN || *dumpCore) {
 		log.Fatal().Msg("Please, specify at least one data source")
 	}
 
@@ -79,7 +85,7 @@ func main() {
 		log.Fatal().Err(err)
 	}
 
-	if *victoriaMetrics {
+	if *dumpCore {
 		c := &victoriametrics.Config{
 			ConnectionURL:      pmmConfig.VictoriaMetricsURL,
 			TimeSeriesSelector: *tsSelector,
@@ -91,7 +97,7 @@ func main() {
 	}
 
 	var clickhouseSource *clickhouse.Source
-	if *clickHouse {
+	if *dumpQAN {
 		c := &clickhouse.Config{
 			ConnectionURL: pmmConfig.ClickHouseURL,
 		}
@@ -143,11 +149,11 @@ func main() {
 
 		var chunks []dump.ChunkMeta
 
-		if *victoriaMetrics {
+		if *dumpCore {
 			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
 		}
 
-		if *clickHouse {
+		if *dumpQAN {
 			chChunks, err := clickhouseSource.SplitIntoChunks()
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
