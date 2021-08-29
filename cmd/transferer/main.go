@@ -27,7 +27,7 @@ func main() {
 		dumpCore = cli.Flag("dump_core", "Specify to export/import core metrics").Default("true").Bool()
 		dumpQAN  = cli.Flag("dump_qan", "Specify to export/import QAN metrics").Bool()
 
-		enableVerboseMode  = cli.Flag("verbose_mode", "Enable verbose mode").Short('v').Bool()
+		enableVerboseMode  = cli.Flag("verbose", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
 		// export command options

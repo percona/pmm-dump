@@ -27,7 +27,7 @@ Here are main commands/flags:
 | export | start | Start date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
 | export | end | End date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
 | import | dump_path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
-| any | verbose_mode, v | Enable verbose (debug) mode | - |
+| any | verbose, v | Enable verbose (debug) mode | - |
 | any | allow-insecure-certs | For self-signed certificates | - |
 
 ## About the dump file
