@@ -15,7 +15,7 @@ ADMIN_MONGO_PASSWORD?=admin
 
 DUMP_FILENAME=dump.tar.gz
 
-all: build up mongo-reg mongo-insert export-all re import
+all: build re mongo-reg mongo-insert export-all re import-all
 
 build:
 	go build -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
@@ -46,8 +46,7 @@ mongo-insert:
 export-all:
 	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
 		--victoria_metrics_url=$(PMM_VM_URL) \
-		--click_house_url=$(PMM_CH_URL) \
-		--load_checker_url=$(PMM_VM_URL)
+		--click_house_url=$(PMM_CH_URL)
 
 import-all:
 	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \

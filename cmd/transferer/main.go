@@ -22,7 +22,7 @@ func main() {
 		pmmURL = cli.Flag("pmm_url", "PMM connection string").String()
 
 		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
-		clickHouseURL      = cli.Flag("clickhouse_url", "ClickHouse connection string").String()
+		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
 
 		dumpCore = cli.Flag("dump_core", "Specify to export/import core metrics").Default("true").Bool()
 		dumpQAN  = cli.Flag("dump_qan", "Specify to export/import QAN metrics").Bool()
@@ -66,7 +66,7 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	if *pmmURL == "" {
+	if *pmmURL == "" && *victoriaMetricsURL == "" && *clickHouseURL == "" {
 		log.Fatal().Msg("Please, specify PMM URL")
 	}
 
