@@ -33,7 +33,8 @@ func main() {
 		dumpPath = cli.Flag("dump-path", "Path to dump file").Short('d').String()
 
 		// export command options
-		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
+		exportCmd = cli.Command("export", "Export PMM Server metrics to dump file."+
+			"By default only the 4 last hours are exported, but it can be configured via start-ts/end-ts options")
 		tsSelector = exportCmd.Flag("ts-selector", "Time series selector to pass to VM").String()
 		start      = exportCmd.Flag("start-ts", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		end        = exportCmd.Flag("end-ts", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
