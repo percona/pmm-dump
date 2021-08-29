@@ -28,17 +28,26 @@ func main() {
 		dumpQAN  = cli.Flag("dump-qan", "Specify to export/import QAN metrics").Bool()
 
 		enableVerboseMode  = cli.Flag("verbose", "Enable verbose mode").Short('v').Bool()
-		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
+		allowInsecureCerts = cli.Flag("allow-insecure-certs",
+			"Accept any certificate presented by the server and any host name in that certificate").Bool()
 
 		dumpPath = cli.Flag("dump-path", "Path to dump file").Short('d').String()
 
 		// export command options
 		exportCmd = cli.Command("export", "Export PMM Server metrics to dump file."+
 			"By default only the 4 last hours are exported, but it can be configured via start-ts/end-ts options")
+
+		start = exportCmd.Flag("start-ts",
+			"Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
+		end = exportCmd.Flag("end-ts",
+			"End date-time to filter exported metrics, ex. "+time.RFC3339).String()
+
 		tsSelector = exportCmd.Flag("ts-selector", "Time series selector to pass to VM").String()
-		start      = exportCmd.Flag("start-ts", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
-		end        = exportCmd.Flag("end-ts", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
+
+		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
+			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
+		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("1000").Int()
 
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
@@ -151,11 +160,11 @@ func main() {
 		var chunks []dump.ChunkMeta
 
 		if *dumpCore {
-			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime)...)
+			chunks = append(chunks, victoriametrics.SplitTimeRangeIntoChunks(startTime, endTime, *chunkTimeRange)...)
 		}
 
 		if *dumpQAN {
-			chChunks, err := clickhouseSource.SplitIntoChunks()
+			chChunks, err := clickhouseSource.SplitIntoChunks(*chunkRows)
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}
