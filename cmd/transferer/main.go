@@ -39,7 +39,11 @@ func main() {
 
 	ctx := context.Background()
 
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		NoColor:    true,
+		TimeFormat: time.RFC3339,
+	})
 
 	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
 	if err != nil {

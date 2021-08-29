@@ -20,6 +20,8 @@ const (
 	LoadStatusOK
 	LoadStatusWait
 	LoadStatusTerminate
+
+	MaxWaitStatusInSequence int = 10
 )
 
 func (s LoadStatus) String() string {
@@ -49,6 +51,8 @@ type LoadChecker struct {
 
 	m            sync.RWMutex
 	latestStatus LoadStatus
+
+	waitStatusCounter int
 }
 
 func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadChecker {
@@ -56,6 +60,12 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 		{
 			Key:          "cpu",
 			Query:        `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`,
+			MaxLoad:      50,
+			CriticalLoad: 70,
+		},
+		{
+			Key:          "memory",
+			Query:        `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`,
 			MaxLoad:      50,
 			CriticalLoad: 70,
 		},
@@ -109,6 +119,15 @@ func (c *LoadChecker) updateStatus() {
 		status = LoadStatusWait
 		log.Warn().Err(err).Msgf("Error while checking metrics load")
 	}
+	if status == LoadStatusWait {
+		c.waitStatusCounter++
+		if c.waitStatusCounter > MaxWaitStatusInSequence {
+			log.Debug().Msgf("Reached max %v status attempts. Sending %v status", LoadStatusWait, LoadStatusTerminate)
+			status = LoadStatusTerminate
+		}
+	} else {
+		c.waitStatusCounter = 0
+	}
 
 	c.setLatestStatus(status)
 	log.Debug().Msgf("Load status now is %v", status)
@@ -120,7 +139,7 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	for _, t := range c.thresholds {
 		value, err := c.getMetricCurrentValue(t)
 		if err != nil {
-			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: ", t.Key)
+			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: %w", t.Key, err)
 		}
 		switch {
 		case value >= t.CriticalLoad:
