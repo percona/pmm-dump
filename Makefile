@@ -44,7 +44,7 @@ mongo-insert:
 		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
-	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
+	./$(PMMT_BIN_NAME) export -v -d $(DUMP_FILENAME) \
 		--victoria_metrics_url=$(PMM_VM_URL) \
 		--click_house_url=$(PMM_CH_URL)
 

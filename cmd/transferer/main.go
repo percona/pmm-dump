@@ -30,9 +30,10 @@ func main() {
 		enableVerboseMode  = cli.Flag("verbose", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
+		dumpPath = cli.Flag("dump_path", "Path to dump file").Short('d').String()
+
 		// export command options
 		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
-		outPath    = exportCmd.Flag("out", "Path to put out file").Short('o').String()
 		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
 		start      = exportCmd.Flag("start-ts", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		end        = exportCmd.Flag("end-ts", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
@@ -40,7 +41,6 @@ func main() {
 
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
-		dumpPath  = importCmd.Flag("dump_path", "Path to dump file").Short('d').Required().String()
 	)
 
 	ctx := context.Background()
@@ -142,7 +142,7 @@ func main() {
 			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
-		t, err := transferer.New(*outPath, sources)
+		t, err := transferer.New(*dumpPath, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
@@ -172,6 +172,10 @@ func main() {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
+		if *dumpPath == "" {
+			log.Fatal().Msg("Please, specify path to dump file")
+		}
+
 		t, err := transferer.New(*dumpPath, sources)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
