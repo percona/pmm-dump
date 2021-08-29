@@ -15,7 +15,7 @@ type PMMConfig struct {
 func getPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
 	pmmURL, err := url.Parse(pmmLink)
 	if err != nil {
-		return PMMConfig{}, fmt.Errorf("failed to parse pmm_url: %s", err)
+		return PMMConfig{}, fmt.Errorf("failed to parse pmm-url: %s", err)
 	}
 	conf := PMMConfig{
 		PMMURL:             pmmLink,
