@@ -19,22 +19,22 @@ func main() {
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
 
 		// general options
-		pmmURL = cli.Flag("pmm_url", "PMM connection string").String()
+		pmmURL = cli.Flag("pmm-url", "PMM connection string").String()
 
-		victoriaMetricsURL = cli.Flag("victoria_metrics_url", "VictoriaMetrics connection string").String()
-		clickHouseURL      = cli.Flag("click_house_url", "ClickHouse connection string").String()
+		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
+		clickHouseURL      = cli.Flag("click-house-url", "ClickHouse connection string").String()
 
-		dumpCore = cli.Flag("dump_core", "Specify to export/import core metrics").Default("true").Bool()
-		dumpQAN  = cli.Flag("dump_qan", "Specify to export/import QAN metrics").Bool()
+		dumpCore = cli.Flag("dump-core", "Specify to export/import core metrics").Default("true").Bool()
+		dumpQAN  = cli.Flag("dump-qan", "Specify to export/import QAN metrics").Bool()
 
 		enableVerboseMode  = cli.Flag("verbose", "Enable verbose mode").Short('v').Bool()
 		allowInsecureCerts = cli.Flag("allow-insecure-certs", "Accept any certificate presented by the server and any host name in that certificate").Bool()
 
-		dumpPath = cli.Flag("dump_path", "Path to dump file").Short('d').String()
+		dumpPath = cli.Flag("dump-path", "Path to dump file").Short('d').String()
 
 		// export command options
 		exportCmd  = cli.Command("export", "Export PMM Server metrics to dump file")
-		tsSelector = exportCmd.Flag("ts_selector", "Time series selector to pass to VM").String()
+		tsSelector = exportCmd.Flag("ts-selector", "Time series selector to pass to VM").String()
 		start      = exportCmd.Flag("start-ts", "Start date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		end        = exportCmd.Flag("end-ts", "End date-time to filter exported metrics, ex. "+time.RFC3339).String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()

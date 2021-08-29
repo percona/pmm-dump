@@ -45,13 +45,13 @@ mongo-insert:
 
 export-all:
 	./$(PMMT_BIN_NAME) export -v -d $(DUMP_FILENAME) \
-		--victoria_metrics_url=$(PMM_VM_URL) \
-		--click_house_url=$(PMM_CH_URL)
+		--victoria-metrics-url=$(PMM_VM_URL) \
+		--click-house-url=$(PMM_CH_URL)
 
 import-all:
 	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \
-		--victoria_metrics_url=$(PMM_VM_URL) \
-		--click_house_url=$(PMM_CH_URL)
+		--victoria-metrics-url=$(PMM_VM_URL) \
+		--click-house-url=$(PMM_CH_URL)
 
 clean:
 	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)

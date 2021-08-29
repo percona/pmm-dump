@@ -18,13 +18,13 @@ Here are main commands/flags:
 
 | Command | Flag | Description | Example |
 |---------|------|-------------|---------|
-| export | victoria_metrics_url | URL of Victoria Metrics | `http://admin:admin@localhost:8282/prometheus` |
-| export | click_house_url | URL of Click House | TBD |
-| export | ts_selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
+| export | victoria-metrics-url | URL of Victoria Metrics | `http://admin:admin@localhost:8282/prometheus` |
+| export | click-house-url | URL of Click House | TBD |
+| export | ts-selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
 | export | where | WHERE statement (for CH only) | TBD |
 | export | start-ts | Start date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
 | export | end-ts | End date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
-| any | dump_path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
+| any | dump-path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
 | any | verbose, v | Enable verbose (debug) mode | - |
 | any | allow-insecure-certs | For self-signed certificates | - |
 
@@ -65,8 +65,8 @@ In this example:
 Running export with filter:
 ```
 ./pmm-transferer export \
-    --victoria_metrics_url="http://admin:admin@localhost:8282/prometheus" \
-    --ts_selector='{__name__=~".*mongo.*"}'
+    --victoria-metrics-url="http://admin:admin@localhost:8282/prometheus" \
+    --ts-selector='{__name__=~".*mongo.*"}'
 ```
 
 You should see the following (**outdated**):
@@ -87,8 +87,8 @@ You should see the following (**outdated**):
 Running import:
 ```
 ./pmm-transferer import \
-    --dump_path pmm-dump-1624451309.tar.gz \
-    --victoria_metrics_url="http://admin:admin@localhost:8282/prometheus"
+    --dump-path pmm-dump-1624451309.tar.gz \
+    --victoria-metrics-url="http://admin:admin@localhost:8282/prometheus"
 ```
 
 You should see the following (**outdated**):
