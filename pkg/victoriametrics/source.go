@@ -150,9 +150,7 @@ func (s Source) FinalizeWrites() error {
 	return nil
 }
 
-func SplitTimeRangeIntoChunks(start, end time.Time) (chunks []dump.ChunkMeta) {
-	const delta = 15 * time.Minute
-
+func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) (chunks []dump.ChunkMeta) {
 	chunkStart := start
 	for {
 		s, e := chunkStart, chunkStart.Add(delta)
