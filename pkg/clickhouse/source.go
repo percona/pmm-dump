@@ -22,10 +22,6 @@ type Source struct {
 	stmt *sql.Stmt
 }
 
-const (
-	chunkRowsLen = 1000
-)
-
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
@@ -196,10 +192,13 @@ func (s Source) ColumnTypes() []*sql.ColumnType {
 	return s.ct
 }
 
-func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
+func (s Source) SplitIntoChunks(chunkRowsLen int) ([]dump.ChunkMeta, error) {
+	if chunkRowsLen <= 0 {
+		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
+	}
 	rowsCount, err := s.Count(s.cfg.Where)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to get amount of ClickHouse records: %s", err))
+		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
 	}
 	chunksLen := rowsCount/chunkRowsLen + 1
 	chunks := make([]dump.ChunkMeta, 0, chunksLen)

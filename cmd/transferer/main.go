@@ -47,6 +47,7 @@ func main() {
 
 		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
 			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
+		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("1000").Int()
 
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
@@ -163,7 +164,7 @@ func main() {
 		}
 
 		if *dumpQAN {
-			chChunks, err := clickhouseSource.SplitIntoChunks()
+			chChunks, err := clickhouseSource.SplitIntoChunks(*chunkRows)
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}
