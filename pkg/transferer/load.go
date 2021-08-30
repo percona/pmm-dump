@@ -139,7 +139,7 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	for _, t := range c.thresholds {
 		value, err := c.getMetricCurrentValue(t)
 		if err != nil {
-			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: ", t.Key)
+			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: %w", t.Key, err)
 		}
 		switch {
 		case value >= t.CriticalLoad:

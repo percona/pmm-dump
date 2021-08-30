@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"io"
 	"pmm-transferer/pkg/clickhouse/tsv"
 	"pmm-transferer/pkg/dump"
@@ -21,10 +22,6 @@ type Source struct {
 	ct   []*sql.ColumnType
 	stmt *sql.Stmt
 }
-
-const (
-	chunkRowsLen = 1000
-)
 
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
@@ -196,23 +193,36 @@ func (s Source) ColumnTypes() []*sql.ColumnType {
 	return s.ct
 }
 
-func (s Source) SplitIntoChunks() ([]dump.ChunkMeta, error) {
-	rowsCount, err := s.Count(s.cfg.Where)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to get amount of ClickHouse records: %s", err))
+func (s Source) SplitIntoChunks(chunkRowsLen int) ([]dump.ChunkMeta, error) {
+	if chunkRowsLen <= 0 {
+		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
-	chunksLen := rowsCount/chunkRowsLen + 1
+
+	totalRows, err := s.Count(s.cfg.Where)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
+	}
+
+	rowsCounter := totalRows
+	chunksLen := rowsCounter/chunkRowsLen + 1
 	chunks := make([]dump.ChunkMeta, 0, chunksLen)
 	i := 0
-	for rowsCount > 0 {
+	for rowsCounter > 0 {
 		newChunk := dump.ChunkMeta{
 			Source:  dump.ClickHouse,
 			RowsLen: chunkRowsLen,
 			Index:   i,
 		}
 		chunks = append(chunks, newChunk)
-		rowsCount -= chunkRowsLen
+		rowsCounter -= chunkRowsLen
 		i++
 	}
+
+	log.Debug().
+		Int("rows", totalRows).
+		Int("chunk_size", chunkRowsLen).
+		Int("chunks", len(chunks)).
+		Msg("Split Click House rows into chunks")
+
 	return chunks, nil
 }
