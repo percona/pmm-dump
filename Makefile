@@ -47,20 +47,20 @@ mongo-insert:
 		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
-	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
-		--pmm_url=$(PMM_URL) --clickhouse --victoria_metrics
+	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
 export-vm:
-	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
-		--pmm_url=$(PMM_URL) --victoria_metrics
+	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core
 
 export-ch:
-	./$(PMMT_BIN_NAME) export -v -o $(DUMP_FILENAME) \
-		--pmm_url=$(PMM_URL) --clickhouse
+	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-qan
 
 import-all:
-	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \
-		--pmm_url=$(PMM_URL) --clickhouse --victoria_metrics
+	./$(PMMT_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
 clean:
 	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
