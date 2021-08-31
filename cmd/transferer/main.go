@@ -14,6 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	GitBranch string
+	GitCommit string
+)
+
 func main() {
 	var (
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
@@ -175,10 +180,11 @@ func main() {
 			log.Fatal().Msgf("pmm_url should be provided")
 		}
 
-		meta, err := dump.NewMeta(*pmmURL, httpC)
+		ver, err := getPMMVersion(*pmmURL, httpC)
 		if err != nil {
-			log.Fatal().Msgf("Failed to generate dump meta: %s", err)
+			log.Fatal().Msgf("Failed to retrieve PMM version: %s", err)
 		}
+		meta := dump.NewMeta(GitBranch, GitCommit, ver, dump.NewMetaSources(*dumpQAN, *dumpCore))
 
 		pool, err := dump.NewChunkPool(chunks)
 		if err != nil {

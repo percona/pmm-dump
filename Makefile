@@ -16,12 +16,13 @@ ADMIN_MONGO_PASSWORD?=admin
 
 DUMP_FILENAME=dump.tar.gz
 
-VERSION:=$(shell git rev-parse --short HEAD)
+BRANCH:=$(shell git branch --show-current)
+COMMIT:=$(shell git rev-parse --short HEAD)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
 build:
-	go build -ldflags "-X 'pmm-transferer/pkg/dump.version=$(VERSION)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
+	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
