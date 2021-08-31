@@ -18,7 +18,7 @@ DUMP_FILENAME=dump.tar.gz
 
 VERSION:=$(shell git rev-parse --short HEAD)
 
-all: build up mongo-reg mongo-insert export-all export-ch export-vm re import-all
+all: build re mongo-reg mongo-insert export-all re import-all
 
 build:
 	go build -ldflags "-X 'pmm-transferer/pkg/dump.version=$(VERSION)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
