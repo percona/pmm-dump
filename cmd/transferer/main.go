@@ -49,6 +49,9 @@ func main() {
 			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
 		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("1000").Int()
 
+		maxLoad      = exportCmd.Flag("max-load", "Max load threshold values").String()
+		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values").String()
+
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 	)
@@ -176,7 +179,10 @@ func main() {
 			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
 		}
 
-		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL)
+		lc, err := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL, *maxLoad, *criticalLoad)
+		if err != nil {
+			log.Fatal().Msgf("Failed to set threshold values: %v", err)
+		}
 
 		if err = t.Export(ctx, lc, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)

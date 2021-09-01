@@ -9,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -55,20 +56,10 @@ type LoadChecker struct {
 	waitStatusCounter int
 }
 
-func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadChecker {
-	thresholds := []Threshold{
-		{
-			Key:          "cpu",
-			Query:        `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`,
-			MaxLoad:      50,
-			CriticalLoad: 70,
-		},
-		{
-			Key:          "memory",
-			Query:        `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`,
-			MaxLoad:      50,
-			CriticalLoad: 70,
-		},
+func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url, maxLoad, criticalLoad string) (*LoadChecker, error) {
+	thresholds, err := parseThresholds(maxLoad, criticalLoad)
+	if err != nil {
+		return nil, err
 	}
 
 	lc := &LoadChecker{
@@ -81,7 +72,7 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string) *LoadCh
 	lc.updateStatus()
 
 	lc.runStatusUpdate(ctx)
-	return lc
+	return lc, nil
 }
 
 func (c *LoadChecker) GetLatestStatus() LoadStatus {
@@ -231,4 +222,105 @@ func (r *metricResponse) getValidValue() (float64, error) {
 		return 0, fmt.Errorf("parsing value error: %s", err.Error())
 	}
 	return val, nil
+}
+
+func parseThresholds(maxLoad, criticalLoad string) ([]Threshold, error) {
+	maxLoadMap, err := parseThreshold(maxLoad)
+	if err != nil {
+		return nil, err
+	}
+	criticalLoadMap, err := parseThreshold(criticalLoad)
+	if err != nil {
+		return nil, err
+	}
+	var result []Threshold
+	for k, criticalLoadValue := range criticalLoadMap {
+		maxLoadVal, _ := maxLoadMap[k]
+		t, err := createThreshold(k, maxLoadVal, criticalLoadValue)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, t)
+	}
+	for k, maxLoadValue := range maxLoadMap {
+		criticalLoadVal, ok := criticalLoadMap[k]
+		if ok {
+			continue
+		}
+		t, err := createThreshold(k, maxLoadValue, criticalLoadVal)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, t)
+	}
+	return result, nil
+}
+
+func parseThreshold(thresholdArr string) (th map[string]float64, err error) {
+	th = make(map[string]float64)
+	for _, threshold := range strings.Split(thresholdArr, ",") {
+		if threshold == "" {
+			continue
+		}
+		key, val, err := splitThreshold(threshold)
+		if err != nil {
+			return nil, err
+		}
+		th[key] = val
+	}
+	return
+}
+
+func splitThreshold(th string) (key string, val float64, err error) {
+	var sep string
+	if strings.Contains(th, ":") {
+		if strings.Contains(th, "=") {
+			return "", 0, errors.New("invalid threshold syntax: ':' and '=' separators in one threshold statement")
+		}
+		sep = ":"
+	} else if strings.Contains(th, "=") {
+		sep = "="
+	}
+	if sep == "" {
+		return th, 0, nil
+	}
+	keyVal := strings.Split(th, sep)
+	if len(keyVal) != 2 {
+		return "", 0, fmt.Errorf("invalid threshold syntax: multiple '%s' separators in one threshold statement", sep)
+	}
+	loadValue, err := strconv.ParseFloat(keyVal[1], 64)
+	if err != nil {
+		return "", 0, err
+	}
+	return keyVal[0], loadValue, nil
+}
+
+func createThreshold(thresholdKey string, maxLoad, criticalLoad float64) (Threshold, error) {
+	thresholdKey = strings.ToLower(thresholdKey)
+	var query string
+	var defaultMaxLoad, defaultCriticalLoad float64
+	switch thresholdKey {
+	case "memory":
+		query = `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`
+		defaultMaxLoad = 50
+		defaultCriticalLoad = 70
+	case "cpu":
+		query = `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`
+		defaultMaxLoad = 50
+		defaultCriticalLoad = 70
+	default:
+		return Threshold{}, fmt.Errorf("unknown threshold key: %s", thresholdKey)
+	}
+	if maxLoad == 0 {
+		maxLoad = defaultMaxLoad
+	}
+	if criticalLoad == 0 {
+		criticalLoad = defaultCriticalLoad
+	}
+	return Threshold{
+		Key:          thresholdKey,
+		Query:        query,
+		MaxLoad:      maxLoad,
+		CriticalLoad: criticalLoad,
+	}, nil
 }
