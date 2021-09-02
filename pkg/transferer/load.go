@@ -66,7 +66,10 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string, thresho
 
 	lc.updateStatus()
 
-	lc.runStatusUpdate(ctx)
+	if len(thresholds) != 0 { // nothing to check so no status updates
+		lc.runStatusUpdate(ctx)
+	}
+
 	return lc
 }
 
