@@ -284,6 +284,10 @@ func ParseThresholdList(max, critical string) ([]Threshold, error) {
 }
 
 func parseThresholdValues(v string) (map[string]float64, error) {
+	if v = strings.TrimSpace(v); v == "" {
+		return nil, nil
+	}
+
 	res := make(map[string]float64)
 
 	pairs := strings.Split(v, ",")
@@ -298,12 +302,12 @@ func parseThresholdValues(v string) (map[string]float64, error) {
 			return nil, errors.New("invalid syntax: must be K=V or K:V")
 		}
 
-		k := values[0]
+		k := strings.TrimSpace(values[0])
 		if !IsValidThresholdKey(k) {
 			return nil, fmt.Errorf("undefined key: %s", k)
 		}
 
-		v, err := strconv.ParseFloat(values[1], 64)
+		v, err := strconv.ParseFloat(strings.TrimSpace(values[1]), 64)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't parse int value: %w")
 		}
