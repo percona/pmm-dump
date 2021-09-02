@@ -312,7 +312,7 @@ func parseThresholdValues(v string) (map[string]float64, error) {
 
 		v, err := strconv.ParseFloat(strings.TrimSpace(values[1]), 64)
 		if err != nil {
-			return nil, errors.Wrap(err, "can't parse int value: %w")
+			return nil, errors.Wrap(err, "can't parse number: %w")
 		}
 
 		res[k] = v
