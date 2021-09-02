@@ -2,7 +2,10 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	"pmm-transferer/pkg/dump"
 	"runtime"
 	"strconv"
 	"strings"
@@ -41,4 +44,42 @@ func getGoroutineID() int {
 		panic(fmt.Sprintf("cannot get goroutine id: %v", err))
 	}
 	return id
+}
+
+func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
+	type updatesResp struct {
+		Installed struct {
+			FullVersion string `json:"full_version"`
+		} `json:"installed"`
+	}
+
+	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/Updates/Check", pmmURL), nil)
+	if err != nil {
+		return "", err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return "", fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	resp := new(updatesResp)
+	if err = json.Unmarshal(body, resp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+	return resp.Installed.FullVersion, nil
+}
+
+func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
+	pmmVer, err := getPMMVersion(pmmURL, c)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+
+	meta := &dump.Meta{
+		Version: dump.TransfererVersion{
+			GitBranch: GitBranch,
+			GitCommit: GitCommit,
+		},
+		PMMServerVersion: pmmVer,
+	}
+
+	return meta, nil
 }

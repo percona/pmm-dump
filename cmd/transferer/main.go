@@ -14,6 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	GitBranch string
+	GitCommit string
+)
+
 func main() {
 	var (
 		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
@@ -76,7 +81,7 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	if *pmmURL == "" && *victoriaMetricsURL == "" && *clickHouseURL == "" {
+	if *pmmURL == "" {
 		log.Fatal().Msg("Please, specify PMM URL")
 	}
 
@@ -171,6 +176,11 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
+		meta, err := composeMeta(*pmmURL, httpC)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to compose meta")
+		}
+
 		pool, err := dump.NewChunkPool(chunks)
 		if err != nil {
 			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
@@ -178,7 +188,7 @@ func main() {
 
 		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL)
 
-		if err = t.Export(ctx, lc, pool); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -191,7 +201,12 @@ func main() {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
 
-		if err = t.Import(); err != nil {
+		meta, err := composeMeta(*pmmURL, httpC)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to compose meta")
+		}
+
+		if err = t.Import(*meta); err != nil {
 			log.Fatal().Msgf("Failed to import: %v", err)
 		}
 	default:
