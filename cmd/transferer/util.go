@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	"pmm-transferer/pkg/dump"
 	"runtime"
 	"strconv"
 	"strings"
@@ -63,4 +65,21 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 		return "", fmt.Errorf("failed to unmarshal response: %s", err)
 	}
 	return resp.Installed.FullVersion, nil
+}
+
+func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
+	pmmVer, err := getPMMVersion(pmmURL, c)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+
+	meta := &dump.Meta{
+		Version: dump.TransfererVersion{
+			GitBranch: GitBranch,
+			GitCommit: GitCommit,
+		},
+		PMMServerVersion: pmmVer,
+	}
+
+	return meta, nil
 }

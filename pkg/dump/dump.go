@@ -16,12 +16,6 @@ const (
 type Meta struct {
 	Version          TransfererVersion `json:"version"`
 	PMMServerVersion string            `json:"pmm-server-version"`
-	ExportArgs       ExportArgs        `json:"export-args"`
-}
-
-type ExportArgs struct {
-	DumpCore bool `json:"dump-core"`
-	DumpQAN  bool `json:"dump-qan"`
 }
 
 type TransfererVersion struct {

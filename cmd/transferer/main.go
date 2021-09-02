@@ -180,21 +180,9 @@ func main() {
 			log.Fatal().Msgf("pmm_url should be provided")
 		}
 
-		pmmVer, err := getPMMVersion(*pmmURL, httpC)
+		meta, err := composeMeta(*pmmURL, httpC)
 		if err != nil {
-			log.Fatal().Msgf("Failed to retrieve PMM version: %s", err)
-		}
-
-		meta := dump.Meta{
-			Version: dump.TransfererVersion{
-				GitBranch: GitBranch,
-				GitCommit: GitCommit,
-			},
-			PMMServerVersion: pmmVer,
-			ExportArgs: dump.ExportArgs{
-				DumpCore: *dumpCore,
-				DumpQAN:  *dumpQAN,
-			},
+			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
 
 		pool, err := dump.NewChunkPool(chunks)
@@ -204,7 +192,7 @@ func main() {
 
 		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL)
 
-		if err = t.Export(ctx, lc, meta, pool); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -217,7 +205,12 @@ func main() {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
 
-		if err = t.Import(); err != nil {
+		meta, err := composeMeta(*pmmURL, httpC)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to compose meta")
+		}
+
+		if err = t.Import(*meta); err != nil {
 			log.Fatal().Msgf("Failed to import: %v", err)
 		}
 	default:
