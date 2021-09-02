@@ -27,6 +27,8 @@ Here are main commands/flags:
 | any | dump-qan | Process QAN metrics | - |
 | export | start-ts | Start date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
 | export | end-ts | End date-time to limit timeframe | `2006-01-02T15:04:05Z07:00` |
+| export | max-load | Max value of a metric to postpone export | `CPU=50,RAM=50` |
+| export | critical-load | Max value of a metric to stop export | `CPU=70,RAM=70` |
 | any | dump-path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
 | any | verbose, v | Enable verbose (debug) mode | - |
 | any | allow-insecure-certs | For self-signed certificates | - |
@@ -37,8 +39,6 @@ For filtering you could use the following commands (will be improved in the futu
 |---------|------|-------------|---------|
 | export | ts-selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
 | export | where | WHERE statement (for CH only) | TBD |
-| export | max-load | Max value of a metric to postpone export | `CPU=50,RAM=50` |
-| export | critical-load | Max value of a metric to stop export | `CPU=70,RAM=70` |
 
 In some cases you would need to override default configuration for VM/CH processing:
 
