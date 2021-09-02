@@ -81,7 +81,7 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	if *pmmURL == "" && *victoriaMetricsURL == "" && *clickHouseURL == "" {
+	if *pmmURL == "" {
 		log.Fatal().Msg("Please, specify PMM URL")
 	}
 
@@ -174,10 +174,6 @@ func main() {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}
 			chunks = append(chunks, chChunks...)
-		}
-
-		if *pmmURL == "" {
-			log.Fatal().Msgf("pmm_url should be provided")
 		}
 
 		meta, err := composeMeta(*pmmURL, httpC)
