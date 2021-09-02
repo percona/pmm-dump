@@ -56,12 +56,7 @@ type LoadChecker struct {
 	waitStatusCounter int
 }
 
-func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url, maxLoad, criticalLoad string) (*LoadChecker, error) {
-	thresholds, err := parseThresholds(maxLoad, criticalLoad)
-	if err != nil {
-		return nil, err
-	}
-
+func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
@@ -72,7 +67,7 @@ func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url, maxLoad, criti
 	lc.updateStatus()
 
 	lc.runStatusUpdate(ctx)
-	return lc, nil
+	return lc
 }
 
 func (c *LoadChecker) GetLatestStatus() LoadStatus {
@@ -183,8 +178,39 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	return value, nil
 }
 
+type ThresholdKey = string
+
+const (
+	ThresholdCPU ThresholdKey = "CPU"
+	ThresholdRAM ThresholdKey = "RAM"
+)
+
+func AllThresholdKeys() []ThresholdKey {
+	return []ThresholdKey{ThresholdCPU, ThresholdRAM}
+}
+
+func IsValidThresholdKey(v string) bool {
+	for _, k := range AllThresholdKeys() {
+		if k == v {
+			return true
+		}
+	}
+	return false
+}
+
+func getQueryByThresholdKey(k ThresholdKey) string {
+	switch k {
+	case ThresholdCPU:
+		return `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`
+	case ThresholdRAM:
+		return `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`
+	default:
+		panic("BUG: undefined threshold key")
+	}
+}
+
 type Threshold struct {
-	Key          string
+	Key          ThresholdKey
 	Query        string
 	MaxLoad      float64
 	CriticalLoad float64
@@ -224,103 +250,65 @@ func (r *metricResponse) getValidValue() (float64, error) {
 	return val, nil
 }
 
-func parseThresholds(maxLoad, criticalLoad string) ([]Threshold, error) {
-	maxLoadMap, err := parseThreshold(maxLoad)
+func ParseThresholdList(max, critical string) ([]Threshold, error) {
+	maxV, err := parseThresholdValues(max)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid max load list")
 	}
-	criticalLoadMap, err := parseThreshold(criticalLoad)
+
+	criticalV, err := parseThresholdValues(critical)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "invalid critical load list")
 	}
-	var result []Threshold
-	for k, criticalLoadValue := range criticalLoadMap {
-		maxLoadVal, _ := maxLoadMap[k]
-		t, err := createThreshold(k, maxLoadVal, criticalLoadValue)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, t)
-	}
-	for k, maxLoadValue := range maxLoadMap {
-		criticalLoadVal, ok := criticalLoadMap[k]
-		if ok {
+
+	var thresholds []Threshold
+
+	for _, k := range AllThresholdKeys() {
+		maxLoad, maxOk := maxV[k]
+		criticalLoad, criticalOk := criticalV[k]
+
+		if !maxOk && !criticalOk {
 			continue
 		}
-		t, err := createThreshold(k, maxLoadValue, criticalLoadVal)
+
+		thresholds = append(thresholds, Threshold{
+			Key:          k,
+			Query:        getQueryByThresholdKey(k),
+			MaxLoad:      maxLoad,
+			CriticalLoad: criticalLoad,
+		})
+	}
+
+	return thresholds, nil
+}
+
+func parseThresholdValues(v string) (map[string]float64, error) {
+	res := make(map[string]float64)
+
+	pairs := strings.Split(v, ",")
+	for _, p := range pairs {
+		separator := "="
+		if strings.Contains(p, ":") {
+			separator = ":"
+		}
+
+		values := strings.Split(p, separator)
+		if len(values) != 2 {
+			return nil, errors.New("invalid syntax: must be K=V or K:V")
+		}
+
+		k := values[0]
+		if !IsValidThresholdKey(k) {
+			return nil, fmt.Errorf("undefined key: %s", k)
+		}
+
+		v, err := strconv.ParseFloat(values[1], 64)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "can't parse int value: %w")
 		}
-		result = append(result, t)
-	}
-	return result, nil
-}
 
-func parseThreshold(thresholdArr string) (th map[string]float64, err error) {
-	th = make(map[string]float64)
-	for _, threshold := range strings.Split(thresholdArr, ",") {
-		if threshold == "" {
-			continue
-		}
-		key, val, err := splitThreshold(threshold)
-		if err != nil {
-			return nil, err
-		}
-		th[key] = val
+		res[k] = v
 	}
-	return
-}
 
-func splitThreshold(th string) (key string, val float64, err error) {
-	var sep string
-	if strings.Contains(th, ":") {
-		if strings.Contains(th, "=") {
-			return "", 0, errors.New("invalid threshold syntax: ':' and '=' separators in one threshold statement")
-		}
-		sep = ":"
-	} else if strings.Contains(th, "=") {
-		sep = "="
-	}
-	if sep == "" {
-		return th, 0, nil
-	}
-	keyVal := strings.Split(th, sep)
-	if len(keyVal) != 2 {
-		return "", 0, fmt.Errorf("invalid threshold syntax: multiple '%s' separators in one threshold statement", sep)
-	}
-	loadValue, err := strconv.ParseFloat(keyVal[1], 64)
-	if err != nil {
-		return "", 0, err
-	}
-	return keyVal[0], loadValue, nil
-}
-
-func createThreshold(thresholdKey string, maxLoad, criticalLoad float64) (Threshold, error) {
-	thresholdKey = strings.ToLower(thresholdKey)
-	var query string
-	var defaultMaxLoad, defaultCriticalLoad float64
-	switch thresholdKey {
-	case "memory":
-		query = `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`
-		defaultMaxLoad = 50
-		defaultCriticalLoad = 70
-	case "cpu":
-		query = `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`
-		defaultMaxLoad = 50
-		defaultCriticalLoad = 70
-	default:
-		return Threshold{}, fmt.Errorf("unknown threshold key: %s", thresholdKey)
-	}
-	if maxLoad == 0 {
-		maxLoad = defaultMaxLoad
-	}
-	if criticalLoad == 0 {
-		criticalLoad = defaultCriticalLoad
-	}
-	return Threshold{
-		Key:          thresholdKey,
-		Query:        query,
-		MaxLoad:      maxLoad,
-		CriticalLoad: criticalLoad,
-	}, nil
+	return res, nil
 }
