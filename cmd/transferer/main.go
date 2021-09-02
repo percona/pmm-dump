@@ -180,11 +180,22 @@ func main() {
 			log.Fatal().Msgf("pmm_url should be provided")
 		}
 
-		ver, err := getPMMVersion(*pmmURL, httpC)
+		pmmVer, err := getPMMVersion(*pmmURL, httpC)
 		if err != nil {
 			log.Fatal().Msgf("Failed to retrieve PMM version: %s", err)
 		}
-		meta := dump.NewMeta(GitBranch, GitCommit, ver, dump.NewMetaSources(*dumpQAN, *dumpCore))
+
+		meta := dump.Meta{
+			Version: dump.TransfererVersion{
+				GitBranch: GitBranch,
+				GitCommit: GitCommit,
+			},
+			PMMServerVersion: pmmVer,
+			ExportArgs: dump.ExportArgs{
+				DumpCore: *dumpCore,
+				DumpQAN:  *dumpQAN,
+			},
+		}
 
 		pool, err := dump.NewChunkPool(chunks)
 		if err != nil {
