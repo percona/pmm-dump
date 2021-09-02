@@ -123,6 +123,7 @@ func (c *LoadChecker) updateStatus() {
 		c.waitStatusCounter++
 		if c.waitStatusCounter > MaxWaitStatusInSequence {
 			log.Debug().Msgf("Reached max %v status attempts. Sending %v status", LoadStatusWait, LoadStatusTerminate)
+			log.Warn().Msgf("Too many %v in a sequence. Aborting", LoadStatusWait)
 			status = LoadStatusTerminate
 		}
 	} else {
