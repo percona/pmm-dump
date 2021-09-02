@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/dump"
@@ -53,6 +54,11 @@ func main() {
 		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
 			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
 		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("1000").Int()
+
+		maxLoad = exportCmd.Flag("max-load", "Max load threshold values").
+			Default(fmt.Sprintf("%v=50,%v=50", transferer.ThresholdCPU, transferer.ThresholdRAM)).String()
+		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values").
+				Default(fmt.Sprintf("%v=70,%v=70", transferer.ThresholdCPU, transferer.ThresholdRAM)).String()
 
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
@@ -186,7 +192,12 @@ func main() {
 			log.Fatal().Msgf("Failed to generate chunk pool: %v", err)
 		}
 
-		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL)
+		thresholds, err := transferer.ParseThresholdList(*maxLoad, *criticalLoad)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to parse max/critical load args")
+		}
+
+		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL, thresholds)
 
 		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)

@@ -37,6 +37,8 @@ For filtering you could use the following commands (will be improved in the futu
 |---------|------|-------------|---------|
 | export | ts-selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
 | export | where | WHERE statement (for CH only) | TBD |
+| export | max-load | Max value of a metric to postpone export | `CPU=50,RAM=50` |
+| export | critical-load | Max value of a metric to stop export | `CPU=70,RAM=70` |
 
 In some cases you would need to override default configuration for VM/CH processing:
 
