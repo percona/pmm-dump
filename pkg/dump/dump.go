@@ -9,7 +9,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	MetaFilename = "meta.json"
+)
+
 type Meta struct {
+	Version          TransfererVersion `json:"version"`
+	PMMServerVersion string            `json:"pmm-server-version"`
+}
+
+type TransfererVersion struct {
+	GitBranch string `json:"git-branch"`
+	GitCommit string `json:"git-commit"`
 }
 
 type ChunkMeta struct {

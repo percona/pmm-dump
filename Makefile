@@ -3,6 +3,7 @@
 PMMT_BIN_NAME?=pmm-transferer
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
+PMM_URL?="http://admin:admin@localhost:8282"
 PMM_VM_URL?="http://admin:admin@localhost:8282/prometheus"
 PMM_CH_URL?="http://localhost:9000?database=pmm"
 
@@ -15,10 +16,13 @@ ADMIN_MONGO_PASSWORD?=admin
 
 DUMP_FILENAME=dump.tar.gz
 
+BRANCH:=$(shell git branch --show-current)
+COMMIT:=$(shell git rev-parse --short HEAD)
+
 all: build re mongo-reg mongo-insert export-all re import-all
 
 build:
-	go build -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
+	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
@@ -44,14 +48,20 @@ mongo-insert:
 		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
-	./$(PMMT_BIN_NAME) export -v -d $(DUMP_FILENAME) \
-		--victoria-metrics-url=$(PMM_VM_URL) \
-		--click-house-url=$(PMM_CH_URL)
+	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+
+export-vm:
+	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core
+
+export-ch:
+	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-qan
 
 import-all:
-	./$(PMMT_BIN_NAME) import -v -d $(DUMP_FILENAME) \
-		--victoria-metrics-url=$(PMM_VM_URL) \
-		--click-house-url=$(PMM_CH_URL)
+	./$(PMMT_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
 clean:
 	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
