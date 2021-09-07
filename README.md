@@ -37,8 +37,24 @@ For filtering you could use the following commands (will be improved in the futu
 
 | Command | Flag | Description | Example |
 |---------|------|-------------|---------|
-| export | ts-selector | Timeseries selector (for VM only) | `{__name__=~".*mongo.*"}` |
-| export | where | WHERE statement (for CH only) | TBD |
+| export | ts-selector | Timeseries selector (for VM only) | `{service_name="mongo"}` |
+| export | where | WHERE statement (for CH only) | `service_name='mongo'` |
+
+You could filter by instance using service name or id. For example, we have registered the following mongodb instance:
+
+```
+> pmm-admin add mongodb --username=pmm_mongodb --password=password mongo mongodb:27017
+MongoDB Service added.
+Service ID  : /service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11
+Service name: mongo
+```
+
+So the value of `ts-selector` would be: `{service_name="mongo"}` or `{service_id="/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11"}`.
+The same for `where` QAN filter: `service_name='mongo'` or `service_id='/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11'`.
+
+```
+> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --ts-selector=`{service_name="mongo"}` --dump-qan --where=`service_name='mongo'`
+```
 
 In some cases you would need to override default configuration for VM/CH processing:
 
