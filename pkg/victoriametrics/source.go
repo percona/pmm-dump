@@ -1,6 +1,8 @@
 package victoriametrics
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -73,7 +75,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	body := copyBytesArr(resp.Body())
 
 	if status := resp.StatusCode(); status != fasthttp.StatusOK {
-		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
+		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, gzipDecode(body))
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
@@ -85,6 +87,18 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	}
 
 	return chunk, nil
+}
+
+func gzipDecode(data []byte) string {
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return string(data)
+	}
+	result, err := io.ReadAll(r)
+	if err != nil {
+		return string(data)
+	}
+	return string(result)
 }
 
 func copyBytesArr(a []byte) []byte {
@@ -121,7 +135,7 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	}
 
 	if s := resp.StatusCode(); s != fasthttp.StatusOK && s != fasthttp.StatusNoContent {
-		return errors.Errorf("non-OK response from victoria metrics: %d: %s", s, string(resp.Body()))
+		return errors.Errorf("non-OK response from victoria metrics: %d: %s", s, gzipDecode(resp.Body()))
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
