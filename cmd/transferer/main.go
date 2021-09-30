@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/valyala/fasthttp"
 	"os"
@@ -63,6 +64,10 @@ func main() {
 
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
+
+		// show meta command options
+		showMetaCmd  = cli.Command("show-meta", "Shows metadata from the specified dump file")
+		prettifyMeta = showMetaCmd.Flag("prettify", "Print meta in human readable format").Default("true").Bool()
 	)
 
 	ctx := context.Background()
@@ -222,6 +227,29 @@ func main() {
 
 		if err = t.Import(*meta); err != nil {
 			log.Fatal().Msgf("Failed to import: %v", err)
+		}
+	case showMetaCmd.FullCommand():
+		if *dumpPath == "" {
+			log.Fatal().Msg("Please, specify path to dump file")
+		}
+
+		meta, err := transferer.ReadMetaFromDump(*dumpPath)
+		if err != nil {
+			log.Fatal().Msgf("Can't show meta: %v", err)
+		}
+
+		if *prettifyMeta {
+			fmt.Printf("Build: %v\n", meta.Version.GitCommit)
+			fmt.Printf("PMM Version: %v\n", meta.PMMServerVersion)
+			fmt.Printf("Max Chunk Size: %v (%v)\n", ByteCountDecimal(meta.MaxChunkSize),
+				ByteCountBinary(meta.MaxChunkSize))
+		} else {
+			jsonMeta, err := json.MarshalIndent(meta, "", "\t")
+			if err != nil {
+				log.Fatal().Msgf("Failed to format meta as json: %v", err)
+			}
+
+			fmt.Printf("%v\n", string(jsonMeta))
 		}
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)

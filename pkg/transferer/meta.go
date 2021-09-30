@@ -2,14 +2,63 @@ package transferer
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"io"
 	"io/ioutil"
+	"os"
+	"path"
 	"pmm-transferer/pkg/dump"
 )
+
+func ReadMetaFromDump(dumpPath string) (*dump.Meta, error) {
+	file, err := os.Open(dumpPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open file")
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open as gzip")
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	for {
+		log.Debug().Msg("Reading files from dump...")
+
+		header, err := tr.Next()
+
+		if err == io.EOF {
+			log.Debug().Msg("Processed complete dump file - no meta found")
+			return nil, errors.New("no meta file found in dump")
+		}
+
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read a file from dump")
+		}
+
+		_, filename := path.Split(header.Name)
+
+		if filename != dump.MetaFilename {
+			continue
+		}
+
+		log.Debug().Msg("Found meta file")
+
+		meta, err := readMetafile(tr)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read meta file")
+		}
+
+		return meta, nil
+	}
+}
 
 func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 	log.Debug().Msg("Writing dump meta")
