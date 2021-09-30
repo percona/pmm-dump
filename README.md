@@ -34,6 +34,7 @@ Here are main commands/flags:
 | any | allow-insecure-certs | For self-signed certificates | - |
 | show-meta | - | Shows dump meta in human readable format | - |
 | show-meta | no-prettify | Shows raw dump meta | - |
+| version | - | Shows binary version | - |
 
 For filtering you could use the following commands (will be improved in the future):
 

@@ -68,6 +68,9 @@ func main() {
 		// show meta command options
 		showMetaCmd  = cli.Command("show-meta", "Shows metadata from the specified dump file")
 		prettifyMeta = showMetaCmd.Flag("prettify", "Print meta in human readable format").Default("true").Bool()
+
+		// version command options
+		versionCmd = cli.Command("version", "Shows tool version of the binary")
 	)
 
 	ctx := context.Background()
@@ -251,6 +254,8 @@ func main() {
 
 			fmt.Printf("%v\n", string(jsonMeta))
 		}
+	case versionCmd.FullCommand():
+		fmt.Printf("Build: %v\n", GitCommit)
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}
