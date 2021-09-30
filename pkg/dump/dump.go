@@ -16,6 +16,7 @@ const (
 type Meta struct {
 	Version          TransfererVersion `json:"version"`
 	PMMServerVersion string            `json:"pmm-server-version"`
+	MaxChunkSize     int64             `json:"max_chunk_size"`
 }
 
 type TransfererVersion struct {

@@ -4,10 +4,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"pmm-transferer/pkg/dump"
@@ -142,10 +140,6 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	if err := writeMetafile(tw, meta); err != nil {
-		return err
-	}
-
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
@@ -156,6 +150,10 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 		default:
 			c, ok := <-chunkC
 			if !ok {
+				if err := writeMetafile(tw, meta); err != nil {
+					return err
+				}
+
 				log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 				return nil
 			}
@@ -170,10 +168,15 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 				Str("filename", c.Filename).
 				Msg("Writing chunk to the dump...")
 
+			chunkSize := int64(len(c.Content))
+			if chunkSize > meta.MaxChunkSize {
+				meta.MaxChunkSize = chunkSize
+			}
+
 			err = tw.WriteHeader(&tar.Header{
 				Typeflag: tar.TypeReg,
 				Name:     path.Join(s.Type().String(), c.Filename),
-				Size:     int64(len(c.Content)),
+				Size:     chunkSize,
 				Mode:     0600,
 			})
 			if err != nil {
@@ -325,62 +328,4 @@ func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) {
 		}
 	}
 	return nil, false
-}
-
-func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
-	log.Debug().Msg("Writing dump meta")
-
-	metaContent, err := json.Marshal(meta)
-	if err != nil {
-		return fmt.Errorf("failed to marshal dump meta: %s", err)
-	}
-
-	err = tw.WriteHeader(&tar.Header{
-		Typeflag: tar.TypeReg,
-		Name:     dump.MetaFilename,
-		Size:     int64(len(metaContent)),
-		Mode:     0600,
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to write dump meta")
-	}
-
-	if _, err = tw.Write(metaContent); err != nil {
-		return errors.Wrap(err, "failed to write dump meta content")
-	}
-
-	return nil
-}
-
-func readMetafile(r io.Reader) (*dump.Meta, error) {
-	metaBytes, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read bytes")
-	}
-
-	meta := &dump.Meta{}
-
-	if err := json.Unmarshal(metaBytes, meta); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal")
-	}
-
-	return meta, nil
-}
-
-func readAndCompareDumpMeta(r io.Reader, runtimeMeta dump.Meta) {
-	dumpMeta, err := readMetafile(r)
-	if err != nil {
-		log.Err(err).Msgf("Failed to read meta file. No version checks could be performed")
-		return
-	}
-
-	if dumpMeta.PMMServerVersion != runtimeMeta.PMMServerVersion {
-		log.Warn().Msgf("PMM Versions mismatch\nExported:\t%v\nCurrent:\t%v",
-			dumpMeta.PMMServerVersion, runtimeMeta.PMMServerVersion)
-	}
-
-	if dumpMeta.Version.GitCommit != runtimeMeta.Version.GitCommit {
-		log.Warn().Msgf("Transferer version mismatch\nExported:\t%v\nCurrent:\t%v",
-			dumpMeta.Version.GitCommit, runtimeMeta.Version.GitCommit)
-	}
 }

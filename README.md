@@ -32,6 +32,9 @@ Here are main commands/flags:
 | any | dump-path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
 | any | verbose, v | Enable verbose (debug) mode | - |
 | any | allow-insecure-certs | For self-signed certificates | - |
+| show-meta | - | Shows dump meta in human readable format | - |
+| show-meta | no-prettify | Shows raw dump meta | - |
+| version | - | Shows binary version | - |
 
 For filtering you could use the following commands (will be improved in the future):
 
