@@ -142,10 +142,6 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	if err := writeMetafile(tw, meta); err != nil {
-		return err
-	}
-
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
@@ -156,6 +152,10 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 		default:
 			c, ok := <-chunkC
 			if !ok {
+				if err := writeMetafile(tw, meta); err != nil {
+					return err
+				}
+
 				log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 				return nil
 			}
@@ -170,10 +170,15 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 				Str("filename", c.Filename).
 				Msg("Writing chunk to the dump...")
 
+			chunkSize := int64(len(c.Content))
+			if chunkSize > meta.MaxChunkSize {
+				meta.MaxChunkSize = chunkSize
+			}
+
 			err = tw.WriteHeader(&tar.Header{
 				Typeflag: tar.TypeReg,
 				Name:     path.Join(s.Type().String(), c.Filename),
-				Size:     int64(len(c.Content)),
+				Size:     chunkSize,
 				Mode:     0600,
 			})
 			if err != nil {
