@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/valyala/fasthttp"
 	"os"
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/dump"
@@ -87,58 +88,35 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	if *pmmURL == "" {
-		log.Fatal().Msg("Please, specify PMM URL")
-	}
-
-	if !(*dumpQAN || *dumpCore) {
-		log.Fatal().Msg("Please, specify at least one data source")
-	}
-
-	var sources []dump.Source
-
-	log.Debug().Msg("Setting up HTTP client...")
-
 	httpC := newClientHTTP(*allowInsecureCerts)
-
-	pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
-	if err != nil {
-		log.Fatal().Err(err)
-	}
-
-	if *dumpCore {
-		c := &victoriametrics.Config{
-			ConnectionURL:      pmmConfig.VictoriaMetricsURL,
-			TimeSeriesSelector: *tsSelector,
-		}
-
-		sources = append(sources, victoriametrics.NewSource(httpC, *c))
-
-		log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
-	}
-
-	var clickhouseSource *clickhouse.Source
-	if *dumpQAN {
-		c := &clickhouse.Config{
-			ConnectionURL: pmmConfig.ClickHouseURL,
-		}
-		if where != nil {
-			c.Where = *where
-		}
-
-		clickhouseSource, err = clickhouse.NewSource(ctx, *c)
-		if err != nil {
-			log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
-			return
-		}
-
-		sources = append(sources, clickhouseSource)
-
-		log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
-	}
 
 	switch cmd {
 	case exportCmd.FullCommand():
+		if *pmmURL == "" {
+			log.Fatal().Msg("Please, specify PMM URL")
+		}
+
+		if !(*dumpQAN || *dumpCore) {
+			log.Fatal().Msg("Please, specify at least one data source")
+		}
+
+		var sources []dump.Source
+
+		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+
+		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, *tsSelector)
+		if ok {
+			sources = append(sources, vmSource)
+		}
+
+		chSource, ok := prepareClickHouseSource(ctx, *dumpQAN, pmmConfig.ClickHouseURL, *where)
+		if ok {
+			sources = append(sources, chSource)
+		}
+
 		var startTime, endTime time.Time
 
 		if *end != "" {
@@ -175,7 +153,7 @@ func main() {
 		}
 
 		if *dumpQAN {
-			chChunks, err := clickhouseSource.SplitIntoChunks(*chunkRows)
+			chChunks, err := chSource.SplitIntoChunks(*chunkRows)
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}
@@ -203,6 +181,31 @@ func main() {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
+		if *pmmURL == "" {
+			log.Fatal().Msg("Please, specify PMM URL")
+		}
+
+		if !(*dumpQAN || *dumpCore) {
+			log.Fatal().Msg("Please, specify at least one data source")
+		}
+
+		var sources []dump.Source
+
+		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+
+		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, *tsSelector)
+		if ok {
+			sources = append(sources, vmSource)
+		}
+
+		chSource, ok := prepareClickHouseSource(ctx, *dumpQAN, pmmConfig.ClickHouseURL, *where)
+		if ok {
+			sources = append(sources, chSource)
+		}
+
 		if *dumpPath == "" {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
@@ -223,4 +226,39 @@ func main() {
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}
+}
+
+func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url, selector string) (*victoriametrics.Source, bool) {
+	if !dumpCore {
+		return nil, false
+	}
+
+	c := &victoriametrics.Config{
+		ConnectionURL:      url,
+		TimeSeriesSelector: selector,
+	}
+
+	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
+
+	return victoriametrics.NewSource(httpC, *c), true
+}
+
+func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
+	if !dumpQAN {
+		return nil, false
+	}
+
+	c := &clickhouse.Config{
+		ConnectionURL: url,
+		Where:         where,
+	}
+
+	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
+	if err != nil {
+		log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+	}
+
+	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
+
+	return clickhouseSource, true
 }
