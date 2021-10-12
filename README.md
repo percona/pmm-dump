@@ -29,6 +29,7 @@ Here are main commands/flags:
 | export | end-ts | End date-time to limit timeframe (in RFC3339 format) | `2006-01-02T15:04:05Z`<br>`2006-01-02T15:04:05-07:00` |
 | export | max-load | Max value of a metric to postpone export | `CPU=50,RAM=50` |
 | export | critical-load | Max value of a metric to stop export | `CPU=70,RAM=70` |
+| export | workers | Set the number of reading workers | `4` |
 | any | dump-path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
 | any | verbose, v | Enable verbose (debug) mode | - |
 | any | allow-insecure-certs | For self-signed certificates | - |

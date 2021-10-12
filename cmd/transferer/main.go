@@ -66,6 +66,7 @@ func main() {
 		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values").
 				Default(fmt.Sprintf("%v=70,%v=70", transferer.ThresholdCPU, transferer.ThresholdRAM)).String()
 
+		workersCount = exportCmd.Flag("workers", "Set the number of reading workers").Int()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
@@ -166,7 +167,7 @@ func main() {
 			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
-		t, err := transferer.New(*dumpPath, sources)
+		t, err := transferer.New(*dumpPath, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
@@ -235,7 +236,7 @@ func main() {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		t, err := transferer.New(*dumpPath, sources)
+		t, err := transferer.New(*dumpPath, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}

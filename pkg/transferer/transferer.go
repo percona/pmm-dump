@@ -18,18 +18,24 @@ import (
 )
 
 type Transferer struct {
-	dumpPath string
-	sources  []dump.Source
+	dumpPath         string
+	sources          []dump.Source
+	readWorkersCount int
 }
 
-func New(dumpPath string, s []dump.Source) (*Transferer, error) {
+func New(dumpPath string, s []dump.Source, workersCount int) (*Transferer, error) {
 	if len(s) == 0 {
 		return nil, errors.New("failed to create transferer with no sources")
 	}
 
+	if workersCount <= 0 {
+		workersCount = runtime.NumCPU()
+	}
+
 	return &Transferer{
-		dumpPath: dumpPath,
-		sources:  s,
+		dumpPath:         dumpPath,
+		sources:          s,
+		readWorkersCount: workersCount,
 	}, nil
 }
 
@@ -40,8 +46,6 @@ type ChunkPool interface {
 type LoadStatusGetter interface {
 	GetLatestStatus() LoadStatus
 }
-
-var readWorkersCount = runtime.NumCPU()
 
 const maxChunksInMem = 4
 
@@ -202,9 +206,9 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 
 	readWG := &sync.WaitGroup{}
 
-	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", readWorkersCount)
-	readWG.Add(readWorkersCount)
-	for i := 0; i < readWorkersCount; i++ {
+	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", t.readWorkersCount)
+	readWG.Add(t.readWorkersCount)
+	for i := 0; i < t.readWorkersCount; i++ {
 		go func() {
 			errCh <- t.readChunksFromSource(ctx, lc, pool, chunksCh)
 			readWG.Done()
@@ -226,7 +230,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	}()
 
 	log.Debug().Msg("Waiting for all chunks to be processed...")
-	for i := 0; i < readWorkersCount+1; i++ {
+	for i := 0; i < t.readWorkersCount+1; i++ {
 		log.Debug().Msgf("Waiting for #%d status to be reported...", i)
 		if err := <-errCh; err != nil {
 			log.Debug().Msg("Got error, finishing export")
