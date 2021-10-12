@@ -21,8 +21,8 @@ type Source struct {
 }
 
 func NewSource(c *fasthttp.Client, cfg Config) *Source {
-	if cfg.TimeSeriesSelector == "" {
-		cfg.TimeSeriesSelector = `{__name__=~".*"}`
+	if len(cfg.TimeSeriesSelectors) == 0 {
+		cfg.TimeSeriesSelectors = []string{`{__name__=~".*"}`}
 	}
 
 	return &Source{
@@ -41,7 +41,9 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
-	q.Add("match[]", s.cfg.TimeSeriesSelector)
+	for _, v := range s.cfg.TimeSeriesSelectors {
+		q.Add("match[]", v)
+	}
 
 	if m.Start != nil {
 		q.Add("start", strconv.FormatInt(m.Start.Unix(), 10))

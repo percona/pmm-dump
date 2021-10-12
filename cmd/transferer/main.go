@@ -8,6 +8,7 @@ import (
 	"os"
 	"pmm-transferer/pkg/clickhouse"
 	"pmm-transferer/pkg/dump"
+	"pmm-transferer/pkg/grafana"
 	"pmm-transferer/pkg/transferer"
 	"pmm-transferer/pkg/victoriametrics"
 	"time"
@@ -52,6 +53,9 @@ func main() {
 
 		tsSelector = exportCmd.Flag("ts-selector", "Time series selector to pass to VM").String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
+
+		serviceName = exportCmd.Flag("service-name", "Service name to filter").String()
+		dashboards  = exportCmd.Flag("dashboard", "Dashboard name to filter. Use multiple times to filter by multiple dashboards").Strings()
 
 		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
 			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
@@ -115,9 +119,22 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, *tsSelector)
+		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *serviceName, httpC)
+		if err != nil {
+			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
+		}
+		if *tsSelector != "" {
+			selectors = append(selectors, *tsSelector)
+		} else if len(selectors) == 0 && *serviceName != "" {
+			selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, *serviceName))
+		}
+		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
 		if ok {
 			sources = append(sources, vmSource)
+		}
+
+		if *where == "" && *serviceName != "" {
+			*where = fmt.Sprintf("service_name='%s'", *serviceName)
 		}
 
 		chSource, ok := prepareClickHouseSource(ctx, *dumpQAN, pmmConfig.ClickHouseURL, *where)
@@ -204,7 +221,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, *tsSelector)
+		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -261,14 +278,14 @@ func main() {
 	}
 }
 
-func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url, selector string) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}
 
 	c := &victoriametrics.Config{
-		ConnectionURL:      url,
-		TimeSeriesSelector: selector,
+		ConnectionURL:       url,
+		TimeSeriesSelectors: selectors,
 	}
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)

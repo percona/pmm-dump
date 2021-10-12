@@ -42,6 +42,8 @@ For filtering you could use the following commands (will be improved in the futu
 |---------|------|-------------|---------|
 | export | ts-selector | Timeseries selector (for VM only) | `{service_name="mongo"}` |
 | export | where | WHERE statement (for CH only) | `service_name='mongo'` |
+| export | dashboard | Dashboard name (for VM only) | `MongoDB Instances Overview` |
+| export | service-name | Filter by service name | `mongo` |
 
 You could filter by instance using service name or id. For example, we have registered the following mongodb instance:
 
@@ -57,6 +59,11 @@ The same for `where` QAN filter: `service_name='mongo'` or `service_id='/service
 
 ```
 > ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --ts-selector=`{service_name="mongo"}` --dump-qan --where=`service_name='mongo'`
+```
+
+To filter by multiple dashboards, you can use `dashboard` flag multiple times:
+```
+> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --dashboard='MongoDB Instances Overview' --dashboard='MySQL Instances Overview'`
 ```
 
 In some cases you would need to override default configuration for VM/CH processing:
