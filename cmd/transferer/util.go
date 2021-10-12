@@ -47,24 +47,33 @@ func getGoroutineID() int {
 }
 
 func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
-	type updatesResp struct {
-		Installed struct {
-			FullVersion string `json:"full_version"`
-		} `json:"installed"`
+	type versionResp struct {
+		Version string `json:"version"`
+		Server  struct {
+			Version     string    `json:"version"`
+			FullVersion string    `json:"full_version"`
+			Timestamp   time.Time `json:"timestamp"`
+		} `json:"server"`
+		Managed struct {
+			Version     string    `json:"version"`
+			FullVersion string    `json:"full_version"`
+			Timestamp   time.Time `json:"timestamp"`
+		} `json:"managed"`
+		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/Updates/Check", pmmURL), nil)
+	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/version", pmmURL), nil)
 	if err != nil {
 		return "", err
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	resp := new(updatesResp)
+	resp := new(versionResp)
 	if err = json.Unmarshal(body, resp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response: %s", err)
 	}
-	return resp.Installed.FullVersion, nil
+	return resp.Server.FullVersion, nil
 }
 
 func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
