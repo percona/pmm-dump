@@ -115,6 +115,14 @@ func main() {
 			log.Fatal().Msg("Please, specify at least one data source")
 		}
 
+		if *dumpQAN && *dumpCore && len(*instances) == 0 {
+			if *where == "" && (*tsSelector != "" || len(*dashboards) > 0) {
+				log.Warn().Msg("Filter for QAN found, but not for core dump. Core metrics for all metrics would be exported")
+			} else if *where != "" && *tsSelector == "" && len(*dashboards) == 0 {
+				log.Warn().Msg("Filter for core dump found, but not for QAN. QAN metrics for all metrics would be exported")
+			}
+		}
+
 		var sources []dump.Source
 
 		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
