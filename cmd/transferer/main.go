@@ -181,7 +181,7 @@ func main() {
 		}
 
 		if *dumpQAN {
-			chChunks, err := chSource.SplitIntoChunks(*chunkRows)
+			chChunks, err := chSource.SplitIntoChunks(startTime, endTime, *chunkRows)
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}

@@ -78,8 +78,23 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
+	where := make([]string, 0, 3)
 	if s.cfg.Where != "" {
-		query += fmt.Sprintf(" WHERE %s", s.cfg.Where)
+		where = append(where, fmt.Sprintf("(%s)", s.cfg.Where))
+	}
+	if m.Start != nil {
+		where = append(where, fmt.Sprintf("period_start > %d", m.Start.Unix()))
+	}
+	if m.End != nil {
+		where = append(where, fmt.Sprintf("period_start < %d", m.Start.Unix()))
+	}
+	for i := range where {
+		if i == 0 {
+			query += " WHERE "
+		} else {
+			query += " AND "
+		}
+		query += where[i]
 	}
 	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
 	rows, err := s.db.Query(query)
@@ -193,7 +208,7 @@ func (s Source) ColumnTypes() []*sql.ColumnType {
 	return s.ct
 }
 
-func (s Source) SplitIntoChunks(chunkRowsLen int) ([]dump.ChunkMeta, error) {
+func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) ([]dump.ChunkMeta, error) {
 	if chunkRowsLen <= 0 {
 		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
@@ -212,6 +227,8 @@ func (s Source) SplitIntoChunks(chunkRowsLen int) ([]dump.ChunkMeta, error) {
 			Source:  dump.ClickHouse,
 			RowsLen: chunkRowsLen,
 			Index:   i,
+			Start:   &startTime,
+			End:     &endTime,
 		}
 		chunks = append(chunks, newChunk)
 		rowsCounter -= chunkRowsLen
