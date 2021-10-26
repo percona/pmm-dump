@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"os"
 	"pmm-transferer/pkg/dump"
 	"runtime"
 	"strconv"
@@ -117,4 +118,15 @@ func ByteCountBinary(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func checkPiped() (bool, error) {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return false, err
+	}
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		return true, nil
+	}
+	return false, nil
 }

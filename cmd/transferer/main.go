@@ -66,6 +66,8 @@ func main() {
 		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values").
 				Default(fmt.Sprintf("%v=70,%v=70", transferer.ThresholdCPU, transferer.ThresholdRAM)).String()
 
+		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
+
 		workersCount = exportCmd.Flag("workers", "Set the number of reading workers").Int()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
@@ -167,7 +169,7 @@ func main() {
 			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
-		t, err := transferer.New(*dumpPath, sources, *workersCount)
+		t, err := transferer.New(*dumpPath, *stdout, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
@@ -232,11 +234,16 @@ func main() {
 			sources = append(sources, chSource)
 		}
 
-		if *dumpPath == "" {
+		piped, err := checkPiped()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
+		}
+
+		if *dumpPath == "" && piped == false {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		t, err := transferer.New(*dumpPath, sources, *workersCount)
+		t, err := transferer.New(*dumpPath, piped, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to transfer: %v", err)
 		}
@@ -250,11 +257,15 @@ func main() {
 			log.Fatal().Msgf("Failed to import: %v", err)
 		}
 	case showMetaCmd.FullCommand():
-		if *dumpPath == "" {
+		piped, err := checkPiped()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
+		}
+		if *dumpPath == "" && piped == false {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		meta, err := transferer.ReadMetaFromDump(*dumpPath)
+		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)
 		}

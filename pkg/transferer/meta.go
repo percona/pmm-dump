@@ -14,10 +14,16 @@ import (
 	"pmm-transferer/pkg/dump"
 )
 
-func ReadMetaFromDump(dumpPath string) (*dump.Meta, error) {
-	file, err := os.Open(dumpPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open file")
+func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
+	var file *os.File
+	if piped {
+		file = os.Stdin
+	} else {
+		var err error
+		file, err = os.Open(dumpPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open file")
+		}
 	}
 	defer file.Close()
 

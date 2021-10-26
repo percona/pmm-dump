@@ -21,9 +21,10 @@ type Transferer struct {
 	dumpPath         string
 	sources          []dump.Source
 	readWorkersCount int
+	piped            bool
 }
 
-func New(dumpPath string, s []dump.Source, workersCount int) (*Transferer, error) {
+func New(dumpPath string, piped bool, s []dump.Source, workersCount int) (*Transferer, error) {
 	if len(s) == 0 {
 		return nil, errors.New("failed to create transferer with no sources")
 	}
@@ -36,6 +37,7 @@ func New(dumpPath string, s []dump.Source, workersCount int) (*Transferer, error
 		dumpPath:         dumpPath,
 		sources:          s,
 		readWorkersCount: workersCount,
+		piped:            piped,
 	}, nil
 }
 
@@ -117,21 +119,25 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 }
 
 func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunkC <-chan *dump.Chunk) error {
-	exportTS := time.Now().UTC()
+	var file *os.File
+	if t.piped {
+		file = os.Stdout
+	} else {
+		exportTS := time.Now().UTC()
+		log.Debug().Msgf("Trying to determine filepath")
+		filepath, err := getDumpFilepath(t.dumpPath, exportTS)
+		if err != nil {
+			return err
+		}
 
-	log.Debug().Msgf("Trying to determine filepath")
-	filepath, err := getDumpFilepath(t.dumpPath, exportTS)
-	if err != nil {
-		return err
-	}
-
-	log.Debug().Msgf("Preparing dump file: %s", filepath)
-	if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
-		return errors.Wrap(err, "failed to create folders for the dump file")
-	}
-	file, err := os.Create(filepath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create %s", filepath)
+		log.Debug().Msgf("Preparing dump file: %s", filepath)
+		if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
+			return errors.Wrap(err, "failed to create folders for the dump file")
+		}
+		file, err = os.Create(filepath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create %s", filepath)
+		}
 	}
 	defer file.Close()
 
@@ -246,13 +252,19 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 func (t Transferer) Import(runtimeMeta dump.Meta) error {
 	log.Info().Msg("Importing metrics...")
 
-	log.Info().
-		Str("path", t.dumpPath).
-		Msg("Opening dump file...")
+	var file *os.File
+	if t.piped {
+		file = os.Stdin
+	} else {
+		var err error
+		log.Info().
+			Str("path", t.dumpPath).
+			Msg("Opening dump file...")
 
-	file, err := os.Open(t.dumpPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to open file")
+		file, err = os.Open(t.dumpPath)
+		if err != nil {
+			return errors.Wrap(err, "failed to open file")
+		}
 	}
 	defer file.Close()
 

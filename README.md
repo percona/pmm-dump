@@ -29,6 +29,7 @@ Here are main commands/flags:
 | export | end-ts | End date-time to limit timeframe (in RFC3339 format) | `2006-01-02T15:04:05Z`<br>`2006-01-02T15:04:05-07:00` |
 | export | max-load | Max value of a metric to postpone export | `CPU=50,RAM=50` |
 | export | critical-load | Max value of a metric to stop export | `CPU=70,RAM=70` |
+| export | stdout | Redirect output to STDOUT | - |
 | export | workers | Set the number of reading workers | `4` |
 | any | dump-path, d | Path to dump file | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
 | any | verbose, v | Enable verbose (debug) mode | - |
@@ -75,6 +76,12 @@ In some cases you would need to override default configuration for VM/CH process
 | any | click-house-url | URL of Click House | `http://localhost:9000?database=pmm` |
 | export | chunk-time-range | Time range to be fit into a single chunk (VM only) | `45s`, `5m`, `1h` |
 | export | chunk-rows | Amount of rows to fit into a single chunk (CH only) | `1000` |
+
+### Using in pipelines
+You can redirect output to STDOUT with --stdout option. It's useful to redirect output to another pmm-transferer in a pipeline:
+```
+> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --dump-qan --stdout | ./pmm-transferer import --pmm-url="http://admin:admin@localhost:8282" --dump-qan 
+```
 
 ## About the dump file
 
