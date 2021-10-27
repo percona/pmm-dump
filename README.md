@@ -45,7 +45,7 @@ For filtering you could use the following commands (will be improved in the futu
 | export | ts-selector | Timeseries selector (for VM only) | `{service_name="mongo"}` |
 | export | where | WHERE statement (for CH only) | `service_name='mongo'` |
 | export | dashboard | Dashboard name (for VM only) | `MongoDB Instances Overview` |
-| export | service-name | Filter by service name | `mongo` |
+| export | instance | Filter by service name | `mongo` |
 
 You could filter by instance using service name or id. For example, we have registered the following mongodb instance:
 
@@ -58,9 +58,14 @@ Service name: mongo
 
 So the value of `ts-selector` would be: `{service_name="mongo"}` or `{service_id="/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11"}`.
 The same for `where` QAN filter: `service_name='mongo'` or `service_id='/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11'`.
+Also, you can use `instance` option which filters QAN and core metrics by service name
 
 ```
 > ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --ts-selector=`{service_name="mongo"}` --dump-qan --where=`service_name='mongo'`
+```
+is same as
+```
+> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --instance="mongo" --dump-qan
 ```
 
 To filter by multiple dashboards, you can use `dashboard` flag multiple times:

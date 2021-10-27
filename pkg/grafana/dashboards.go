@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/valyala/fasthttp"
 	"strings"
 )
 
-func GetDashboardSelectors(pmmURL string, dashboards []string, serviceName string, c *fasthttp.Client) ([]string, error) {
+func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c *fasthttp.Client) ([]string, error) {
 	var selectors []string
 	for _, d := range dashboards {
-		sel, err := getSingleDashboardSelectors(pmmURL, d, serviceName, c)
+		sel, err := getSingleDashboardSelectors(pmmURL, d, serviceNames, c)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve selectors for dashboard \"%s\": %v", d, err)
 		}
@@ -21,7 +22,7 @@ func GetDashboardSelectors(pmmURL string, dashboards []string, serviceName strin
 	return selectors, nil
 }
 
-func getSingleDashboardSelectors(pmmURL, dashboardName, serviceName string, c *fasthttp.Client) ([]string, error) {
+func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c *fasthttp.Client) ([]string, error) {
 	uid, err := findDashboardUID(pmmURL, dashboardName, c)
 	if err != nil {
 		return nil, err
@@ -39,7 +40,7 @@ func getSingleDashboardSelectors(pmmURL, dashboardName, serviceName string, c *f
 	if err = json.Unmarshal(data, exprResp); err != nil {
 		return nil, err
 	}
-	selectors, err := exprResp.parseSelectors(serviceName)
+	selectors, err := exprResp.parseSelectors(serviceNames)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ type dashboardExprResp struct {
 	} `json:"dashboard"`
 }
 
-func (d *dashboardExprResp) parseSelectors(serviceName string) (selectors []string, err error) {
+func (d *dashboardExprResp) parseSelectors(serviceNames []string) (selectors []string, err error) {
 	selMap := make(map[string]struct{})
 	for _, panel := range d.Dashboard.Panels {
 		for _, target := range panel.Targets {
@@ -67,6 +68,7 @@ func (d *dashboardExprResp) parseSelectors(serviceName string) (selectors []stri
 			}
 
 			target.Expr = strings.ReplaceAll(target.Expr, "$interval", "1m")
+			target.Expr = strings.ReplaceAll(target.Expr, "$node_name", "pmm-server")
 			expr, err := parser.ParseExpr(target.Expr)
 			if err != nil {
 				return nil, err
@@ -76,10 +78,12 @@ func (d *dashboardExprResp) parseSelectors(serviceName string) (selectors []stri
 				s := "{"
 				for i, v := range sel {
 					if v.Value == "$service_name" {
-						if serviceName == "" {
+						if len(serviceNames) == 0 {
 							continue
 						}
+						serviceName := strings.Join(serviceNames, "|")
 						v.Value = serviceName
+						v.Type = labels.MatchRegexp
 					}
 					s += v.String()
 					if i+1 < len(sel) {

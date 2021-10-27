@@ -54,8 +54,8 @@ func main() {
 		tsSelector = exportCmd.Flag("ts-selector", "Time series selector to pass to VM").String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
 
-		serviceName = exportCmd.Flag("service-name", "Service name to filter").String()
-		dashboards  = exportCmd.Flag("dashboard", "Dashboard name to filter. Use multiple times to filter by multiple dashboards").Strings()
+		instances  = exportCmd.Flag("instance", "Service name to filter instances. Use multiple times to filter by multiple instances").Strings()
+		dashboards = exportCmd.Flag("dashboard", "Dashboard name to filter. Use multiple times to filter by multiple dashboards").Strings()
 
 		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
 			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
@@ -122,22 +122,29 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *serviceName, httpC)
+		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, httpC)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
 		}
 		if *tsSelector != "" {
 			selectors = append(selectors, *tsSelector)
-		} else if len(selectors) == 0 && *serviceName != "" {
-			selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, *serviceName))
+		} else if len(selectors) == 0 && len(*instances) > 0 {
+			for _, serviceName := range *instances {
+				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
+			}
 		}
 		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
 		if ok {
 			sources = append(sources, vmSource)
 		}
 
-		if *where == "" && *serviceName != "" {
-			*where = fmt.Sprintf("service_name='%s'", *serviceName)
+		if *where == "" && len(*instances) > 0 {
+			for i, serviceName := range *instances {
+				if i != 0 {
+					*where += " AND "
+				}
+				*where += fmt.Sprintf("service_name='%s'", serviceName)
+			}
 		}
 
 		chSource, ok := prepareClickHouseSource(ctx, *dumpQAN, pmmConfig.ClickHouseURL, *where)
