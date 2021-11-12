@@ -25,8 +25,8 @@ Here are main commands/flags:
 | any | pmm-url | URL of PMM instance | `http://admin:admin@localhost` |
 | any | dump-core | Process core metrics | - |
 | any | dump-qan | Process QAN metrics | - |
-| export | start-ts | Start date-time to limit timeframe (in RFC3339 format) | `2006-01-02T15:04:05Z`<br>`2006-01-02T15:04:05-07:00` |
-| export | end-ts | End date-time to limit timeframe (in RFC3339 format) | `2006-01-02T15:04:05Z`<br>`2006-01-02T15:04:05-07:00` |
+| export | start-ts | Start date-time to limit timeframe (in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) format) | `2006-01-02T15:04:05Z` (please note that you can't use offset for UTC time)<br>`2006-01-02T15:04:05-07:00` |
+| export | end-ts | End date-time to limit timeframe (in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) format) | `2006-01-02T15:04:05Z` (please note that you can't use offset for UTC time)<br>`2006-01-02T15:04:05-07:00` |
 | export | max-load | Max value of a metric to postpone export | `CPU=50,RAM=50` |
 | export | critical-load | Max value of a metric to stop export | `CPU=70,RAM=70` |
 | export | stdout | Redirect output to STDOUT | - |
