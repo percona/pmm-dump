@@ -49,54 +49,66 @@ func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []st
 }
 
 type dashboardExprResp struct {
-	Dashboard struct {
-		Id     int `json:"id"`
-		Panels []struct {
-			Targets []struct {
-				Expr string `json:"expr"`
-			} `json:"targets"`
-		} `json:"panels"`
-	} `json:"dashboard"`
+	Dashboard panel `json:"dashboard"`
+}
+
+type panel struct {
+	Id      int     `json:"id"`
+	Panels  []panel `json:"panels"`
+	Targets []struct {
+		Expr string `json:"expr"`
+	} `json:"targets"`
+}
+
+func (p *panel) selectors(serviceNames []string, existingSelectors map[string]struct{}) error {
+	for _, panel := range p.Panels {
+		if err := panel.selectors(serviceNames, existingSelectors); err != nil {
+			return err
+		}
+	}
+
+	for _, target := range p.Targets {
+		if target.Expr == "" {
+			continue
+		}
+
+		target.Expr = strings.ReplaceAll(target.Expr, "$interval", "1m")
+		target.Expr = strings.ReplaceAll(target.Expr, "$node_name", "pmm-server")
+		expr, err := parser.ParseExpr(target.Expr)
+		if err != nil {
+			return err
+		}
+		extractedSelectors := parser.ExtractSelectors(expr)
+		for _, sel := range extractedSelectors {
+			s := "{"
+			for i, v := range sel {
+				if v.Value == "$service_name" {
+					if len(serviceNames) == 0 {
+						continue
+					}
+					serviceName := strings.Join(serviceNames, "|")
+					v.Value = serviceName
+					v.Type = labels.MatchRegexp
+				}
+				s += v.String()
+				if i+1 < len(sel) {
+					s += ", "
+				}
+			}
+			s += "}"
+			existingSelectors[s] = struct{}{}
+		}
+	}
+	return nil
 }
 
 func (d *dashboardExprResp) parseSelectors(serviceNames []string) (selectors []string, err error) {
-	selMap := make(map[string]struct{})
-	for _, panel := range d.Dashboard.Panels {
-		for _, target := range panel.Targets {
-			if target.Expr == "" {
-				continue
-			}
-
-			target.Expr = strings.ReplaceAll(target.Expr, "$interval", "1m")
-			target.Expr = strings.ReplaceAll(target.Expr, "$node_name", "pmm-server")
-			expr, err := parser.ParseExpr(target.Expr)
-			if err != nil {
-				return nil, err
-			}
-			extractedSelectors := parser.ExtractSelectors(expr)
-			for _, sel := range extractedSelectors {
-				s := "{"
-				for i, v := range sel {
-					if v.Value == "$service_name" {
-						if len(serviceNames) == 0 {
-							continue
-						}
-						serviceName := strings.Join(serviceNames, "|")
-						v.Value = serviceName
-						v.Type = labels.MatchRegexp
-					}
-					s += v.String()
-					if i+1 < len(sel) {
-						s += ", "
-					}
-				}
-				s += "}"
-				selMap[s] = struct{}{}
-			}
-		}
+	existingSelectors := make(map[string]struct{})
+	if err := d.Dashboard.selectors(serviceNames, existingSelectors); err != nil {
+		return nil, err
 	}
-	selectors = make([]string, 0, len(selMap))
-	for v := range selMap {
+	selectors = make([]string, 0, len(existingSelectors))
+	for v := range existingSelectors {
 		selectors = append(selectors, v)
 	}
 	return selectors, nil
