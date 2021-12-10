@@ -1,9 +1,8 @@
 package grafana
 
 import (
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql/parser"
-	"github.com/rs/zerolog/log"
+	"fmt"
+	"github.com/VictoriaMetrics/metricsql"
 	"strings"
 )
 
@@ -14,34 +13,46 @@ func parseQuery(query string, serviceNames []string, templateVars map[string]str
 
 	query = strings.ReplaceAll(query, "$interval", "1m")
 	query = strings.ReplaceAll(query, "$node_name", "pmm-server")
-	expr, err := parser.ParseExpr(query)
+	expr, err := metricsql.Parse(query)
 	if err != nil {
 		return err
 	}
-	extractedSelectors := parser.ExtractSelectors(expr)
-	for _, sel := range extractedSelectors {
-		s := "{"
-		for i, v := range sel {
-			if v.Value == "$service_name" {
-				if len(serviceNames) == 0 {
+	metricsql.VisitAll(expr, func(expr metricsql.Expr) {
+		if m, ok := expr.(*metricsql.MetricExpr); ok {
+			var filters []string
+			for _, f := range m.LabelFilters {
+				var s string
+				if f.Value == "$service_name" {
+					if len(serviceNames) == 0 {
+						continue
+					}
+					serviceName := strings.Join(serviceNames, "|")
+					s += fmt.Sprintf("%s=~\"%s\"", f.Label, serviceName)
+				} else if _, ok := templateVars[f.Value]; ok {
 					continue
+				} else {
+					s += f.Label
+					switch {
+					case f.IsNegative && f.IsRegexp:
+						s += "!~"
+					case f.IsNegative && !f.IsRegexp:
+						s += "!="
+					case !f.IsNegative && f.IsRegexp:
+						s += "=~"
+					case !f.IsNegative && !f.IsRegexp:
+						s += "="
+					}
+					s += fmt.Sprintf(`"%s"`, f.Value)
 				}
-				serviceName := strings.Join(serviceNames, "|")
-				v.Value = serviceName
-				v.Type = labels.MatchRegexp
-			} else if _, ok := templateVars[v.Value]; ok {
-				continue
+				filters = append(filters, s)
 			}
-			s += v.String()
-			if i+1 < len(sel) {
-				s += ", "
+			if len(filters) == 0 {
+				return
 			}
-		}
-		s += "}"
-		if s != "{}" {
+			s := fmt.Sprintf("{%s}", strings.Join(filters, ","))
 			existingSelectors[s] = struct{}{}
 		}
-	}
+	})
 	return nil
 }
 
@@ -57,7 +68,7 @@ func removeTemplatingFuncs(query string) string {
 			query = strings.TrimPrefix(query, f)
 			query = query[1 : len(query)-1]
 			if f == "label_values" {
-				_, err := parser.ParseExpr(query)
+				_, err := metricsql.Parse(query)
 				if err != nil {
 					idx := strings.LastIndex(query, ",")
 					query = query[:idx]
@@ -84,7 +95,7 @@ func (p *panel) selectors(serviceNames []string, templateVars map[string]struct{
 
 	for _, target := range p.Targets {
 		if err := parseQuery(target.Expr, serviceNames, templateVars, existingSelectors); err != nil {
-			log.Err(err).Msgf("failed to parse query \"%s\": %v", target.Expr, err)
+			return fmt.Errorf("failed to parse query \"%s\": %v", target.Expr, err)
 		}
 	}
 
