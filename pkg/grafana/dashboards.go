@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/valyala/fasthttp"
-	"strings"
 )
 
 func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c *fasthttp.Client) ([]string, error) {
@@ -52,66 +49,37 @@ type dashboardExprResp struct {
 	Dashboard panel `json:"dashboard"`
 }
 
+type templateElement struct {
+	Name  string `json:"name"`
+	Query string `json:"query"`
+}
+
+func (t *templateElement) UnmarshalJSON(data []byte) error {
+	var v map[string]interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	if name, ok := v["name"]; ok {
+		t.Name, _ = name.(string)
+	}
+	switch v["query"].(type) {
+	case string:
+		t.Query = v["query"].(string)
+	case map[string]interface{}:
+		t.Query, _ = v["query"].(map[string]interface{})["query"].(string)
+	}
+	return nil
+}
+
 type panel struct {
 	Id      int     `json:"id"`
 	Panels  []panel `json:"panels"`
 	Targets []struct {
 		Expr string `json:"expr"`
 	} `json:"targets"`
-}
-
-func (p *panel) selectors(serviceNames []string, existingSelectors map[string]struct{}) error {
-	for _, panel := range p.Panels {
-		if err := panel.selectors(serviceNames, existingSelectors); err != nil {
-			return err
-		}
-	}
-
-	for _, target := range p.Targets {
-		if target.Expr == "" {
-			continue
-		}
-
-		target.Expr = strings.ReplaceAll(target.Expr, "$interval", "1m")
-		target.Expr = strings.ReplaceAll(target.Expr, "$node_name", "pmm-server")
-		expr, err := parser.ParseExpr(target.Expr)
-		if err != nil {
-			return err
-		}
-		extractedSelectors := parser.ExtractSelectors(expr)
-		for _, sel := range extractedSelectors {
-			s := "{"
-			for i, v := range sel {
-				if v.Value == "$service_name" {
-					if len(serviceNames) == 0 {
-						continue
-					}
-					serviceName := strings.Join(serviceNames, "|")
-					v.Value = serviceName
-					v.Type = labels.MatchRegexp
-				}
-				s += v.String()
-				if i+1 < len(sel) {
-					s += ", "
-				}
-			}
-			s += "}"
-			existingSelectors[s] = struct{}{}
-		}
-	}
-	return nil
-}
-
-func (d *dashboardExprResp) parseSelectors(serviceNames []string) (selectors []string, err error) {
-	existingSelectors := make(map[string]struct{})
-	if err := d.Dashboard.selectors(serviceNames, existingSelectors); err != nil {
-		return nil, err
-	}
-	selectors = make([]string, 0, len(existingSelectors))
-	for v := range existingSelectors {
-		selectors = append(selectors, v)
-	}
-	return selectors, nil
+	Templating struct {
+		List []templateElement `json:"list"`
+	} `json:"templating"`
 }
 
 func findDashboardUID(pmmURL, name string, c *fasthttp.Client) (string, error) {
