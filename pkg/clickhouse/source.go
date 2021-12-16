@@ -86,7 +86,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		where = append(where, fmt.Sprintf("period_start > %d", m.Start.Unix()))
 	}
 	if m.End != nil {
-		where = append(where, fmt.Sprintf("period_start < %d", m.Start.Unix()))
+		where = append(where, fmt.Sprintf("period_start < %d", m.End.Unix()))
 	}
 	for i := range where {
 		if i == 0 {
