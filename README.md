@@ -6,7 +6,7 @@ A tool that will fetch data from PMM and import it into local instance. Will hel
 
 You will need to have Go 1.16+ installed.
 
-In the root directory: `go build -o pmm-transferer pmm-transferer/cmd/transferer`
+In the root directory: `make build`
 
 ## Using Transferer
 
