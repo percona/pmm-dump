@@ -17,12 +17,6 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: ^1.17
-        
-    - name: Workaround for the empty username issue
-      run: |
-        mkdir -p /home/runner/go/src/github.com/Percona-Lab/pmm-transferer
-        cp -Rv /home/runner/work/pmm-transferer/pmm-transferer /home/runner/go/src/github.com/Percona-Lab
-
       
     - name: Build
       run: make build
