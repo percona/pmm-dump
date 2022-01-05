@@ -1,6 +1,6 @@
 name: Release CI
 
-on: workflow_call
+on: workflow_dispatch
 
 jobs:
   build:
@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@main
     
     - name: Set up Go
       uses: actions/setup-go@v2
