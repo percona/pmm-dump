@@ -42,3 +42,6 @@ jobs:
         asset_path: pmm-transferer
         asset_name: pmm-transferer
         asset_content_type: application/x-executable
+
+    - name: Refresh percona/get endpoint
+      run: curl https://percona.com/get/make.php
