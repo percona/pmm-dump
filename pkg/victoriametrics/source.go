@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"pmm-transferer/pkg/dump"
+	"pmm-dump/pkg/dump"
 	"strconv"
 	"time"
 

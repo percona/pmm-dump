@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/valyala/fasthttp"
 	"os"
-	"pmm-transferer/pkg/clickhouse"
-	"pmm-transferer/pkg/dump"
-	"pmm-transferer/pkg/grafana"
-	"pmm-transferer/pkg/transferer"
-	"pmm-transferer/pkg/victoriametrics"
+	"pmm-dump/pkg/clickhouse"
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/transferer"
+	"pmm-dump/pkg/victoriametrics"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -25,7 +25,7 @@ var (
 
 func main() {
 	var (
-		cli = kingpin.New("pmm-transferer", "Percona PMM Transferer")
+		cli = kingpin.New("pmm-dump", "Percona PMM Dump")
 
 		// general options
 		pmmURL = cli.Flag("pmm-url", "PMM connection string").String()
@@ -187,7 +187,7 @@ func main() {
 
 		t, err := transferer.New(*dumpPath, *stdout, sources, *workersCount)
 		if err != nil {
-			log.Fatal().Msgf("Failed to transfer: %v", err)
+			log.Fatal().Msgf("Failed to setup export: %v", err)
 		}
 
 		var chunks []dump.ChunkMeta
@@ -264,7 +264,7 @@ func main() {
 
 		t, err := transferer.New(*dumpPath, piped, sources, *workersCount)
 		if err != nil {
-			log.Fatal().Msgf("Failed to transfer: %v", err)
+			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
 		meta, err := composeMeta(*pmmURL, httpC)

@@ -1,4 +1,4 @@
-module pmm-transferer
+module pmm-dump
 
 go 1.16
 

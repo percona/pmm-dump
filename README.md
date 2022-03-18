@@ -1,4 +1,4 @@
-# PMM Transferer (pmm-import-export-tool)
+# PMM Dump (pmm-import-export-tool)
 
 A tool that will fetch data from PMM and import it into local instance. Will help Percona Services engineers to resolve issues when the customer cannot provide access to their PMM instance.
 
@@ -8,14 +8,14 @@ You will need to have Go 1.16+ installed.
 
 In the root directory: `make build`
 
-## Using Transferer
+## Using PMM Dump
 
 The transfer process is split into two main parts: export and import.
 
 In order to run either export or import, you have to specify PMM URL at least:
 ```
-./pmm-transferer export --pmm-url "http://USER:PASS@HOST"
-./pmm-transferer import --pmm-url "http://USER:PASS@HOST" --dump-path FILENAME.tar.gz
+./pmm-dump export --pmm-url "http://USER:PASS@HOST"
+./pmm-dump import --pmm-url "http://USER:PASS@HOST" --dump-path FILENAME.tar.gz
 ```
 
 Here are main commands/flags:
@@ -62,16 +62,16 @@ The same for `where` QAN filter: `service_name='mongo'` or `service_id='/service
 Also, you can use `instance` option which filters QAN and core metrics by service name
 
 ```
-> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --ts-selector=`{service_name="mongo"}` --dump-qan --where=`service_name='mongo'`
+> ./pmm-dump export --pmm-url="http://admin:admin@localhost:8282" --ts-selector=`{service_name="mongo"}` --dump-qan --where=`service_name='mongo'`
 ```
 is same as
 ```
-> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --instance="mongo" --dump-qan
+> ./pmm-dump export --pmm-url="http://admin:admin@localhost:8282" --instance="mongo" --dump-qan
 ```
 
 To filter by multiple dashboards, you can use `dashboard` flag multiple times:
 ```
-> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --dashboard='MongoDB Instances Overview' --dashboard='MySQL Instances Overview'`
+> ./pmm-dump export --pmm-url="http://admin:admin@localhost:8282" --dashboard='MongoDB Instances Overview' --dashboard='MySQL Instances Overview'`
 ```
 
 In some cases you would need to override default configuration for VM/CH processing:
@@ -84,9 +84,9 @@ In some cases you would need to override default configuration for VM/CH process
 | export | chunk-rows | Amount of rows to fit into a single chunk (CH only) | `1000` |
 
 ### Using in pipelines
-You can redirect output to STDOUT with --stdout option. It's useful to redirect output to another pmm-transferer in a pipeline:
+You can redirect output to STDOUT with --stdout option. It's useful to redirect output to another pmm-dump in a pipeline:
 ```
-> ./pmm-transferer export --pmm-url="http://admin:admin@localhost:8282" --dump-qan --stdout | ./pmm-transferer import --pmm-url="http://admin:admin@localhost:8282" --dump-qan 
+> ./pmm-dump export --pmm-url="http://admin:admin@localhost:8282" --dump-qan --stdout | ./pmm-dump import --pmm-url="http://admin:admin@localhost:8282" --dump-qan 
 ```
 
 ## About the dump file
@@ -104,15 +104,15 @@ There is a Makefile for easier testing locally. It uses docker-compose to set up
 
 You will need to have Go 1.16+ and Docker installed.
 
-| Rule | Description |
-|------|-------------|
-| make | Shortcut for fast test |
-| make build | Builds transferer binary |
-| make up | Sets up docker containers |
-| mongo-reg | Registers MongoDB in PMM |
-| mongo-insert | Executes MongoDB insert |
+| Rule | Description                  |
+|------|------------------------------|
+| make | Shortcut for fast test       |
+| make build | Builds pmm-dump binary       |
+| make up | Sets up docker containers    |
+| mongo-reg | Registers MongoDB in PMM     |
+| mongo-insert | Executes MongoDB insert      |
 | make down | Shuts down docker containers |
-| make re | Shortcut for `down up` |
-| make export-all | Runs export from local PMM |
+| make re | Shortcut for `down up`       |
+| make export-all | Runs export from local PMM   |
 
 For more rules, please see `Makefile`

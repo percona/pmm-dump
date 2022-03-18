@@ -19,7 +19,7 @@ jobs:
       run: make build
 
     - name: Test
-      run: ./pmm-transferer version
+      run: ./pmm-dump version
       
     - name: Create Release
       id: create_release
@@ -39,6 +39,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-        asset_path: pmm-transferer
-        asset_name: pmm-transferer
+        asset_path: pmm-dump
+        asset_name: pmm-dump
         asset_content_type: application/x-executable

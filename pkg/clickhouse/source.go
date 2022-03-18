@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"io"
-	"pmm-transferer/pkg/clickhouse/tsv"
-	"pmm-transferer/pkg/dump"
+	"pmm-dump/pkg/clickhouse/tsv"
+	"pmm-dump/pkg/dump"
 	"strings"
 	"time"
 )

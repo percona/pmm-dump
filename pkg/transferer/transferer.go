@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
-	"pmm-transferer/pkg/dump"
+	"pmm-dump/pkg/dump"
 	"runtime"
 	"sync"
 	"time"
@@ -26,7 +26,7 @@ type Transferer struct {
 
 func New(dumpPath string, piped bool, s []dump.Source, workersCount int) (*Transferer, error) {
 	if len(s) == 0 {
-		return nil, errors.New("failed to create transferer with no sources")
+		return nil, errors.New("no sources provided")
 	}
 
 	if workersCount <= 0 {

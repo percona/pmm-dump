@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"pmm-transferer/pkg/dump"
+	"pmm-dump/pkg/dump"
 )
 
 func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
@@ -119,7 +119,7 @@ func readAndCompareDumpMeta(r io.Reader, runtimeMeta dump.Meta) {
 	}
 
 	if dumpMeta.Version.GitCommit != runtimeMeta.Version.GitCommit {
-		log.Warn().Msgf("Transferer version mismatch\nExported:\t%v\nCurrent:\t%v",
+		log.Warn().Msgf("pmm-dump version mismatch\nExported:\t%v\nCurrent:\t%v",
 			dumpMeta.Version.GitCommit, runtimeMeta.Version.GitCommit)
 	}
 }

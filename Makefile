@@ -1,6 +1,6 @@
 .PHONY= build up down re pmm-status mongo-reg mongo-insert export-all import-all clean
 
-PMMT_BIN_NAME?=pmm-transferer
+PMMD_BIN_NAME?=pmm-dump
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
 PMM_URL?="http://admin:admin@localhost:8282"
@@ -22,7 +22,7 @@ COMMIT:=$(shell git rev-parse --short HEAD)
 all: build re mongo-reg mongo-insert export-all re import-all
 
 build:
-	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)'" -o $(PMMT_BIN_NAME) pmm-transferer/cmd/transferer
+	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)'" -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
@@ -48,20 +48,20 @@ mongo-insert:
 		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
-	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
 export-vm:
-	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core
 
 export-ch:
-	./$(PMMT_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-qan
 
 import-all:
-	./$(PMMT_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
 clean:
-	rm -f $(PMMT_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)

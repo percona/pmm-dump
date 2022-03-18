@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"os"
-	"pmm-transferer/pkg/dump"
+	"pmm-dump/pkg/dump"
 	"runtime"
 	"strconv"
 	"strings"
@@ -84,7 +84,7 @@ func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
 	}
 
 	meta := &dump.Meta{
-		Version: dump.TransfererVersion{
+		Version: dump.PMMDumpVersion{
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
