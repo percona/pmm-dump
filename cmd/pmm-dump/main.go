@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -83,11 +84,13 @@ func main() {
 
 	ctx := context.Background()
 
-	log.Logger = log.Output(zerolog.ConsoleWriter{
+	logConsoleWriter := zerolog.ConsoleWriter{
 		Out:        os.Stderr,
 		NoColor:    true,
 		TimeFormat: time.RFC3339,
-	})
+	}
+
+	log.Logger = log.Output(logConsoleWriter)
 
 	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
 	if err != nil {
@@ -108,6 +111,17 @@ func main() {
 
 	switch cmd {
 	case exportCmd.FullCommand():
+		dumpLog := new(bytes.Buffer)
+
+		hasLevel := log.Logger.GetLevel()
+		//log.Logger = zerolog.New(zerolog.MultiLevelWriter(log.Logger., dumpLog)).With().Logger()
+
+		log.Logger = log.Logger.Level(zerolog.DebugLevel).Output(zerolog.MultiLevelWriter(LevelWriter{
+			Writer: logConsoleWriter,
+			Level:  hasLevel,
+		}, dumpLog))
+		//log.Logger =
+
 		if *pmmURL == "" {
 			log.Fatal().Msg("Please, specify PMM URL")
 		}
@@ -225,8 +239,13 @@ func main() {
 		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL, thresholds)
 
 		if err = t.Export(ctx, lc, *meta, pool); err != nil {
+			tempLog := zerolog.New(dumpLog)
+			tempLog.Error().Msgf("[Fatal] Failed to export: %v", err)
+			t.WriteLog(dumpLog.Bytes())
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
+
+		t.WriteLog(dumpLog.Bytes())
 	case importCmd.FullCommand():
 		if *pmmURL == "" {
 			log.Fatal().Msg("Please, specify PMM URL")

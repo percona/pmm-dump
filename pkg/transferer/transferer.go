@@ -22,6 +22,7 @@ type Transferer struct {
 	sources          []dump.Source
 	readWorkersCount int
 	piped            bool
+	lastExportPath   string
 }
 
 func New(dumpPath string, piped bool, s []dump.Source, workersCount int) (*Transferer, error) {
@@ -118,7 +119,7 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 	return customPath, nil
 }
 
-func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunkC <-chan *dump.Chunk) error {
+func (t *Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunkC <-chan *dump.Chunk) error {
 	var file *os.File
 	if t.piped {
 		file = os.Stdout
@@ -129,6 +130,7 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 		if err != nil {
 			return err
 		}
+		t.lastExportPath = filepath
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
 		if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
@@ -200,7 +202,81 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 	}
 }
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool) error {
+func (t Transferer) WriteLog(byteLog []byte) error {
+	if len(t.lastExportPath) == 0 {
+		return errors.New("Can't determine last export path")
+	}
+
+	file, err := os.OpenFile(t.lastExportPath, os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return errors.Wrap(err, "failed to create gzip reader")
+	}
+
+	tr := tar.NewReader(gzr)
+
+	files := make([]struct {
+		header *tar.Header
+		data   []byte
+	}, 0)
+
+	for {
+		header, err := tr.Next()
+		if err == nil {
+			data := make([]byte, header.Size)
+			tr.Read(data)
+			files = append(files, struct {
+				header *tar.Header
+				data   []byte
+			}{header, data})
+		} else {
+			break
+		}
+	}
+
+	gzr.Close()
+
+	file.Seek(0, 0)
+
+	gzw, err := gzip.NewWriterLevel(file, gzip.BestCompression)
+	if err != nil {
+		return errors.Wrap(err, "failed to create gzip writer")
+	}
+	defer gzw.Close()
+	tw := tar.NewWriter(gzw)
+	defer tw.Close()
+
+	files = append(files, struct {
+		header *tar.Header
+		data   []byte
+	}{&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     dump.LogFilename,
+		Size:     int64(len(byteLog)),
+		Mode:     0600,
+	}, byteLog})
+
+	for _, v := range files {
+		tw.WriteHeader(v.header)
+		tw.Write(v.data)
+	}
+
+	if err != nil {
+		return errors.Wrap(err, "failed to write file header")
+	}
+
+	if _, err = tw.Write(byteLog); err != nil {
+		return errors.Wrap(err, "failed to write dump log content")
+	}
+
+	return nil
+}
+
+func (t *Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool) error {
 	log.Info().Msg("Exporting metrics...")
 
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)

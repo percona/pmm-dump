@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"io"
 	"os"
 	"pmm-dump/pkg/dump"
 	"runtime"
@@ -129,4 +130,21 @@ func checkPiped() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+type LevelWriter struct {
+	Writer io.Writer
+	Level  zerolog.Level
+}
+
+func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
+	if level >= lw.Level {
+		return lw.Write(p)
+	} else {
+		return len(p), nil
+	}
+}
+
+func (lw LevelWriter) Write(p []byte) (n int, err error) {
+	return lw.Writer.Write(p)
 }
