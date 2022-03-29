@@ -89,6 +89,7 @@ func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
 			GitCommit: GitCommit,
 		},
 		PMMServerVersion: pmmVer,
+		Arguments:        strings.Join(os.Args[1:], " "),
 	}
 
 	return meta, nil
