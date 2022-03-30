@@ -77,10 +77,116 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 	return resp.Server.FullVersion, nil
 }
 
-func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
+func getPMMServices(pmmURL string, c *fasthttp.Client) ([]dump.PMMServerService, error) {
+	type servicesResp map[string][]struct {
+		ID     string `json:"service_id"`
+		Name   string `json:"service_name"`
+		NodeID string `json:"node_id"`
+	}
+	type nodeResp struct {
+		Generic struct {
+			Name string `json:"node_name"`
+		} `json:"generic"`
+	}
+	type agentsResp map[string][]map[string]interface{}
+
+	// Services
+
+	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/inventory/Services/List", pmmURL), nil)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return nil, fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	serviceResp := new(servicesResp)
+	if err = json.Unmarshal(body, serviceResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+
+	services := make([]dump.PMMServerService, 0)
+	for _, v := range *serviceResp {
+		for _, serviceV := range v {
+			service := dump.PMMServerService{
+				Name:   serviceV.Name,
+				NodeID: serviceV.NodeID,
+			}
+
+			// Node
+
+			nodeReq := fasthttp.AcquireRequest()
+			nodeReq.SetRequestURI(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL))
+			nodeReq.Header.SetMethod(fasthttp.MethodPost)
+			nodeReq.Header.SetContentType("application/json")
+			nodeArgs, err := json.Marshal(struct {
+				NodeID string `json:"node_id"`
+			}{serviceV.NodeID})
+			nodeReq.SetBody(nodeArgs)
+			httpResp := fasthttp.AcquireResponse()
+
+			if err = fasthttp.Do(nodeReq, httpResp); err != nil {
+				return nil, err
+			}
+			statusCode, body := httpResp.StatusCode(), httpResp.Body()
+
+			if err != nil {
+				return nil, err
+			}
+			if statusCode != fasthttp.StatusOK {
+				return nil, fmt.Errorf("non-ok status: %d", statusCode)
+			}
+			nodeResp := new(nodeResp)
+			if err = json.Unmarshal(body, nodeResp); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+			}
+
+			service.NodeName = nodeResp.Generic.Name
+
+			// Agents
+
+			statusCode, body, err = c.Post(nil, fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL), nil)
+			if err != nil {
+				return nil, err
+			}
+			if statusCode != fasthttp.StatusOK {
+				return nil, fmt.Errorf("non-ok status: %d", statusCode)
+			}
+			agentsResp := new(agentsResp)
+			if err = json.Unmarshal(body, agentsResp); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+			}
+
+			agentsIDs := make([]string, 0)
+
+			for _, v := range *agentsResp {
+				for _, v := range v {
+					serviceID, ok := v["service_id"]
+					if ok && serviceID.(string) == serviceV.ID {
+						agentsIDs = append(agentsIDs, v["agent_id"].(string))
+					}
+				}
+			}
+
+			service.AgentsIDs = agentsIDs
+
+			services = append(services, service)
+		}
+	}
+	return services, nil
+}
+
+func composeMeta(pmmURL string, c *fasthttp.Client, exportServices bool) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+
+	pmmServices := []dump.PMMServerService(nil)
+	if exportServices {
+		pmmServices, err = getPMMServices(pmmURL, c)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get PMM services")
+		}
 	}
 
 	meta := &dump.Meta{
@@ -88,7 +194,8 @@ func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
-		PMMServerVersion: pmmVer,
+		PMMServerVersion:  pmmVer,
+		PMMServerServices: pmmServices,
 	}
 
 	return meta, nil
