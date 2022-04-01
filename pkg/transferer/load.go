@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/shirou/gopsutil/mem"
 	"github.com/valyala/fasthttp"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -127,7 +129,22 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	log.Debug().Msg("Started check load status")
 	loadStatus := LoadStatusOK
 	for _, t := range c.thresholds {
-		value, err := c.getMetricCurrentValue(t)
+		value, err := 0.0, error(nil)
+
+		switch t.Key {
+		case ThresholdMYRAM:
+			rms := runtime.MemStats{}
+			runtime.ReadMemStats(&rms)
+			mv, me := mem.VirtualMemory()
+			if me == nil {
+				value = float64(rms.Alloc) * 100 / float64(mv.Total)
+			} else {
+				err = me
+			}
+		default:
+			value, err = c.getMetricCurrentValue(t)
+		}
+
 		if err != nil {
 			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: %w", t.Key, err)
 		}
@@ -152,7 +169,7 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
-	q.Add("query", m.Query)
+	q.Add("query", *m.Query)
 
 	url := fmt.Sprintf("%s/api/v1/query?%s", c.connectionURL, q.String())
 
@@ -185,12 +202,13 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 type ThresholdKey = string
 
 const (
-	ThresholdCPU ThresholdKey = "CPU"
-	ThresholdRAM ThresholdKey = "RAM"
+	ThresholdCPU   ThresholdKey = "CPU"
+	ThresholdRAM   ThresholdKey = "RAM"
+	ThresholdMYRAM ThresholdKey = "MYRAM"
 )
 
 func AllThresholdKeys() []ThresholdKey {
-	return []ThresholdKey{ThresholdCPU, ThresholdRAM}
+	return []ThresholdKey{ThresholdCPU, ThresholdRAM, ThresholdMYRAM}
 }
 
 func IsValidThresholdKey(v string) bool {
@@ -215,7 +233,7 @@ func getQueryByThresholdKey(k ThresholdKey) string {
 
 type Threshold struct {
 	Key          ThresholdKey
-	Query        string
+	Query        *string
 	MaxLoad      float64
 	CriticalLoad float64
 }
@@ -275,9 +293,18 @@ func ParseThresholdList(max, critical string) ([]Threshold, error) {
 			continue
 		}
 
+		// For local thresholds we don't need queries data, so it must be optional
+		thresholdQuery := (*string)(nil)
+		switch k {
+		case ThresholdMYRAM:
+		default:
+			query := getQueryByThresholdKey(k)
+			thresholdQuery = &query
+		}
+
 		thresholds = append(thresholds, Threshold{
 			Key:          k,
-			Query:        getQueryByThresholdKey(k),
+			Query:        thresholdQuery,
 			MaxLoad:      maxLoad,
 			CriticalLoad: criticalLoad,
 		})
