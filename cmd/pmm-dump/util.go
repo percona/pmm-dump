@@ -83,13 +83,25 @@ func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
 		return nil, errors.Wrap(err, "failed to get PMM version")
 	}
 
+	var args string
+	for i, v := range os.Args[1:] {
+		if v != pmmURL {
+			if i != 0 {
+				args += " "
+			}
+			args += v
+		} else {
+			args += " #PMM_URL#"
+		}
+	}
+
 	meta := &dump.Meta{
 		Version: dump.PMMDumpVersion{
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
 		PMMServerVersion: pmmVer,
-		Arguments:        strings.Join(os.Args[1:], " "),
+		Arguments:        args,
 	}
 
 	return meta, nil
