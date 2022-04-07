@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	GitBranch string
-	GitCommit string
+	GitBranch  string
+	GitCommit  string
+	GitVersion string
 )
 
 func main() {
@@ -303,7 +304,7 @@ func main() {
 			fmt.Printf("%v\n", string(jsonMeta))
 		}
 	case versionCmd.FullCommand():
-		fmt.Printf("Build: %v\n", GitCommit)
+		fmt.Printf("Version: %v, Build: %v\n", GitVersion, GitCommit)
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}
