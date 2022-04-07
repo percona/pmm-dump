@@ -114,13 +114,11 @@ func main() {
 		dumpLog := new(bytes.Buffer)
 
 		hasLevel := log.Logger.GetLevel()
-		//log.Logger = zerolog.New(zerolog.MultiLevelWriter(log.Logger., dumpLog)).With().Logger()
 
 		log.Logger = log.Logger.Level(zerolog.DebugLevel).Output(zerolog.MultiLevelWriter(LevelWriter{
 			Writer: logConsoleWriter,
 			Level:  hasLevel,
 		}, dumpLog))
-		//log.Logger =
 
 		if *pmmURL == "" {
 			log.Fatal().Msg("Please, specify PMM URL")
