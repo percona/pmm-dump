@@ -64,14 +64,7 @@ func getPMMVersion(pmmURL string, c network.Client) (string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	//statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/version", pmmURL), nil)
 	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
-	//req := fasthttp.AcquireRequest()
-	//req.SetRequestURI(fmt.Sprintf("%s/v1/version", pmmURL))
-	//req.Header.Add("Authorization", "Basic YWRAbWluOmFkbWlu")
-	//httpResp := fasthttp.AcquireResponse()
-	//err := c.Do(req, httpResp)
-	//statusCode, body, err := httpResp.StatusCode(), httpResp.Body(), err
 
 	if err != nil {
 		return "", err

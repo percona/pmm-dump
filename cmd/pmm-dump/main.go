@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
@@ -11,6 +12,7 @@ import (
 	"pmm-dump/pkg/network"
 	"pmm-dump/pkg/transferer"
 	"pmm-dump/pkg/victoriametrics"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -29,6 +31,9 @@ func main() {
 
 		// general options
 		pmmURL = cli.Flag("pmm-url", "PMM connection string").String()
+
+		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
+		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASSWORD").String()
 
 		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
 		clickHouseURL      = cli.Flag("click-house-url", "ClickHouse connection string").String()
@@ -108,7 +113,16 @@ func main() {
 
 	networkC := network.NewClient(httpC)
 
-	err = networkC.Auth(*pmmURL, "admin", "admin")
+	if strings.IndexRune(*pmmURL, '@') == -1 {
+		if len(*pmmURL) != 0 && len(*pmmPassword) != 0 {
+			err = networkC.Auth(*pmmURL, *pmmUser, *pmmPassword)
+			if err != nil {
+				log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
+			}
+		} else {
+			log.Fatal().Msg("There is no credentials found neither in url or by flags")
+		}
+	}
 
 	switch cmd {
 	case exportCmd.FullCommand():
