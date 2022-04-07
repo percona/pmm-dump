@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/network"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ func getGoroutineID() int {
 	return id
 }
 
-func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
+func getPMMVersion(pmmURL string, c network.Client) (string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -64,12 +65,13 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 	}
 
 	//statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/version", pmmURL), nil)
-	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(fmt.Sprintf("%s/v1/version", pmmURL))
-	req.Header.Add("Authorization", "Basic YWRAbWluOmFkbWlu")
-	httpResp := fasthttp.AcquireResponse()
-	err := c.Do(req, httpResp)
-	statusCode, body, err := httpResp.StatusCode(), httpResp.Body(), err
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
+	//req := fasthttp.AcquireRequest()
+	//req.SetRequestURI(fmt.Sprintf("%s/v1/version", pmmURL))
+	//req.Header.Add("Authorization", "Basic YWRAbWluOmFkbWlu")
+	//httpResp := fasthttp.AcquireResponse()
+	//err := c.Do(req, httpResp)
+	//statusCode, body, err := httpResp.StatusCode(), httpResp.Body(), err
 
 	if err != nil {
 		return "", err
@@ -84,7 +86,7 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 	return resp.Server.FullVersion, nil
 }
 
-func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c network.Client) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")

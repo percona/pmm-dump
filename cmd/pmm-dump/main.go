@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/valyala/fasthttp"
 	"os"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/network"
 	"pmm-dump/pkg/transferer"
 	"pmm-dump/pkg/victoriametrics"
 	"time"
@@ -106,6 +106,10 @@ func main() {
 
 	httpC := newClientHTTP(*allowInsecureCerts)
 
+	networkC := network.NewClient(httpC)
+
+	err = networkC.Auth(*pmmURL, "admin", "admin")
+
 	switch cmd {
 	case exportCmd.FullCommand():
 		if *pmmURL == "" {
@@ -131,7 +135,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, httpC)
+		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, networkC)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
 		}
@@ -142,7 +146,7 @@ func main() {
 				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
 			}
 		}
-		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
+		vmSource, ok := prepareVictoriaMetricsSource(networkC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -204,7 +208,7 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
-		meta, err := composeMeta(*pmmURL, httpC)
+		meta, err := composeMeta(*pmmURL, networkC)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -222,7 +226,7 @@ func main() {
 			}
 		}
 
-		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL, thresholds)
+		lc := transferer.NewLoadChecker(ctx, networkC, pmmConfig.VictoriaMetricsURL, thresholds)
 
 		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
@@ -243,7 +247,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
+		vmSource, ok := prepareVictoriaMetricsSource(networkC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -267,7 +271,7 @@ func main() {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
-		meta, err := composeMeta(*pmmURL, httpC)
+		meta, err := composeMeta(*pmmURL, networkC)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -309,7 +313,7 @@ func main() {
 	}
 }
 
-func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(networkC network.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}
@@ -321,7 +325,7 @@ func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url str
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(httpC, *c), true
+	return victoriametrics.NewSource(networkC, *c), true
 }
 
 func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
