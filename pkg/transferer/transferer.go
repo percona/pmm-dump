@@ -202,6 +202,43 @@ func (t *Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chun
 	}
 }
 
+type DumpFile struct {
+	header *tar.Header
+	data   []byte
+}
+
+func ReadDump(file *os.File) ([]DumpFile, error) {
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create gzip reader")
+	}
+
+	tr := tar.NewReader(gzr)
+
+	files := make([]DumpFile, 0)
+
+	// Reading existing files into buffer
+	for {
+		header, err := tr.Next()
+		if err == nil {
+			data := make([]byte, header.Size)
+			_, err = tr.Read(data)
+			if err == nil || err == io.EOF {
+				files = append(files, DumpFile{header, data})
+			}
+		} else {
+			break
+		}
+	}
+
+	err = gzr.Close()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to close gzip reader")
+	}
+
+	return files, nil
+}
+
 func (t Transferer) WriteLog(byteLog []byte) error {
 	if len(t.lastExportPath) == 0 {
 		return errors.New("Can't determine last export path")
@@ -209,68 +246,56 @@ func (t Transferer) WriteLog(byteLog []byte) error {
 
 	file, err := os.OpenFile(t.lastExportPath, os.O_RDWR, 0666)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to open dump file")
 	}
 
-	gzr, err := gzip.NewReader(file)
+	files, err := ReadDump(file)
 	if err != nil {
-		return errors.Wrap(err, "failed to create gzip reader")
-	}
-
-	tr := tar.NewReader(gzr)
-
-	files := make([]struct {
-		header *tar.Header
-		data   []byte
-	}, 0)
-
-	for {
-		header, err := tr.Next()
-		if err == nil {
-			data := make([]byte, header.Size)
-			tr.Read(data)
-			files = append(files, struct {
-				header *tar.Header
-				data   []byte
-			}{header, data})
-		} else {
-			break
+		log.Error().Msg("failed to read dump")
+		err = file.Truncate(0)
+		if err != nil {
+			return errors.Wrap(err, "failed to truncate file")
 		}
 	}
 
-	gzr.Close()
-
-	file.Seek(0, 0)
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return errors.Wrap(err, "failed to seek file at start")
+	}
 
 	gzw, err := gzip.NewWriterLevel(file, gzip.BestCompression)
 	if err != nil {
 		return errors.Wrap(err, "failed to create gzip writer")
 	}
-	defer gzw.Close()
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
 
-	files = append(files, struct {
-		header *tar.Header
-		data   []byte
-	}{&tar.Header{
+	// Adding log to our files buffer
+	files = append(files, DumpFile{&tar.Header{
 		Typeflag: tar.TypeReg,
 		Name:     dump.LogFilename,
 		Size:     int64(len(byteLog)),
 		Mode:     0600,
 	}, byteLog})
 
+	// Writing files to archive
 	for _, v := range files {
-		tw.WriteHeader(v.header)
-		tw.Write(v.data)
+		err = tw.WriteHeader(v.header)
+		if err != nil {
+			return errors.Wrap(err, "failed to write tar header")
+		}
+		_, err = tw.Write(v.data)
+		if err != nil {
+			return errors.Wrap(err, "failed to write tar data")
+		}
 	}
 
+	err = gzw.Close()
 	if err != nil {
-		return errors.Wrap(err, "failed to write file header")
+		return errors.Wrap(err, "failed to close gzip writer")
 	}
-
-	if _, err = tw.Write(byteLog); err != nil {
-		return errors.Wrap(err, "failed to write dump log content")
+	err = tw.Close()
+	if err != nil {
+		return errors.Wrap(err, "failed to close tar writer")
 	}
 
 	return nil

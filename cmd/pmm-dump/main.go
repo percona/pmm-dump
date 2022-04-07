@@ -241,11 +241,13 @@ func main() {
 		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			tempLog := zerolog.New(dumpLog)
 			tempLog.Error().Msgf("[Fatal] Failed to export: %v", err)
-			t.WriteLog(dumpLog.Bytes())
-			log.Fatal().Msgf("Failed to export: %v", err)
+			defer log.Fatal().Msgf("Failed to export: %v", err)
 		}
 
-		t.WriteLog(dumpLog.Bytes())
+		err = t.WriteLog(dumpLog.Bytes())
+		if err != nil {
+			log.Error().Msgf("Failed to save log: %v", err)
+		}
 	case importCmd.FullCommand():
 		if *pmmURL == "" {
 			log.Fatal().Msg("Please, specify PMM URL")
