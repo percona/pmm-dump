@@ -33,7 +33,7 @@ func main() {
 		pmmURL = cli.Flag("pmm-url", "PMM connection string").String()
 
 		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
-		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASSWORD").String()
+		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASS").String()
 
 		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
 		clickHouseURL      = cli.Flag("click-house-url", "ClickHouse connection string").String()
