@@ -63,11 +63,11 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 			switch lc.GetLatestStatus() {
 			case LoadStatusWait:
 				time.Sleep(MaxLoadWaitDuration)
-				log.Debug().Msgf("Got wait load status: putting chunks reading to sleep for %v", MaxLoadWaitDuration)
+				log.Debug().Msgf("Exceeded max load threshold(got wait load status): putting chunks reading to sleep for %v", MaxLoadWaitDuration)
 				continue
 			case LoadStatusTerminate:
 				log.Debug().Msg("Got terminate load status: stopping chunks reading")
-				return errors.New("got terminate load status")
+				return errors.New("terminated by exceeding critical load threshold(got terminate load status). Check --critical-load value or use --ignore-load")
 			case LoadStatusOK:
 			default:
 				return errors.New("unknown load status")
