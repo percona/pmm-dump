@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/network"
+	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
@@ -48,7 +48,7 @@ func getGoroutineID() int {
 	return id
 }
 
-func getPMMVersion(pmmURL string, c network.Client) (string, error) {
+func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -79,7 +79,7 @@ func getPMMVersion(pmmURL string, c network.Client) (string, error) {
 	return resp.Server.FullVersion, nil
 }
 
-func composeMeta(pmmURL string, c network.Client) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")

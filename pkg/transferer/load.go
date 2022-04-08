@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 	"net/http"
-	"pmm-dump/pkg/network"
+	"pmm-dump/pkg/grafana"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,7 +46,7 @@ const (
 )
 
 type LoadChecker struct {
-	c             network.Client
+	c             grafana.Client
 	connectionURL string
 
 	thresholds []Threshold
@@ -57,7 +57,7 @@ type LoadChecker struct {
 	waitStatusCounter int
 }
 
-func NewLoadChecker(ctx context.Context, c network.Client, url string, thresholds []Threshold) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c grafana.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,

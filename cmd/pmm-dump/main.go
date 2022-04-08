@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"net/url"
 	"os"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
-	"pmm-dump/pkg/network"
 	"pmm-dump/pkg/transferer"
 	"pmm-dump/pkg/victoriametrics"
-	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -111,17 +110,31 @@ func main() {
 
 	httpC := newClientHTTP(*allowInsecureCerts)
 
-	networkC := network.NewClient(httpC)
+	networkC := grafana.NewClient(httpC)
 
-	if strings.IndexRune(*pmmURL, '@') == -1 {
-		if len(*pmmURL) != 0 && len(*pmmPassword) != 0 {
-			err = networkC.Auth(*pmmURL, *pmmUser, *pmmPassword)
-			if err != nil {
-				log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
-			}
-		} else {
-			log.Fatal().Msg("There is no credentials found neither in url or by flags")
-		}
+	// Auth
+	parsedURL, err := url.Parse(*pmmURL)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
+	}
+	userinfo := parsedURL.User
+	parsedURL.User = nil
+
+	*pmmURL = parsedURL.String()
+	if *pmmUser == "" {
+		*pmmUser = userinfo.Username()
+	}
+	if *pmmPassword == "" {
+		*pmmPassword, _ = userinfo.Password()
+	}
+
+	if *pmmUser == "" || *pmmPassword == "" {
+		log.Fatal().Msg("There is no credentials found neither in url or by flags")
+	}
+
+	err = networkC.Auth(*pmmURL, *pmmUser, *pmmPassword)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
 	}
 
 	switch cmd {
@@ -327,7 +340,7 @@ func main() {
 	}
 }
 
-func prepareVictoriaMetricsSource(networkC network.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(networkC grafana.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}

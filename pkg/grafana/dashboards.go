@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
-	"pmm-dump/pkg/network"
 )
 
-func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c network.Client) ([]string, error) {
+func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c Client) ([]string, error) {
 	var selectors []string
 	for _, d := range dashboards {
 		sel, err := getSingleDashboardSelectors(pmmURL, d, serviceNames, c)
@@ -20,7 +19,7 @@ func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c n
 	return selectors, nil
 }
 
-func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c network.Client) ([]string, error) {
+func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c Client) ([]string, error) {
 	uid, err := findDashboardUID(pmmURL, dashboardName, c)
 	if err != nil {
 		return nil, err
@@ -83,7 +82,7 @@ type panel struct {
 	} `json:"templating"`
 }
 
-func findDashboardUID(pmmURL, name string, c network.Client) (string, error) {
+func findDashboardUID(pmmURL, name string, c Client) (string, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
