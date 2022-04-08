@@ -31,7 +31,6 @@ func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
 	return httpResp, nil
 }
 
-// Copy-past from Client.Do(...)
 func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*fasthttp.Response, error) {
 	req.Header.SetCookie(AuthCookieName, c.authCookie)
 	httpResp := fasthttp.AcquireResponse()
@@ -61,7 +60,6 @@ func (c *Client) Get(url string) (int, []byte, error) {
 	return httpResp.StatusCode(), httpResp.Body(), err
 }
 
-// Copy-past from Client.Get(...)
 func (c *Client) GetWithTimeout(url string, timeout time.Duration) (int, []byte, error) {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)

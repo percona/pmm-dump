@@ -110,32 +110,9 @@ func main() {
 
 	httpC := newClientHTTP(*allowInsecureCerts)
 
-	networkC := grafana.NewClient(httpC)
+	grafanaC := grafana.NewClient(httpC)
 
-	// Auth
-	parsedURL, err := url.Parse(*pmmURL)
-	if err != nil {
-		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
-	}
-	userinfo := parsedURL.User
-	parsedURL.User = nil
-
-	*pmmURL = parsedURL.String()
-	if *pmmUser == "" {
-		*pmmUser = userinfo.Username()
-	}
-	if *pmmPassword == "" {
-		*pmmPassword, _ = userinfo.Password()
-	}
-
-	if *pmmUser == "" || *pmmPassword == "" {
-		log.Fatal().Msg("There is no credentials found neither in url or by flags")
-	}
-
-	err = networkC.Auth(*pmmURL, *pmmUser, *pmmPassword)
-	if err != nil {
-		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
-	}
+	auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
 
 	switch cmd {
 	case exportCmd.FullCommand():
@@ -162,7 +139,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, networkC)
+		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, grafanaC)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
 		}
@@ -173,7 +150,7 @@ func main() {
 				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
 			}
 		}
-		vmSource, ok := prepareVictoriaMetricsSource(networkC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -235,7 +212,7 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
-		meta, err := composeMeta(*pmmURL, networkC)
+		meta, err := composeMeta(*pmmURL, grafanaC)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -253,7 +230,7 @@ func main() {
 			}
 		}
 
-		lc := transferer.NewLoadChecker(ctx, networkC, pmmConfig.VictoriaMetricsURL, thresholds)
+		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
 		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
@@ -274,7 +251,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		vmSource, ok := prepareVictoriaMetricsSource(networkC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -298,7 +275,7 @@ func main() {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
-		meta, err := composeMeta(*pmmURL, networkC)
+		meta, err := composeMeta(*pmmURL, grafanaC)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -340,7 +317,7 @@ func main() {
 	}
 }
 
-func prepareVictoriaMetricsSource(networkC grafana.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}
@@ -352,7 +329,7 @@ func prepareVictoriaMetricsSource(networkC grafana.Client, dumpCore bool, url st
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(networkC, *c), true
+	return victoriametrics.NewSource(grafanaC, *c), true
 }
 
 func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
@@ -373,4 +350,30 @@ func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where strin
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 
 	return clickhouseSource, true
+}
+
+func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
+	parsedURL, err := url.Parse(*pmmURL)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
+	}
+	userinfo := parsedURL.User
+	parsedURL.User = nil
+
+	*pmmURL = parsedURL.String()
+	if *pmmUser == "" {
+		*pmmUser = userinfo.Username()
+	}
+	if *pmmPassword == "" {
+		*pmmPassword, _ = userinfo.Password()
+	}
+
+	if *pmmUser == "" || *pmmPassword == "" {
+		log.Fatal().Msg("There is no credentials found neither in url or by flags")
+	}
+
+	err = client.Auth(*pmmURL, *pmmUser, *pmmPassword)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
+	}
 }
