@@ -25,26 +25,28 @@ PMM_USER=USER PMM_PASS=PASS ./pmm-dump import --pmm-url "http://HOST" --dump-pat
 
 Here are main commands/flags:
 
-| Command | Flag                 | Description                                                                                    | Example |
-|---------|----------------------|------------------------------------------------------------------------------------------------|---------|
-| any | pmm-url              | URL of PMM instance                                                                            | `http://admin:admin@localhost` |
-| any | pmm-user             | PMM credentials user                                                                           | - |
-| any | pmm-pass             | PMM credentials password                                                                       | - |
-| any | dump-core            | Process core metrics                                                                           | - |
-| any | dump-qan             | Process QAN metrics                                                                            | - |
+| Command | Flag                 | Description                                                                                    | Example                                                                                                    |
+|---------|----------------------|------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| any | pmm-url              | URL of PMM instance. Envar: `PMM_URL`                                                          | `http://admin:admin@localhost`                                                                             |
+| any | pmm-host             | Host of PMM instance(with scheme). Envar: `PMM_HOST`                                           | `http://localhost`                                                                                         |
+| any | pmm-port             | Port of PMM instance. Envar: `PMM_PORT`                                                        | `80`                                                                                                        |
+| any | pmm-user             | PMM credentials user. Envar: `PMM_USER`                                                        | -                                                                                                          |
+| any | pmm-pass             | PMM credentials password. Envar: `PMM_PASS`                                                     | -                                                                                                          |
+| any | dump-core            | Process core metrics                                                                           | -                                                                                                          |
+| any | dump-qan             | Process QAN metrics                                                                            | -                                                                                                          |
 | export | start-ts             | Start date-time to limit timeframe (in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) format) | `2006-01-02T15:04:05Z` (please note that you can't use offset for UTC time)<br>`2006-01-02T15:04:05-07:00` |
 | export | end-ts               | End date-time to limit timeframe (in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) format)   | `2006-01-02T15:04:05Z` (please note that you can't use offset for UTC time)<br>`2006-01-02T15:04:05-07:00` |
-| export | ignore-load          | Disable checking for load values                                                               | - |
-| export | max-load             | Max value of a metric to postpone export                                                       | `CPU=50,RAM=50` |
-| export | critical-load        | Max value of a metric to stop export                                                           | `CPU=70,RAM=70` |
-| export | stdout               | Redirect output to STDOUT                                                                      | - |
-| export | workers              | Set the number of reading workers                                                              | `4` |
-| any | dump-path, d         | Path to dump file                                                                              | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz` |
-| any | verbose, v           | Enable verbose (debug) mode                                                                    | - |
-| any | allow-insecure-certs | For self-signed certificates                                                                   | - |
-| show-meta | -                    | Shows dump meta in human readable format                                                       | - |
-| show-meta | no-prettify          | Shows raw dump meta                                                                            | - |
-| version | -                    | Shows binary version                                                                           | - |
+| export | ignore-load          | Disable checking for load values                                                               | -                                                                                                          |
+| export | max-load             | Max value of a metric to postpone export                                                       | `CPU=50,RAM=50`                                                                                            |
+| export | critical-load        | Max value of a metric to stop export                                                           | `CPU=70,RAM=70`                                                                                            |
+| export | stdout               | Redirect output to STDOUT                                                                      | -                                                                                                          |
+| export | workers              | Set the number of reading workers                                                              | `4`                                                                                                        |
+| any | dump-path, d         | Path to dump file                                                                              | `/tmp/pmm-dumps/pmm-dump-1624342596.tar.gz`                                                                |
+| any | verbose, v           | Enable verbose (debug) mode                                                                    | -                                                                                                          |
+| any | allow-insecure-certs | For self-signed certificates                                                                   | -                                                                                                          |
+| show-meta | -                    | Shows dump meta in human readable format                                                       | -                                                                                                          |
+| show-meta | no-prettify          | Shows raw dump meta                                                                            | -                                                                                                          |
+| version | -                    | Shows binary version                                                                           | -                                                                                                          |
 
 For filtering you could use the following commands (will be improved in the future):
 

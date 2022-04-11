@@ -12,6 +12,7 @@ import (
 	"pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/transferer"
 	"pmm-dump/pkg/victoriametrics"
+	"strconv"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -29,8 +30,10 @@ func main() {
 		cli = kingpin.New("pmm-dump", "Percona PMM Dump")
 
 		// general options
-		pmmURL = cli.Flag("pmm-url", "PMM connection string").String()
+		pmmURL = cli.Flag("pmm-url", "PMM connection string").Envar("PMM_URL").String()
 
+		pmmHost     = cli.Flag("pmm-host", "PMM server host(with scheme)").Envar("PMM_HOST").String()
+		pmmPort     = cli.Flag("pmm-port", "PMM server port").Envar("PMM_PORT").String()
 		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
 		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASS").String()
 
@@ -111,6 +114,8 @@ func main() {
 	httpC := newClientHTTP(*allowInsecureCerts)
 
 	grafanaC := grafana.NewClient(httpC)
+
+	parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
 	auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
 
@@ -353,27 +358,60 @@ func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where strin
 }
 
 func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
-	parsedURL, err := url.Parse(*pmmURL)
-	if err != nil {
-		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
-	}
-	userinfo := parsedURL.User
-	parsedURL.User = nil
-
-	*pmmURL = parsedURL.String()
-	if *pmmUser == "" {
-		*pmmUser = userinfo.Username()
-	}
-	if *pmmPassword == "" {
-		*pmmPassword, _ = userinfo.Password()
-	}
-
 	if *pmmUser == "" || *pmmPassword == "" {
 		log.Fatal().Msg("There is no credentials found neither in url or by flags")
 	}
 
-	err = client.Auth(*pmmURL, *pmmUser, *pmmPassword)
+	err := client.Auth(*pmmURL, *pmmUser, *pmmPassword)
 	if err != nil {
 		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
 	}
+}
+
+func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
+	parsedURL, err := url.Parse(*pmmURL)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot parse pmm url!"))
+	}
+
+	// Host(scheme + hostname)
+	if parsedURL.Host == "" && parsedURL.Path != "" {
+		log.Error().Msg("pmm-url input can be mismatched as path and not as host!")
+	}
+	if *pmmHost != "" {
+		parsedHostURL, err := url.Parse(*pmmHost)
+		if err != nil {
+			log.Fatal().Err(errors.Wrap(err, "Cannot parse pmm-host!"))
+		}
+
+		parsedURL.Scheme = parsedHostURL.Scheme
+		parsedURL.Host = parsedHostURL.Hostname()
+	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		log.Fatal().Msg("There is no host found neither in pmm-url or pmm-host")
+	}
+
+	// Port
+	if *pmmPort != "" {
+		_, err := strconv.Atoi(*pmmPort)
+		if err != nil {
+			log.Fatal().Msg("Cannot parse port!")
+		}
+		parsedURL.Host = parsedURL.Hostname() + ":" + *pmmPort
+	}
+
+	// User
+	if parsedURL.User != nil {
+		if *pmmUser == "" {
+			log.Info().Msg("Credential user was obtained from pmm-url")
+			*pmmUser = parsedURL.User.Username()
+		}
+		if *pmmPassword == "" {
+			log.Info().Msg("Credential password was obtained from pmm-url")
+			*pmmPassword, _ = parsedURL.User.Password()
+		}
+		parsedURL.User = nil
+	}
+
+	*pmmURL = parsedURL.String()
 }
