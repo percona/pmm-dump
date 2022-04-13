@@ -129,17 +129,17 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	log.Debug().Msg("Started check load status")
 	loadStatus := LoadStatusOK
 	for _, t := range c.thresholds {
-		value, err := 0.0, error(nil)
+		var value float64
+		var err error
 
 		switch t.Key {
 		case ThresholdMYRAM:
 			rms := runtime.MemStats{}
 			runtime.ReadMemStats(&rms)
-			mv, me := mem.VirtualMemory()
-			if me == nil {
-				value = float64(rms.Alloc) * 100 / float64(mv.Total)
-			} else {
-				err = me
+			var vm *mem.VirtualMemoryStat
+			vm, err = mem.VirtualMemory()
+			if err == nil {
+				value = float64(rms.Alloc) * 100 / float64(vm.Total)
 			}
 		default:
 			value, err = c.getMetricCurrentValue(t)
@@ -169,7 +169,7 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
-	q.Add("query", *m.Query)
+	q.Add("query", m.Query)
 
 	url := fmt.Sprintf("%s/api/v1/query?%s", c.connectionURL, q.String())
 
@@ -226,6 +226,8 @@ func getQueryByThresholdKey(k ThresholdKey) string {
 		return `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`
 	case ThresholdRAM:
 		return `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`
+	case ThresholdMYRAM:
+		return ""
 	default:
 		panic("BUG: undefined threshold key")
 	}
@@ -233,7 +235,7 @@ func getQueryByThresholdKey(k ThresholdKey) string {
 
 type Threshold struct {
 	Key          ThresholdKey
-	Query        *string
+	Query        string
 	MaxLoad      float64
 	CriticalLoad float64
 }
@@ -293,18 +295,9 @@ func ParseThresholdList(max, critical string) ([]Threshold, error) {
 			continue
 		}
 
-		// For local thresholds we don't need queries data, so it must be optional
-		thresholdQuery := (*string)(nil)
-		switch k {
-		case ThresholdMYRAM:
-		default:
-			query := getQueryByThresholdKey(k)
-			thresholdQuery = &query
-		}
-
 		thresholds = append(thresholds, Threshold{
 			Key:          k,
-			Query:        thresholdQuery,
+			Query:        getQueryByThresholdKey(k),
 			MaxLoad:      maxLoad,
 			CriticalLoad: criticalLoad,
 		})
