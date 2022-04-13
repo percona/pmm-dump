@@ -18,11 +18,12 @@ DUMP_FILENAME=dump.tar.gz
 
 BRANCH:=$(shell git branch --show-current)
 COMMIT:=$(shell git rev-parse --short HEAD)
+VERSION:=$(shell git describe --tags --abbrev=0)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
 build:
-	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)'" -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
+	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)' -X 'main.GitVersion=$(VERSION)'" -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml

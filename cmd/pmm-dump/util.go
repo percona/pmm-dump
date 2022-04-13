@@ -79,10 +79,42 @@ func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
 	return resp.Server.FullVersion, nil
 }
 
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
+func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
+	type tzResp struct {
+		Timezone string `json:"timezone"`
+	}
+
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/graph/api/org/preferences", pmmURL))
+	if err != nil {
+		return "", err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return "", fmt.Errorf("non-ok status: %d", statusCode)
+	}
+
+	resp := new(tzResp)
+	if err = json.Unmarshal(body, resp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+	return resp.Timezone, nil
+}
+
 func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+
+	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get PMM timezone")
+	}
+	var pmmTz *string
+	if len(pmmTzRaw) == 0 || pmmTzRaw == "browser" {
+		pmmTz = nil
+	} else {
+		pmmTz = &pmmTzRaw
 	}
 
 	meta := &dump.Meta{
@@ -91,6 +123,7 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 			GitCommit: GitCommit,
 		},
 		PMMServerVersion: pmmVer,
+		PMMTimezone:      pmmTz,
 	}
 
 	return meta, nil

@@ -21,8 +21,9 @@ import (
 )
 
 var (
-	GitBranch string
-	GitCommit string
+	GitBranch  string
+	GitCommit  string
+	GitVersion string
 )
 
 func main() {
@@ -131,9 +132,9 @@ func main() {
 
 		if *dumpQAN && *dumpCore && len(*instances) == 0 {
 			if *where == "" && (*tsSelector != "" || len(*dashboards) > 0) {
-				log.Warn().Msg("Filter for QAN found, but not for core dump. Core metrics for all metrics would be exported")
-			} else if *where != "" && *tsSelector == "" && len(*dashboards) == 0 {
 				log.Warn().Msg("Filter for core dump found, but not for QAN. QAN metrics for all metrics would be exported")
+			} else if *where != "" && *tsSelector == "" && len(*dashboards) == 0 {
+				log.Warn().Msg("Filter for QAN found, but not for core dump. Core metrics for all metrics would be exported")
 			}
 		}
 
@@ -316,7 +317,7 @@ func main() {
 			fmt.Printf("%v\n", string(jsonMeta))
 		}
 	case versionCmd.FullCommand():
-		fmt.Printf("Build: %v\n", GitCommit)
+		fmt.Printf("Version: %v, Build: %v\n", GitVersion, GitCommit)
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}
