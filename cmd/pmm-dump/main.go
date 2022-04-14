@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/valyala/fasthttp"
+	"github.com/pkg/errors"
+	"net/url"
 	"os"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/transferer"
 	"pmm-dump/pkg/victoriametrics"
+	"strconv"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -29,7 +31,12 @@ func main() {
 		cli = kingpin.New("pmm-dump", "Percona PMM Dump")
 
 		// general options
-		pmmURL = cli.Flag("pmm-url", "PMM connection string").String()
+		pmmURL = cli.Flag("pmm-url", "PMM connection string").Envar("PMM_URL").String()
+
+		pmmHost     = cli.Flag("pmm-host", "PMM server host(with scheme)").Envar("PMM_HOST").String()
+		pmmPort     = cli.Flag("pmm-port", "PMM server port").Envar("PMM_PORT").String()
+		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
+		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASS").String()
 
 		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
 		clickHouseURL      = cli.Flag("click-house-url", "ClickHouse connection string").String()
@@ -107,6 +114,12 @@ func main() {
 
 	httpC := newClientHTTP(*allowInsecureCerts)
 
+	grafanaC := grafana.NewClient(httpC)
+
+	parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
+
+	auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
+
 	switch cmd {
 	case exportCmd.FullCommand():
 		if *pmmURL == "" {
@@ -132,7 +145,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, httpC)
+		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, grafanaC)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
 		}
@@ -143,7 +156,7 @@ func main() {
 				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
 			}
 		}
-		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -205,7 +218,7 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
-		meta, err := composeMeta(*pmmURL, httpC)
+		meta, err := composeMeta(*pmmURL, grafanaC)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -223,7 +236,7 @@ func main() {
 			}
 		}
 
-		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL, thresholds)
+		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
 		if err = t.Export(ctx, lc, *meta, pool); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
@@ -244,7 +257,7 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
-		vmSource, ok := prepareVictoriaMetricsSource(httpC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -268,7 +281,7 @@ func main() {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
-		meta, err := composeMeta(*pmmURL, httpC)
+		meta, err := composeMeta(*pmmURL, grafanaC)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -310,7 +323,7 @@ func main() {
 	}
 }
 
-func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}
@@ -322,7 +335,7 @@ func prepareVictoriaMetricsSource(httpC *fasthttp.Client, dumpCore bool, url str
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(httpC, *c), true
+	return victoriametrics.NewSource(grafanaC, *c), true
 }
 
 func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
@@ -343,4 +356,63 @@ func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where strin
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 
 	return clickhouseSource, true
+}
+
+func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
+	if *pmmUser == "" || *pmmPassword == "" {
+		log.Fatal().Msg("There is no credentials found neither in url or by flags")
+	}
+
+	err := client.Auth(*pmmURL, *pmmUser, *pmmPassword)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
+	}
+}
+
+func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
+	parsedURL, err := url.Parse(*pmmURL)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "Cannot parse pmm url!"))
+	}
+
+	// Host(scheme + hostname)
+	if parsedURL.Host == "" && parsedURL.Path != "" {
+		log.Error().Msg("pmm-url input can be mismatched as path and not as host!")
+	}
+	if *pmmHost != "" {
+		parsedHostURL, err := url.Parse(*pmmHost)
+		if err != nil {
+			log.Fatal().Err(errors.Wrap(err, "Cannot parse pmm-host!"))
+		}
+
+		parsedURL.Scheme = parsedHostURL.Scheme
+		parsedURL.Host = parsedHostURL.Hostname()
+	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		log.Fatal().Msg("There is no host found neither in pmm-url or pmm-host")
+	}
+
+	// Port
+	if *pmmPort != "" {
+		_, err := strconv.Atoi(*pmmPort)
+		if err != nil {
+			log.Fatal().Msg("Cannot parse port!")
+		}
+		parsedURL.Host = parsedURL.Hostname() + ":" + *pmmPort
+	}
+
+	// User
+	if parsedURL.User != nil {
+		if *pmmUser == "" {
+			log.Info().Msg("Credential user was obtained from pmm-url")
+			*pmmUser = parsedURL.User.Username()
+		}
+		if *pmmPassword == "" {
+			log.Info().Msg("Credential password was obtained from pmm-url")
+			*pmmPassword, _ = parsedURL.User.Password()
+		}
+		parsedURL.User = nil
+	}
+
+	*pmmURL = parsedURL.String()
 }

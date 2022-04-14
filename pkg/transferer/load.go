@@ -9,6 +9,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"github.com/valyala/fasthttp"
 	"net/http"
+	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ const (
 )
 
 type LoadChecker struct {
-	c             *fasthttp.Client
+	c             grafana.Client
 	connectionURL string
 
 	thresholds []Threshold
@@ -58,7 +59,7 @@ type LoadChecker struct {
 	waitStatusCounter int
 }
 
-func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string, thresholds []Threshold) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c grafana.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
@@ -176,7 +177,7 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	log.Debug().
 		Str("url", url).
 		Msgf("Sending HTTP request to load checker endpoint")
-	status, body, err := c.c.Get(nil, url)
+	status, body, err := c.c.Get(url)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to send req to load checker endpoint")
 	}

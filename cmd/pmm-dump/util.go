@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ func getGoroutineID() int {
 	return id
 }
 
-func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
+func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -63,7 +64,8 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/version", pmmURL), nil)
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
+
 	if err != nil {
 		return "", err
 	}
@@ -78,12 +80,12 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 }
 
 // getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
-func getPMMTimezone(pmmURL string, c *fasthttp.Client) (string, error) {
+func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 	type tzResp struct {
 		Timezone string `json:"timezone"`
 	}
 
-	statusCode, body, err := c.Get(nil, fmt.Sprintf("%s/graph/api/org/preferences", pmmURL))
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/graph/api/org/preferences", pmmURL))
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +100,7 @@ func getPMMTimezone(pmmURL string, c *fasthttp.Client) (string, error) {
 	return resp.Timezone, nil
 }
 
-func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
