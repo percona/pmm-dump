@@ -71,9 +71,9 @@ func main() {
 
 		ignoreLoad = exportCmd.Flag("ignore-load", "Disable checking for load threshold values").Bool()
 		maxLoad    = exportCmd.Flag("max-load", "Max load threshold values").
-				Default(fmt.Sprintf("%v=50,%v=50", transferer.ThresholdCPU, transferer.ThresholdRAM)).String()
+				Default(fmt.Sprintf("%v=70,%v=80,%v=10", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values").
-				Default(fmt.Sprintf("%v=70,%v=70", transferer.ThresholdCPU, transferer.ThresholdRAM)).String()
+				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
