@@ -23,11 +23,7 @@ func parseQuery(query string, serviceNames []string, templateVars map[string]str
 			for _, f := range m.LabelFilters {
 				var s string
 				if f.Value == "$service_name" {
-					if len(serviceNames) == 0 {
-						continue
-					}
-					serviceName := strings.Join(serviceNames, "|")
-					s += fmt.Sprintf("%s=~\"%s\"", f.Label, serviceName)
+					continue
 				} else if _, ok := templateVars[f.Value]; ok {
 					continue
 				} else {
@@ -45,6 +41,11 @@ func parseQuery(query string, serviceNames []string, templateVars map[string]str
 					s += fmt.Sprintf(`"%s"`, f.Value)
 				}
 				filters = append(filters, s)
+			}
+			if len(serviceNames) == 1 {
+				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+serviceNames[0]+"$"))
+			} else if len(serviceNames) > 1 {
+				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(serviceNames, "|")+")$"))
 			}
 			if len(filters) == 0 {
 				return

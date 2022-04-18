@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/shirou/gopsutil/mem"
 	"github.com/valyala/fasthttp"
 	"net/http"
+	"pmm-dump/pkg/grafana"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,7 +48,7 @@ const (
 )
 
 type LoadChecker struct {
-	c             *fasthttp.Client
+	c             grafana.Client
 	connectionURL string
 
 	thresholds []Threshold
@@ -56,7 +59,7 @@ type LoadChecker struct {
 	waitStatusCounter int
 }
 
-func NewLoadChecker(ctx context.Context, c *fasthttp.Client, url string, thresholds []Threshold) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c grafana.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
@@ -127,7 +130,22 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 	log.Debug().Msg("Started check load status")
 	loadStatus := LoadStatusOK
 	for _, t := range c.thresholds {
-		value, err := c.getMetricCurrentValue(t)
+		var value float64
+		var err error
+
+		switch t.Key {
+		case ThresholdMYRAM:
+			rms := runtime.MemStats{}
+			runtime.ReadMemStats(&rms)
+			var vm *mem.VirtualMemoryStat
+			vm, err = mem.VirtualMemory()
+			if err == nil {
+				value = float64(rms.Alloc) * 100 / float64(vm.Total)
+			}
+		default:
+			value, err = c.getMetricCurrentValue(t)
+		}
+
 		if err != nil {
 			return LoadStatusNone, fmt.Errorf("failed to retrieve threshold value for %s: %w", t.Key, err)
 		}
@@ -159,7 +177,7 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	log.Debug().
 		Str("url", url).
 		Msgf("Sending HTTP request to load checker endpoint")
-	status, body, err := c.c.Get(nil, url)
+	status, body, err := c.c.Get(url)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to send req to load checker endpoint")
 	}
@@ -185,12 +203,13 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 type ThresholdKey = string
 
 const (
-	ThresholdCPU ThresholdKey = "CPU"
-	ThresholdRAM ThresholdKey = "RAM"
+	ThresholdCPU   ThresholdKey = "CPU"
+	ThresholdRAM   ThresholdKey = "RAM"
+	ThresholdMYRAM ThresholdKey = "MYRAM"
 )
 
 func AllThresholdKeys() []ThresholdKey {
-	return []ThresholdKey{ThresholdCPU, ThresholdRAM}
+	return []ThresholdKey{ThresholdCPU, ThresholdRAM, ThresholdMYRAM}
 }
 
 func IsValidThresholdKey(v string) bool {
@@ -208,6 +227,8 @@ func getQueryByThresholdKey(k ThresholdKey) string {
 		return `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",node_name="pmm-server"}[5s])) * 100)`
 	case ThresholdRAM:
 		return `100 * (1 - ((avg_over_time(node_memory_MemFree_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Cached_bytes{node_name="pmm-server"}[5s]) + avg_over_time(node_memory_Buffers_bytes{node_name="pmm-server"}[5s])) / avg_over_time(node_memory_MemTotal_bytes{node_name="pmm-server"}[5s])))`
+	case ThresholdMYRAM:
+		return ""
 	default:
 		panic("BUG: undefined threshold key")
 	}

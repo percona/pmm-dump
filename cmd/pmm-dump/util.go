@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ func getGoroutineID() int {
 	return id
 }
 
-func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
+func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -63,7 +64,8 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/version", pmmURL), nil)
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
+
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +79,7 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 	return resp.Server.FullVersion, nil
 }
 
-func getPMMServices(pmmURL string, c *fasthttp.Client) ([]dump.PMMServerService, error) {
+func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
 		ID     string `json:"service_id"`
 		Name   string `json:"service_name"`
@@ -92,7 +94,7 @@ func getPMMServices(pmmURL string, c *fasthttp.Client) ([]dump.PMMServerService,
 
 	// Services
 
-	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/inventory/Services/List", pmmURL), nil)
+	statusCode, body, err := c.Post(fmt.Sprintf("%s/v1/inventory/Services/List", pmmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +146,7 @@ func getPMMServices(pmmURL string, c *fasthttp.Client) ([]dump.PMMServerService,
 
 			// Agents
 
-			statusCode, body, err = c.Post(nil, fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL), nil)
+			statusCode, body, err = c.Post(fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL))
 			if err != nil {
 				return nil, err
 			}
@@ -175,10 +177,42 @@ func getPMMServices(pmmURL string, c *fasthttp.Client) ([]dump.PMMServerService,
 	return services, nil
 }
 
-func composeMeta(pmmURL string, c *fasthttp.Client, exportServices bool) (*dump.Meta, error) {
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
+func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
+	type tzResp struct {
+		Timezone string `json:"timezone"`
+	}
+
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/graph/api/org/preferences", pmmURL))
+	if err != nil {
+		return "", err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return "", fmt.Errorf("non-ok status: %d", statusCode)
+	}
+
+	resp := new(tzResp)
+	if err = json.Unmarshal(body, resp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+	return resp.Timezone, nil
+}
+
+func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+
+	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get PMM timezone")
+	}
+	var pmmTz *string
+	if len(pmmTzRaw) == 0 || pmmTzRaw == "browser" {
+		pmmTz = nil
+	} else {
+		pmmTz = &pmmTzRaw
 	}
 
 	pmmServices := []dump.PMMServerService(nil)
@@ -194,7 +228,8 @@ func composeMeta(pmmURL string, c *fasthttp.Client, exportServices bool) (*dump.
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
-		PMMServerVersion:  pmmVer,
+		PMMServerVersion: pmmVer,
+		PMMTimezone: pmmTz,
 		PMMServerServices: pmmServices,
 	}
 

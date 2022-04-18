@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 	"strconv"
 	"time"
 
@@ -16,11 +17,11 @@ import (
 )
 
 type Source struct {
-	c   *fasthttp.Client
+	c   grafana.Client
 	cfg Config
 }
 
-func NewSource(c *fasthttp.Client, cfg Config) *Source {
+func NewSource(c grafana.Client, cfg Config) *Source {
 	if len(cfg.TimeSeriesSelectors) == 0 {
 		cfg.TimeSeriesSelectors = []string{`{__name__=~".*"}`}
 	}
@@ -67,10 +68,9 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	req.SetRequestURI(url)
 	req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
 
-	resp := fasthttp.AcquireResponse()
+	resp, err := s.c.DoWithTimeout(req, requestTimeout)
 	defer fasthttp.ReleaseResponse(resp)
-
-	if err := s.c.DoTimeout(req, resp, requestTimeout); err != nil {
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
 
@@ -125,14 +125,13 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
 	req.SetRequestURI(url)
 
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseResponse(resp)
-
 	log.Debug().
 		Str("url", url).
 		Msg("Sending POST chunk request to Victoria Metrics endpoint")
 
-	if err = s.c.DoTimeout(req, resp, requestTimeout); err != nil {
+	resp, err := s.c.DoWithTimeout(req, requestTimeout)
+	defer fasthttp.ReleaseResponse(resp)
+	if err != nil {
 		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
 
@@ -152,7 +151,7 @@ func (s Source) FinalizeWrites() error {
 		Str("url", url).
 		Msg("Sending reset cache request to Victoria Metrics endpoint")
 
-	status, body, err := s.c.GetTimeout(nil, url, time.Second*30)
+	status, body, err := s.c.GetWithTimeout(url, time.Second*30)
 	if err != nil {
 		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}
