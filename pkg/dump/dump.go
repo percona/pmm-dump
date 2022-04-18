@@ -11,6 +11,7 @@ import (
 
 const (
 	MetaFilename = "meta.json"
+	LogFilename  = "log.json"
 )
 
 type Meta struct {
