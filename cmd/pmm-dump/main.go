@@ -236,15 +236,8 @@ func main() {
 
 		lc := transferer.NewLoadChecker(ctx, httpC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool); err != nil {
-			tempLog := zerolog.New(dumpLog)
-			tempLog.Error().Msgf("[Fatal] Failed to export: %v", err)
-			defer log.Fatal().Msgf("Failed to export: %v", err)
-		}
-
-		err = t.WriteLog(dumpLog.Bytes())
-		if err != nil {
-			log.Error().Msgf("Failed to save log: %v", err)
+		if err = t.Export(ctx, lc, *meta, pool, dumpLog); err != nil {
+			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
 		if *pmmURL == "" {
