@@ -117,6 +117,24 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 		pmmTz = &pmmTzRaw
 	}
 
+	var args string
+	for i, v := range os.Args[1:] {
+		if i != 0 {
+			args += " "
+		}
+		// Only i and not i-1 because we are going by [1:] slice
+		switch os.Args[i] {
+		case "--pmm-url":
+			args += pmmURL
+		case "--pmm-user":
+			args += "***"
+		case "--pmm-pass":
+			args += "***"
+		default:
+			args += v
+		}
+	}
+
 	meta := &dump.Meta{
 		Version: dump.PMMDumpVersion{
 			GitBranch: GitBranch,
@@ -124,6 +142,7 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 		},
 		PMMServerVersion: pmmVer,
 		PMMTimezone:      pmmTz,
+		Arguments:        args,
 	}
 
 	return meta, nil
