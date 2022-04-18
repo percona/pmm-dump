@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"os"
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ func getGoroutineID() int {
 	return id
 }
 
-func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
+func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -63,7 +64,8 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Post(nil, fmt.Sprintf("%s/v1/version", pmmURL), nil)
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
+
 	if err != nil {
 		return "", err
 	}
@@ -77,10 +79,42 @@ func getPMMVersion(pmmURL string, c *fasthttp.Client) (string, error) {
 	return resp.Server.FullVersion, nil
 }
 
-func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
+func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
+	type tzResp struct {
+		Timezone string `json:"timezone"`
+	}
+
+	statusCode, body, err := c.Get(fmt.Sprintf("%s/graph/api/org/preferences", pmmURL))
+	if err != nil {
+		return "", err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return "", fmt.Errorf("non-ok status: %d", statusCode)
+	}
+
+	resp := new(tzResp)
+	if err = json.Unmarshal(body, resp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+	return resp.Timezone, nil
+}
+
+func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 	pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+
+	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get PMM timezone")
+	}
+	var pmmTz *string
+	if len(pmmTzRaw) == 0 || pmmTzRaw == "browser" {
+		pmmTz = nil
+	} else {
+		pmmTz = &pmmTzRaw
 	}
 
 	meta := &dump.Meta{
@@ -89,6 +123,7 @@ func composeMeta(pmmURL string, c *fasthttp.Client) (*dump.Meta, error) {
 			GitCommit: GitCommit,
 		},
 		PMMServerVersion: pmmVer,
+		PMMTimezone:      pmmTz,
 	}
 
 	return meta, nil

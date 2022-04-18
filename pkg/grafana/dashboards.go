@@ -7,7 +7,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c *fasthttp.Client) ([]string, error) {
+func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c Client) ([]string, error) {
 	var selectors []string
 	for _, d := range dashboards {
 		sel, err := getSingleDashboardSelectors(pmmURL, d, serviceNames, c)
@@ -19,13 +19,13 @@ func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c *
 	return selectors, nil
 }
 
-func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c *fasthttp.Client) ([]string, error) {
+func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c Client) ([]string, error) {
 	uid, err := findDashboardUID(pmmURL, dashboardName, c)
 	if err != nil {
 		return nil, err
 	}
 	link := fmt.Sprintf("%s/graph/api/dashboards/uid/%s", pmmURL, uid)
-	status, data, err := c.Get(nil, link)
+	status, data, err := c.Get(link)
 	if err != nil {
 		return nil, err
 	}
@@ -82,13 +82,13 @@ type panel struct {
 	} `json:"templating"`
 }
 
-func findDashboardUID(pmmURL, name string, c *fasthttp.Client) (string, error) {
+func findDashboardUID(pmmURL, name string, c Client) (string, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
 	q.Add("query", name)
 	link := fmt.Sprintf("%s/graph/api/search?%s", pmmURL, q.String())
-	status, data, err := c.Get(nil, link)
+	status, data, err := c.Get(link)
 	if err != nil {
 		return "", err
 	}
