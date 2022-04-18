@@ -114,22 +114,9 @@ func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, e
 				NodeID: serviceV.NodeID,
 			}
 
-			// Node
-
-			nodeReq := fasthttp.AcquireRequest()
-			nodeReq.SetRequestURI(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL))
-			nodeReq.Header.SetMethod(fasthttp.MethodPost)
-			nodeReq.Header.SetContentType("application/json")
-			nodeArgs, err := json.Marshal(struct {
+			statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
 				NodeID string `json:"node_id"`
 			}{serviceV.NodeID})
-			nodeReq.SetBody(nodeArgs)
-			httpResp := fasthttp.AcquireResponse()
-
-			if err = fasthttp.Do(nodeReq, httpResp); err != nil {
-				return nil, err
-			}
-			statusCode, body := httpResp.StatusCode(), httpResp.Body()
 
 			if err != nil {
 				return nil, err
@@ -228,8 +215,8 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Me
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
-		PMMServerVersion: pmmVer,
-		PMMTimezone: pmmTz,
+		PMMServerVersion:  pmmVer,
+		PMMTimezone:       pmmTz,
 		PMMServerServices: pmmServices,
 	}
 

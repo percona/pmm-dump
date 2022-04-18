@@ -26,7 +26,7 @@ func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.Do(req, httpResp)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make request in network client")
+		return httpResp, errors.Wrap(err, "failed to make request in network client")
 	}
 	return httpResp, nil
 }
@@ -36,7 +36,7 @@ func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*f
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.DoTimeout(req, httpResp, timeout)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make request in network client")
+		return httpResp, errors.Wrap(err, "failed to make request in network client")
 	}
 	return httpResp, nil
 }
@@ -48,7 +48,31 @@ func (c *Client) Post(url string) (int, []byte, error) {
 	req.Header.SetMethod(fasthttp.MethodPost)
 	httpResp, err := c.Do(req)
 	defer fasthttp.ReleaseResponse(httpResp)
-	return httpResp.StatusCode(), httpResp.Body(), err
+	if err != nil {
+		return 0, nil, err
+	}
+	return httpResp.StatusCode(), httpResp.Body(), nil
+}
+
+func (c *Client) PostJSON(url string, reqBody interface{}) (int, []byte, error) {
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+	req.SetRequestURI(url)
+	req.Header.SetMethod(fasthttp.MethodPost)
+
+	req.Header.SetContentType("application/json")
+	reqArgs, err := json.Marshal(reqBody)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "failed to marshall json body")
+	}
+	req.SetBody(reqArgs)
+
+	httpResp, err := c.Do(req)
+	defer fasthttp.ReleaseResponse(httpResp)
+	if err != nil {
+		return 0, nil, err
+	}
+	return httpResp.StatusCode(), httpResp.Body(), nil
 }
 
 func (c *Client) Get(url string) (int, []byte, error) {
@@ -57,6 +81,9 @@ func (c *Client) Get(url string) (int, []byte, error) {
 	req.SetRequestURI(url)
 	httpResp, err := c.Do(req)
 	defer fasthttp.ReleaseResponse(httpResp)
+	if err != nil {
+		return 0, nil, err
+	}
 	return httpResp.StatusCode(), httpResp.Body(), err
 }
 
@@ -66,6 +93,9 @@ func (c *Client) GetWithTimeout(url string, timeout time.Duration) (int, []byte,
 	req.SetRequestURI(url)
 	httpResp, err := c.DoWithTimeout(req, timeout)
 	defer fasthttp.ReleaseResponse(httpResp)
+	if err != nil {
+		return 0, nil, err
+	}
 	return httpResp.StatusCode(), httpResp.Body(), err
 }
 
