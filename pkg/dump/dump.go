@@ -18,6 +18,7 @@ type Meta struct {
 	Version          PMMDumpVersion `json:"version"`
 	PMMServerVersion string         `json:"pmm-server-version"`
 	MaxChunkSize     int64          `json:"max_chunk_size"`
+	PMMTimezone      *string        `json:"pmm-server-timezone"`
 }
 
 type PMMDumpVersion struct {
