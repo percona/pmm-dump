@@ -119,13 +119,19 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 
 	var args string
 	for i, v := range os.Args[1:] {
-		if v != pmmURL {
-			if i != 0 {
-				args += " "
-			}
+		if i != 0 {
+			args += " "
+		}
+		// Only i and not i-1 because we are going by [1:] slice
+		switch os.Args[i] {
+		case "--pmm-url":
+			args += pmmURL
+		case "--pmm-user":
+			args += "***"
+		case "--pmm-pass":
+			args += "***"
+		default:
 			args += v
-		} else {
-			args += " #PMM_URL#"
 		}
 	}
 
