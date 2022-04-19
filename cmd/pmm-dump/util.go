@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"io"
 	"os"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
@@ -121,6 +122,24 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 		pmmTz = &pmmTzRaw
 	}
 
+	var args string
+	for i, v := range os.Args[1:] {
+		if i != 0 {
+			args += " "
+		}
+		// Only i and not i-1 because we are going by [1:] slice
+		switch os.Args[i] {
+		case "--pmm-url":
+			args += pmmURL
+		case "--pmm-user":
+			args += "***"
+		case "--pmm-pass":
+			args += "***"
+		default:
+			args += v
+		}
+	}
+
 	meta := &dump.Meta{
 		Version: dump.PMMDumpVersion{
 			GitBranch: GitBranch,
@@ -128,6 +147,7 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 		},
 		PMMServerVersion: pmmVer,
 		PMMTimezone:      pmmTz,
+		Arguments:        args,
 	}
 
 	return meta, nil
@@ -168,6 +188,23 @@ func checkPiped() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+type LevelWriter struct {
+	Writer io.Writer
+	Level  zerolog.Level
+}
+
+func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
+	if level >= lw.Level {
+		return lw.Write(p)
+	} else {
+		return len(p), nil
+	}
+}
+
+func (lw LevelWriter) Write(p []byte) (n int, err error) {
+	return lw.Writer.Write(p)
 }
 
 func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {

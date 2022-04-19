@@ -2,6 +2,7 @@ package transferer
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -118,7 +119,7 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 	return customPath, nil
 }
 
-func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunkC <-chan *dump.Chunk) error {
+func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer) error {
 	var file *os.File
 	if t.piped {
 		file = os.Stdout
@@ -164,6 +165,10 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 					return err
 				}
 
+				if err = writeLog(tw, logBuffer); err != nil {
+					return err
+				}
+
 				log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 				return nil
 			}
@@ -200,7 +205,29 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 	}
 }
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool) error {
+func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
+	log.Debug().Msg("Writing dump log")
+
+	byteLog := logBuffer.Bytes()
+
+	err := tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     dump.LogFilename,
+		Size:     int64(len(byteLog)),
+		Mode:     0600,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to write dump log header")
+	}
+
+	if _, err = tw.Write(byteLog); err != nil {
+		return errors.Wrap(err, "failed to write dump log content")
+	}
+
+	return nil
+}
+
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer) error {
 	log.Info().Msg("Exporting metrics...")
 
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
@@ -231,7 +258,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
 	go func() {
-		errCh <- t.writeChunksToFile(ctx, meta, chunksCh)
+		errCh <- t.writeChunksToFile(ctx, meta, chunksCh, logBuffer)
 		log.Debug().Msgf("Exiting from write chunks goroutine")
 	}()
 
