@@ -182,7 +182,7 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 				break
 			}
 		} else {
-			log.Fatal().Err(errors.Wrap(err, "Failed to make test requests"))
+			log.Fatal().Err(errors.Wrap(err, "failed to make test requests"))
 		}
 	}
 
