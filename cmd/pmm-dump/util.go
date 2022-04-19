@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"io"
 	"os"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
@@ -202,6 +203,24 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Me
 		pmmTz = &pmmTzRaw
 	}
 
+	var args string
+	for i, v := range os.Args[1:] {
+		if i != 0 {
+			args += " "
+		}
+		// Only i and not i-1 because we are going by [1:] slice
+		switch os.Args[i] {
+		case "--pmm-url":
+			args += pmmURL
+		case "--pmm-user":
+			args += "***"
+		case "--pmm-pass":
+			args += "***"
+		default:
+			args += v
+		}
+	}
+
 	pmmServices := []dump.PMMServerService(nil)
 	if exportServices {
 		pmmServices, err = getPMMServices(pmmURL, c)
@@ -215,8 +234,9 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Me
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
-		PMMServerVersion:  pmmVer,
-		PMMTimezone:       pmmTz,
+		PMMServerVersion: pmmVer,
+		PMMTimezone:      pmmTz,
+		Arguments:        args,
 		PMMServerServices: pmmServices,
 	}
 
@@ -258,4 +278,21 @@ func checkPiped() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+type LevelWriter struct {
+	Writer io.Writer
+	Level  zerolog.Level
+}
+
+func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
+	if level >= lw.Level {
+		return lw.Write(p)
+	} else {
+		return len(p), nil
+	}
+}
+
+func (lw LevelWriter) Write(p []byte) (n int, err error) {
+	return lw.Writer.Write(p)
 }
