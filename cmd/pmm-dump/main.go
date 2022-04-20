@@ -157,6 +157,8 @@ func main() {
 			log.Fatal().Err(err)
 		}
 
+		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
+
 		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, grafanaC)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
@@ -268,6 +270,8 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err)
 		}
+
+		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
 
 		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
 		if ok {
