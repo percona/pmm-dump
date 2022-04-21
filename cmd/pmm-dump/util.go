@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"io"
 	"os"
 	"pmm-dump/pkg/dump"
@@ -17,6 +18,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/valyala/fasthttp"
 )
+
+const minPMMServerVersion = "2.12.0"
 
 func newClientHTTP(insecureSkipVerify bool) *fasthttp.Client {
 	return &fasthttp.Client{
@@ -49,7 +52,8 @@ func getGoroutineID() int {
 	return id
 }
 
-func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
+// getPMMVersion returns version, full-version and error
+func getPMMVersion(pmmURL string, c grafana.Client) (string, string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -68,16 +72,16 @@ func getPMMVersion(pmmURL string, c grafana.Client) (string, error) {
 	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if statusCode != fasthttp.StatusOK {
-		return "", fmt.Errorf("non-ok status: %d", statusCode)
+		return "", "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
 	resp := new(versionResp)
 	if err = json.Unmarshal(body, resp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+		return "", "", fmt.Errorf("failed to unmarshal response: %s", err)
 	}
-	return resp.Server.FullVersion, nil
+	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
 func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, error) {
@@ -187,7 +191,7 @@ func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 }
 
 func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Meta, error) {
-	pmmVer, err := getPMMVersion(pmmURL, c)
+	_, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
 	}
@@ -295,4 +299,30 @@ func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err erro
 
 func (lw LevelWriter) Write(p []byte) (n int, err error) {
 	return lw.Writer.Write(p)
+}
+
+func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
+	checkUrls := []string{fmt.Sprintf("%s/api/v1/export/native", victoriaMetricsURL)}
+
+	for _, v := range checkUrls {
+		code, _, err := c.Get(v)
+		if err == nil {
+			if code == 404 {
+				log.Error().Msg("There are 404 not-found errors occured when making test requests. Maybe PMM-server version is not supported!")
+				log.Debug().Msgf("404 error by %s", v)
+				break
+			}
+		} else {
+			log.Fatal().Err(errors.Wrap(err, "failed to make test requests"))
+		}
+	}
+
+	pmmVer, _, err := getPMMVersion(pmmURL, c)
+	if err != nil {
+		log.Fatal().Err(errors.Wrap(err, "failed to get PMM version"))
+	}
+
+	if pmmVer < minPMMServerVersion {
+		log.Error().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
+	}
 }
