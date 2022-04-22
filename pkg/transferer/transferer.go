@@ -327,6 +327,10 @@ func (t Transferer) Import(runtimeMeta dump.Meta) error {
 			continue
 		}
 
+		if filename == dump.LogFilename {
+			continue
+		}
+
 		log.Info().Msgf("Processing chunk '%s'...", header.Name)
 
 		st := dump.ParseSourceType(dir[:len(dir)-1])
