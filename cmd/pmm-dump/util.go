@@ -84,6 +84,109 @@ func getPMMVersion(pmmURL string, c grafana.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
+func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, error) {
+	type servicesResp map[string][]struct {
+		ID     string `json:"service_id"`
+		Name   string `json:"service_name"`
+		NodeID string `json:"node_id"`
+	}
+
+	// Services
+
+	statusCode, body, err := c.Post(fmt.Sprintf("%s/v1/inventory/Services/List", pmmURL))
+	if err != nil {
+		return nil, err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return nil, fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	serviceResp := new(servicesResp)
+	if err = json.Unmarshal(body, serviceResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+
+	services := make([]dump.PMMServerService, 0)
+	for _, serviceType := range *serviceResp {
+		for _, service := range serviceType {
+			newService := dump.PMMServerService{
+				Name:   service.Name,
+				NodeID: service.NodeID,
+			}
+
+			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get pmm service node name")
+			}
+			newService.NodeName = nodeName
+
+			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
+			}
+			newService.AgentsIDs = agentsIds
+
+			services = append(services, newService)
+		}
+	}
+	return services, nil
+}
+
+func getPMMServiceNodeName(pmmURL string, c grafana.Client, nodeID string) (string, error) {
+	type nodeRespStruct struct {
+		Generic struct {
+			Name string `json:"node_name"`
+		} `json:"generic"`
+	}
+
+	statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
+		NodeID string `json:"node_id"`
+	}{nodeID})
+
+	if err != nil {
+		return "", err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return "", fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	nodeResp := new(nodeRespStruct)
+	if err = json.Unmarshal(body, nodeResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+
+	return nodeResp.Generic.Name, nil
+}
+
+func getPMMServiceAgentsIds(pmmURL string, c grafana.Client, serviceID string) ([]string, error) {
+	type agentsRespStruct map[string][]struct {
+		ServiceID *string `json:"service_id"`
+		AgentID   *string `json:"agent_id"`
+	}
+
+	statusCode, body, err := c.Post(fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL))
+	if err != nil {
+		return nil, err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return nil, fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	agentsResp := new(agentsRespStruct)
+	if err = json.Unmarshal(body, agentsResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+
+	agentsIDs := make([]string, 0)
+
+	for _, agentType := range *agentsResp {
+		for _, agent := range agentType {
+			if agent.ServiceID != nil && *agent.ServiceID == serviceID {
+				agentsIDs = append(agentsIDs, *agent.AgentID)
+			}
+		}
+	}
+
+	return agentsIDs, nil
+}
+
 // getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
 func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 	type tzResp struct {
@@ -105,7 +208,7 @@ func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 	return resp.Timezone, nil
 }
 
-func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Meta, error) {
 	_, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
@@ -140,14 +243,23 @@ func composeMeta(pmmURL string, c grafana.Client) (*dump.Meta, error) {
 		}
 	}
 
+	pmmServices := []dump.PMMServerService(nil)
+	if exportServices {
+		pmmServices, err = getPMMServices(pmmURL, c)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get PMM services")
+		}
+	}
+
 	meta := &dump.Meta{
 		Version: dump.PMMDumpVersion{
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
-		PMMServerVersion: pmmVer,
-		PMMTimezone:      pmmTz,
-		Arguments:        args,
+		PMMServerVersion:  pmmVer,
+		PMMTimezone:       pmmTz,
+		Arguments:         args,
+		PMMServerServices: pmmServices,
 	}
 
 	return meta, nil

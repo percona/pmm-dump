@@ -15,11 +15,19 @@ const (
 )
 
 type Meta struct {
-	Version          PMMDumpVersion `json:"version"`
-	PMMServerVersion string         `json:"pmm-server-version"`
-	MaxChunkSize     int64          `json:"max_chunk_size"`
-	PMMTimezone      *string        `json:"pmm-server-timezone"`
-	Arguments        string         `json:"arguments"`
+	Version           PMMDumpVersion     `json:"version"`
+	PMMServerVersion  string             `json:"pmm-server-version"`
+	MaxChunkSize      int64              `json:"max_chunk_size"`
+	PMMTimezone       *string            `json:"pmm-server-timezone"`
+	Arguments         string             `json:"arguments"`
+	PMMServerServices []PMMServerService `json:"pmm-server-services,omitempty"`
+}
+
+type PMMServerService struct {
+	Name      string   `json:"name"`
+	NodeID    string   `json:"node-id"`
+	NodeName  string   `json:"node-name"`
+	AgentsIDs []string `json:"agents-ids"`
 }
 
 type PMMDumpVersion struct {

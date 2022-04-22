@@ -79,6 +79,8 @@ func main() {
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
 		workersCount = exportCmd.Flag("workers", "Set the number of reading workers").Int()
+
+		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
@@ -232,7 +234,7 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
-		meta, err := composeMeta(*pmmURL, grafanaC)
+		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -297,7 +299,7 @@ func main() {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
-		meta, err := composeMeta(*pmmURL, grafanaC)
+		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
