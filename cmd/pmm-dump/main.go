@@ -71,9 +71,9 @@ func main() {
 		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("1000").Int()
 
 		ignoreLoad = exportCmd.Flag("ignore-load", "Disable checking for load threshold values").Bool()
-		maxLoad    = exportCmd.Flag("max-load", "Max load threshold values").
+		maxLoad    = exportCmd.Flag("max-load", "Max load threshold values. For the CPU value is overall regardless cores count: 0-100%").
 				Default(fmt.Sprintf("%v=70,%v=80,%v=10", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
-		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values").
+		criticalLoad = exportCmd.Flag("critical-load", "Critical load threshold values. For the CPU value is overall regardless cores count: 0-100%").
 				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
