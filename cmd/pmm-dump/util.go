@@ -90,12 +90,6 @@ func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, e
 		Name   string `json:"service_name"`
 		NodeID string `json:"node_id"`
 	}
-	type nodeResp struct {
-		Generic struct {
-			Name string `json:"node_name"`
-		} `json:"generic"`
-	}
-	type agentsResp map[string][]map[string]interface{}
 
 	// Services
 
@@ -112,61 +106,85 @@ func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, e
 	}
 
 	services := make([]dump.PMMServerService, 0)
-	for _, v := range *serviceResp {
-		for _, serviceV := range v {
-			service := dump.PMMServerService{
-				Name:   serviceV.Name,
-				NodeID: serviceV.NodeID,
+	for _, serviceType := range *serviceResp {
+		for _, service := range serviceType {
+			newService := dump.PMMServerService{
+				Name:   service.Name,
+				NodeID: service.NodeID,
 			}
 
-			statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
-				NodeID string `json:"node_id"`
-			}{serviceV.NodeID})
-
+			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "failed to get pmm service node name")
 			}
-			if statusCode != fasthttp.StatusOK {
-				return nil, fmt.Errorf("non-ok status: %d", statusCode)
-			}
-			nodeResp := new(nodeResp)
-			if err = json.Unmarshal(body, nodeResp); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal response: %s", err)
-			}
+			newService.NodeName = nodeName
 
-			service.NodeName = nodeResp.Generic.Name
-
-			// Agents
-
-			statusCode, body, err = c.Post(fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL))
+			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
 			}
-			if statusCode != fasthttp.StatusOK {
-				return nil, fmt.Errorf("non-ok status: %d", statusCode)
-			}
-			agentsResp := new(agentsResp)
-			if err = json.Unmarshal(body, agentsResp); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal response: %s", err)
-			}
+			newService.AgentsIDs = agentsIds
 
-			agentsIDs := make([]string, 0)
-
-			for _, v := range *agentsResp {
-				for _, v := range v {
-					serviceID, ok := v["service_id"]
-					if ok && serviceID.(string) == serviceV.ID {
-						agentsIDs = append(agentsIDs, v["agent_id"].(string))
-					}
-				}
-			}
-
-			service.AgentsIDs = agentsIDs
-
-			services = append(services, service)
+			services = append(services, newService)
 		}
 	}
 	return services, nil
+}
+
+func getPMMServiceNodeName(pmmURL string, c grafana.Client, nodeID string) (string, error) {
+	type nodeRespStruct struct {
+		Generic struct {
+			Name string `json:"node_name"`
+		} `json:"generic"`
+	}
+
+	statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
+		NodeID string `json:"node_id"`
+	}{nodeID})
+
+	if err != nil {
+		return "", err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return "", fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	nodeResp := new(nodeRespStruct)
+	if err = json.Unmarshal(body, nodeResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+
+	return nodeResp.Generic.Name, nil
+}
+
+func getPMMServiceAgentsIds(pmmURL string, c grafana.Client, serviceID string) ([]string, error) {
+	type agentsRespStruct map[string][]struct {
+		ServiceID *string `json:"service_id"`
+		AgentID   *string `json:"agent_id"`
+	}
+
+	statusCode, body, err := c.Post(fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL))
+	if err != nil {
+		return nil, err
+	}
+	if statusCode != fasthttp.StatusOK {
+		return nil, fmt.Errorf("non-ok status: %d", statusCode)
+	}
+	agentsResp := new(agentsRespStruct)
+	if err = json.Unmarshal(body, agentsResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+	}
+
+	agentsIDs := make([]string, 0)
+
+	for _, agentType := range *agentsResp {
+		for _, agent := range agentType {
+			if agent.ServiceID != nil && *agent.ServiceID == serviceID {
+				agentsIDs = append(agentsIDs, *agent.AgentID)
+			}
+		}
+	}
+
+	return agentsIDs, nil
 }
 
 // getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
@@ -238,9 +256,9 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Me
 			GitBranch: GitBranch,
 			GitCommit: GitCommit,
 		},
-		PMMServerVersion: pmmVer,
-		PMMTimezone:      pmmTz,
-		Arguments:        args,
+		PMMServerVersion:  pmmVer,
+		PMMTimezone:       pmmTz,
+		Arguments:         args,
 		PMMServerServices: pmmServices,
 	}
 

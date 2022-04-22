@@ -25,20 +25,14 @@ func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
 	req.Header.SetCookie(AuthCookieName, c.authCookie)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.Do(req, httpResp)
-	if err != nil {
-		return httpResp, errors.Wrap(err, "failed to make request in network client")
-	}
-	return httpResp, nil
+	return httpResp, errors.Wrap(err, "failed to make request in network client")
 }
 
 func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*fasthttp.Response, error) {
 	req.Header.SetCookie(AuthCookieName, c.authCookie)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.DoTimeout(req, httpResp, timeout)
-	if err != nil {
-		return httpResp, errors.Wrap(err, "failed to make request in network client")
-	}
-	return httpResp, nil
+	return httpResp, errors.Wrap(err, "failed to make request in network client")
 }
 
 func (c *Client) Post(url string) (int, []byte, error) {
@@ -63,7 +57,7 @@ func (c *Client) PostJSON(url string, reqBody interface{}) (int, []byte, error) 
 	req.Header.SetContentType("application/json")
 	reqArgs, err := json.Marshal(reqBody)
 	if err != nil {
-		return 0, nil, errors.Wrap(err, "failed to marshall json body")
+		return 0, nil, errors.Wrap(err, "failed to marshal json body")
 	}
 	req.SetBody(reqArgs)
 
