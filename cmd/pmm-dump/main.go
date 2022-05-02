@@ -117,16 +117,14 @@ func main() {
 			Level(zerolog.InfoLevel)
 	}
 
-	httpC := newClientHTTP(*allowInsecureCerts)
-
-	grafanaC := grafana.NewClient(httpC)
-
-	parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-
-	auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
-
 	switch cmd {
 	case exportCmd.FullCommand():
+		httpC := newClientHTTP(*allowInsecureCerts)
+		grafanaC := grafana.NewClient(httpC)
+
+		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
+		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
+
 		dumpLog := new(bytes.Buffer)
 
 		hasLevel := log.Logger.GetLevel()
@@ -135,10 +133,6 @@ func main() {
 			Writer: logConsoleWriter,
 			Level:  hasLevel,
 		}, dumpLog))
-
-		if *pmmURL == "" {
-			log.Fatal().Msg("Please, specify PMM URL")
-		}
 
 		if !(*dumpQAN || *dumpCore) {
 			log.Fatal().Msg("Please, specify at least one data source")
@@ -258,9 +252,11 @@ func main() {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
-		if *pmmURL == "" {
-			log.Fatal().Msg("Please, specify PMM URL")
-		}
+		httpC := newClientHTTP(*allowInsecureCerts)
+		grafanaC := grafana.NewClient(httpC)
+
+		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
+		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
 
 		if !(*dumpQAN || *dumpCore) {
 			log.Fatal().Msg("Please, specify at least one data source")
@@ -324,8 +320,11 @@ func main() {
 		if *prettifyMeta {
 			fmt.Printf("Build: %v\n", meta.Version.GitCommit)
 			fmt.Printf("PMM Version: %v\n", meta.PMMServerVersion)
-			fmt.Printf("Max Chunk Size: %v (%v)\n", ByteCountDecimal(meta.MaxChunkSize),
-				ByteCountBinary(meta.MaxChunkSize))
+			fmt.Printf("Max Chunk Size: %v (%v)\n", ByteCountDecimal(meta.MaxChunkSize), ByteCountBinary(meta.MaxChunkSize))
+			if meta.PMMTimezone != nil {
+				fmt.Printf("PMM Timezone: %s\n", *meta.PMMTimezone)
+			}
+			fmt.Printf("Arguments: %s\n", meta.Arguments)
 		} else {
 			jsonMeta, err := json.MarshalIndent(meta, "", "\t")
 			if err != nil {
