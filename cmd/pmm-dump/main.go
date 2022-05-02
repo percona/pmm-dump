@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"net/url"
 	"os"
 	"pmm-dump/pkg/clickhouse"
@@ -150,7 +149,7 @@ func main() {
 
 		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
 		if err != nil {
-			log.Fatal().Err(err)
+			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
 		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
@@ -266,7 +265,7 @@ func main() {
 
 		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
 		if err != nil {
-			log.Fatal().Err(err)
+			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
 		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
@@ -382,14 +381,14 @@ func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
 
 	err := client.Auth(*pmmURL, *pmmUser, *pmmPassword)
 	if err != nil {
-		log.Fatal().Err(errors.Wrap(err, "Cannot authenticate!"))
+		log.Fatal().Err(err).Msg("Cannot authenticate")
 	}
 }
 
 func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
 	parsedURL, err := url.Parse(*pmmURL)
 	if err != nil {
-		log.Fatal().Err(errors.Wrap(err, "Cannot parse pmm url!"))
+		log.Fatal().Err(err).Msg("Cannot parse pmm url")
 	}
 
 	// Host(scheme + hostname)
@@ -399,7 +398,7 @@ func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
 	if *pmmHost != "" {
 		parsedHostURL, err := url.Parse(*pmmHost)
 		if err != nil {
-			log.Fatal().Err(errors.Wrap(err, "Cannot parse pmm-host!"))
+			log.Fatal().Err(err).Msg("Cannot parse pmm-host")
 		}
 
 		parsedURL.Scheme = parsedHostURL.Scheme

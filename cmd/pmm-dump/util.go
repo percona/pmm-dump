@@ -331,13 +331,13 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 				break
 			}
 		} else {
-			log.Fatal().Err(errors.Wrap(err, "failed to make test requests"))
+			log.Fatal().Err(err).Msg("Failed to make test requests")
 		}
 	}
 
 	pmmVer, _, err := getPMMVersion(pmmURL, c)
 	if err != nil {
-		log.Fatal().Err(errors.Wrap(err, "failed to get PMM version"))
+		log.Fatal().Err(err).Msg("failed to get PMM version")
 	}
 
 	if pmmVer < minPMMServerVersion {

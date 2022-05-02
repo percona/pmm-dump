@@ -114,6 +114,13 @@ func (c *Client) Auth(pmmUrl, username, password string) error {
 		return errors.Wrap(err, "failed to make login request")
 	}
 
+	if httpResp.StatusCode() != fasthttp.StatusOK {
+		if httpResp.StatusCode() == fasthttp.StatusUnauthorized {
+			return errors.New("invalid username or password")
+		}
+		return errors.New("non-ok status code")
+	}
+
 	sessionRaw := httpResp.Header.PeekCookie(AuthCookieName)
 	if len(sessionRaw) == 0 {
 		return errors.New("authentication error")
