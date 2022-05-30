@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"io"
@@ -208,7 +209,7 @@ func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 	return resp.Timezone, nil
 }
 
-func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *kingpin.Application) (*dump.Meta, error) {
 	_, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
@@ -225,21 +226,23 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool) (*dump.Me
 		pmmTz = &pmmTzRaw
 	}
 
+	context, err := cli.DefaultEnvars().ParseContext(os.Args[1:])
+	if err != nil {
+		return nil, err
+	}
 	var args string
-	for i, v := range os.Args[1:] {
-		if i != 0 {
-			args += " "
-		}
-		// Only i and not i-1 because we are going by [1:] slice
-		switch os.Args[i] {
-		case "--pmm-url":
-			args += pmmURL
-		case "--pmm-user":
-			args += "***"
-		case "--pmm-pass":
-			args += "***"
-		default:
-			args += v
+	for _, element := range context.Elements {
+		switch element.Clause.(type) {
+		case *kingpin.CmdClause:
+			args += element.Clause.(*kingpin.CmdClause).FullCommand()
+		case *kingpin.FlagClause:
+			model := element.Clause.(*kingpin.FlagClause).Model()
+			value := model.Value.String()
+			switch model.Name {
+			case "pmm-user", "pmm-pass":
+				value = "***"
+			}
+			args += fmt.Sprintf(" --%s=%s", model.Name, value)
 		}
 	}
 

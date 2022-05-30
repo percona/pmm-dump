@@ -227,7 +227,7 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
-		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo)
+		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -294,7 +294,7 @@ func main() {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
-		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo)
+		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
