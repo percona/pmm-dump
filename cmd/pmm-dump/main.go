@@ -324,6 +324,15 @@ func main() {
 				fmt.Printf("PMM Timezone: %s\n", *meta.PMMTimezone)
 			}
 			fmt.Printf("Arguments: %s\n", meta.Arguments)
+			if len(meta.PMMServerServices) > 0 {
+				fmt.Printf("Services:\n")
+				for _, s := range meta.PMMServerServices {
+					fmt.Printf("\t- Name: %s\n", s.Name)
+					fmt.Printf("\t  Node ID: %s\n", s.NodeID)
+					fmt.Printf("\t  Node Name: %s\n", s.NodeName)
+					fmt.Printf("\t  Agents ID: %v\n", s.AgentsIDs)
+				}
+			}
 		} else {
 			jsonMeta, err := json.MarshalIndent(meta, "", "\t")
 			if err != nil {
