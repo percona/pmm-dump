@@ -193,6 +193,7 @@ func (t Transferer) writeChunksToFile(ctx context.Context, meta dump.Meta, chunk
 				Name:     path.Join(s.Type().String(), c.Filename),
 				Size:     chunkSize,
 				Mode:     0600,
+				ModTime:  time.Now(),
 			})
 			if err != nil {
 				return errors.Wrap(err, "failed to write file header")
@@ -215,6 +216,7 @@ func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 		Name:     dump.LogFilename,
 		Size:     int64(len(byteLog)),
 		Mode:     0600,
+		ModTime:  time.Now(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to write dump log header")

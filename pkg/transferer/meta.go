@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"pmm-dump/pkg/dump"
+	"time"
 )
 
 func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
@@ -79,6 +80,7 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
 		Mode:     0600,
+		ModTime:  time.Now(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to write dump meta")
