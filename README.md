@@ -100,6 +100,25 @@ You can redirect output to STDOUT with --stdout option. It's useful to redirect 
 > ./pmm-dump export --pmm-url="http://admin:admin@localhost:8282" --dump-qan --stdout | ./pmm-dump import --pmm-url="http://admin:admin@localhost:8282" --dump-qan 
 ```
 
+### Stop or postpone during export
+You can set threshold values to stop or postpone pmm-dump during export using `max-load` and `critical-load` options.
+
+The syntax for these options is following:
+
+```
+<threshold>=<percent_value>
+```
+
+You can provide multiple threshold values separated by commas. For example:
+
+``` 
+--max-load='CPU=100,RAM=30'
+```
+Available thresholds:
+- `CPU` - CPU load of PMM instance in percents (0-100)
+- `RAM` - RAM load of PMM instance in percents (0-100)
+- `MYRAM` - RAM load of instance which uses pmm-dump in percents (0-100)
+
 ## About the dump file
 
 Dump file is a `tar` archive compressed via `gzip`. Here is the shape of dump file:
