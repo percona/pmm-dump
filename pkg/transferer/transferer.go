@@ -47,7 +47,7 @@ type ChunkPool interface {
 }
 
 type LoadStatusGetter interface {
-	GetLatestStatus() LoadStatus
+	GetLatestStatus() (LoadStatus, int)
 }
 
 const maxChunksInMem = 4
@@ -61,14 +61,19 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 			log.Debug().Msg("Context is done, stopping chunks reading")
 			return ctx.Err()
 		default:
-			switch lc.GetLatestStatus() {
+			status, count := lc.GetLatestStatus()
+			switch status {
 			case LoadStatusWait:
-				time.Sleep(MaxLoadWaitDuration)
+				if count > MaxWaitStatusInSequence {
+					log.Warn().Msgf("Too many %v in a sequence. Aborting", LoadStatusWait)
+					return fmt.Errorf("terminated by exceeding max load (got wait load status) threshold %d times. Check --max-load value or use --ignore-load", MaxWaitStatusInSequence)
+				}
 				log.Debug().Msgf("Exceeded max load threshold(got wait load status): putting chunks reading to sleep for %v", MaxLoadWaitDuration)
+				time.Sleep(MaxLoadWaitDuration)
 				continue
 			case LoadStatusTerminate:
 				log.Debug().Msg("Got terminate load status: stopping chunks reading")
-				return errors.New("terminated by exceeding critical load threshold(got terminate load status). Check --critical-load value or use --ignore-load")
+				return errors.New("terminated by exceeding critical load threshold (got terminate load status). Check --critical-load value or use --ignore-load")
 			case LoadStatusOK:
 			default:
 				return errors.New("unknown load status")

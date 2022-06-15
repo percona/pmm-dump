@@ -56,7 +56,7 @@ type LoadChecker struct {
 	m            sync.RWMutex
 	latestStatus LoadStatus
 
-	waitStatusCounter int
+	latestStatusCount int
 }
 
 func NewLoadChecker(ctx context.Context, c grafana.Client, url string, thresholds []Threshold) *LoadChecker {
@@ -76,16 +76,17 @@ func NewLoadChecker(ctx context.Context, c grafana.Client, url string, threshold
 	return lc
 }
 
-func (c *LoadChecker) GetLatestStatus() LoadStatus {
+func (c *LoadChecker) GetLatestStatus() (LoadStatus, int) {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	return c.latestStatus
+	return c.latestStatus, c.latestStatusCount
 }
 
-func (c *LoadChecker) setLatestStatus(s LoadStatus) {
+func (c *LoadChecker) setLatestStatus(s LoadStatus, count int) {
 	c.m.Lock()
 	defer c.m.Unlock()
 	c.latestStatus = s
+	c.latestStatusCount = count
 }
 
 func (c *LoadChecker) runStatusUpdate(ctx context.Context) {
@@ -111,18 +112,14 @@ func (c *LoadChecker) updateStatus() {
 		status = LoadStatusWait
 		log.Warn().Err(err).Msgf("Error while checking metrics load")
 	}
-	if status == LoadStatusWait {
-		c.waitStatusCounter++
-		if c.waitStatusCounter > MaxWaitStatusInSequence {
-			log.Debug().Msgf("Reached max %v status attempts. Sending %v status", LoadStatusWait, LoadStatusTerminate)
-			log.Warn().Msgf("Too many %v in a sequence. Aborting", LoadStatusWait)
-			status = LoadStatusTerminate
-		}
+	latestStatus, count := c.GetLatestStatus()
+	if latestStatus == status {
+		count++
 	} else {
-		c.waitStatusCounter = 0
+		count = 0
 	}
 
-	c.setLatestStatus(status)
+	c.setLatestStatus(status, count)
 	log.Debug().Msgf("Load status now is %v", status)
 }
 
