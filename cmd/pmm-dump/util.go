@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"io"
+	"net/http"
 	"os"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
@@ -328,8 +329,8 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 	for _, v := range checkUrls {
 		code, _, err := c.Get(v)
 		if err == nil {
-			if code == 404 {
-				log.Error().Msg("There are 404 not-found errors occured when making test requests. Maybe PMM-server version is not supported!")
+			if code == http.StatusNotFound {
+				log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
 				log.Debug().Msgf("404 error by %s", v)
 				break
 			}
@@ -344,6 +345,6 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 	}
 
 	if pmmVer < minPMMServerVersion {
-		log.Error().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
+		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
 	}
 }
