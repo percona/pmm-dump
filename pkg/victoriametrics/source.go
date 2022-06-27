@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
 	"strconv"
@@ -109,6 +110,10 @@ func copyBytesArr(a []byte) []byte {
 	return c
 }
 
+const (
+	errRequestEntityTooLarge = `received "413 Request Entity Too Large" error from PMM`
+)
+
 func (s Source) WriteChunk(_ string, r io.Reader) error {
 	chunkContent, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -136,12 +141,22 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	}
 
 	if s := resp.StatusCode(); s != fasthttp.StatusOK && s != fasthttp.StatusNoContent {
+		if s == http.StatusRequestEntityTooLarge {
+			return errors.New(errRequestEntityTooLarge)
+		}
 		return errors.Errorf("non-OK response from victoria metrics: %d: %s", s, gzipDecode(resp.Body()))
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
 
 	return nil
+}
+
+func ErrIsRequestEntityTooLarge(err error) bool {
+	if err.Error() == errRequestEntityTooLarge || errors.Cause(err).Error() == errRequestEntityTooLarge {
+		return true
+	}
+	return false
 }
 
 func (s Source) FinalizeWrites() error {

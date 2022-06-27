@@ -300,7 +300,13 @@ func main() {
 		}
 
 		if err = t.Import(*meta); err != nil {
-			log.Fatal().Msgf("Failed to import: %v", err)
+			var additionalInfo string
+			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
+				additionalInfo = ". Consider to decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
+					"If you use nginx or Apache HTTP Server, consider increasing the maximum size of the client " +
+					"request body in their configuration"
+			}
+			log.Fatal().Msgf("Failed to import: %v%s", err, additionalInfo)
 		}
 	case showMetaCmd.FullCommand():
 		piped, err := checkPiped()
