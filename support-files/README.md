@@ -2,15 +2,15 @@
 
 There are three ways to run the script (all of them require at least one parameter -- the ticket number or container name string):
 
-`./load-pmm-dump.sh CS0012345`
+`./load-pmm-dump CS0012345`
 
 This will assume latest PMM v2 server version, and will deploy two containers: `pmm-data-CS0012345` and `pmm-server-CS0012345`
 
-`./load-pmm-dump.sh CS0012345 2.26.0`
+`./load-pmm-dump CS0012345 2.26.0`
 
 This will use the second argument as PMM server Docker version tag
 
-`./load-pmm-dump.sh CS0012345 /path/to/pmm-dump-1653879141.tar.gz`
+`./load-pmm-dump CS0012345 /path/to/pmm-dump-1653879141.tar.gz`
 
 This will get the PMM server Docker version tag from the .tar.gz file metadata, and it will use it for the containers.
 
