@@ -1,0 +1,110 @@
+#!/bin/bash
+
+# $1 should have ticket number or name for the containers
+# $2 can have a PMM .tar.gz dump path/file or version for pmm-server
+
+# At least one argument should be defined
+[[ -z ${1} ]] && {
+  echo "ERROR: Arguments expected."
+  echo " 1st argument: Ticket number"
+  echo " 2nd argument (optional): PMM-dump tar.gz file or version for percona/pmm-server"
+  exit 1
+}
+
+ticket_number=$1
+
+# Check if container names to be used are going to be unique, or exit.
+docker ps -a|egrep "pmm-data-${ticket_number}|pmm-server-${ticket_number}" >/dev/null 2>&1
+[[ $? -eq 0 ]] && {
+  echo "ERROR: Either pmm-data-${ticket_number} or pmm-server-${ticket_number} containers exist."
+  exit 2
+}
+
+tar_gz_regex='.*\.tar\.gz$'
+version_regex='^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'
+
+if [[ ${2} =~ ${tar_gz_regex} ]]; then
+  arg_is_pmm_dump_file=1
+  arg_is_pmm_version=0
+else
+  arg_is_pmm_dump_file=0
+  if [[ ${2} =~ ${version_regex} ]]; then
+    arg_is_pmm_version=1
+  else
+    arg_is_pmm_version=0
+    if [[ -n ${2} ]]; then
+      echo "WARN: Second argument is not null but it didn't match .tar.gz file nor version number regex."
+    fi
+  fi
+fi
+
+# If the second argument was a tar.gz file and pmm-dump exists in path, extract PMM server version from file.
+if [[ -n ${2} ]] && [[ arg_is_pmm_dump_file -eq 1 ]] && which pmm-dump > /dev/null 2>&1; then
+  if [[ ! -f ${2} ]]; then
+    echo "ERROR: PMM dump file (${2}) does not exist."
+    exit 1
+  fi
+  echo "## Getting PMM version from \`pmm-dump show-meta\` outputs (this can take a while if the dump file is large)..."
+  pmm_version=`pmm-dump show-meta --dump-path=${2}|grep "PMM Version"|awk '{print $3}'|cut -d '-' -f1`
+elif [[ -n ${2} ]] && [[ arg_is_pmm_version -eq 1 ]]; then
+  # If the second argument was a string like N[.N[.N]], we set that as version number.
+  pmm_version=${2}
+else
+  # Otherwise, PMM server version defaults to latest v2.
+  pmm_version="2"
+fi
+
+echo "## Using version: $pmm_version"
+
+docker pull percona/pmm-server:${pmm_version}
+
+docker create --volume /srv --name pmm-data-${ticket_number} percona/pmm-server:${pmm_version} /bin/true
+
+docker run --detach --restart always --publish :443 --volumes-from pmm-data-${ticket_number} --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+
+pmm_port_443=`docker ps --format "{{.Ports}} {{.Names}}"|grep ${ticket_number}|cut -d ':' -f2|cut -d '-' -f1`
+
+# Waiting for PMM server to fully start
+echo -n "## Waiting for PMM sever's Nginx to start"
+while true; do
+  docker exec pmm-server-${ticket_number} supervisorctl status nginx | grep RUNNING >/dev/null 2>&1
+  nginx_status=$?
+  if [[ ${nginx_status} -eq 0 ]]; then
+    echo
+    echo "## PMM sever's Nginx service started"
+    break
+  else
+    echo -n "."
+    sleep 1
+  fi
+done
+
+# Disable cap for client_max_body_size defined in nginx conf file
+echo "## Disabling PMM's cap on client_max_body_size from Nginx..."
+docker exec pmm-server-${ticket_number} sed -i.bak -e 's/client_max_body_size 10m/client_max_body_size 0/g' /etc/nginx/conf.d/pmm.conf
+docker exec pmm-server-${ticket_number} supervisorctl restart nginx
+
+
+echo
+echo "## USEFUL INFORMATION AND COMMANDS."
+echo
+echo "## Port 443 is exported to: " ${pmm_port_443}
+echo
+echo "## Use the following for port redirection from your local machine:"
+echo "ssh -L 8443:127.0.0.1:${pmm_port_443} " `hostname`
+echo
+echo "## To import a PMM dump:"
+[[ arg_is_pmm_dump_file -eq 1 ]] && {
+  echo "pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=${2}"
+} || {
+  echo "pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=[...]"
+}
+echo
+echo "## Use the following to get human readable dates from a Unix timestamp:"
+echo "date -d @1657948064"
+echo
+echo "## Increase 'Data Retention' in the advanced settings if the samples are older than the default 30 days."
+echo
+echo "## To destroy docker containers:"
+echo "docker rm -vf pmm-data-${ticket_number} pmm-server-${ticket_number}"
+
