@@ -231,11 +231,11 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *king
 	if err != nil {
 		return nil, err
 	}
-	var args string
+	var args []string
 	for _, element := range context.Elements {
 		switch element.Clause.(type) {
 		case *kingpin.CmdClause:
-			args += element.Clause.(*kingpin.CmdClause).FullCommand()
+			args = append(args, element.Clause.(*kingpin.CmdClause).FullCommand())
 		case *kingpin.FlagClause:
 			model := element.Clause.(*kingpin.FlagClause).Model()
 			value := model.Value.String()
@@ -243,7 +243,7 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *king
 			case "pmm-user", "pmm-pass":
 				value = "***"
 			}
-			args += fmt.Sprintf(" --%s=%s", model.Name, value)
+			args = append(args, fmt.Sprintf("--%s=%s", model.Name, value))
 		}
 	}
 
@@ -262,7 +262,7 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *king
 		},
 		PMMServerVersion:  pmmVer,
 		PMMTimezone:       pmmTz,
-		Arguments:         args,
+		Arguments:         strings.Join(args, " "),
 		PMMServerServices: pmmServices,
 		VMDataFormat:      "json",
 	}
