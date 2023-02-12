@@ -28,7 +28,7 @@ build:
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
 	docker-compose up -d
-	sleep 5 # waiting for pmm server to be ready :(
+	sleep 15 # waiting for pmm server to be ready :(
 	docker exec pmm-client pmm-agent setup
 
 down:
@@ -45,8 +45,8 @@ mongo-reg:
 		--username=$(PMM_MONGO_USERNAME) --password=$(PMM_MONGO_PASSWORD) mongo $(PMM_MONGO_URL)
 
 mongo-insert:
-	docker exec mongodb mongo -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
-		--eval 'db.getSiblingDB("mydb").mycollection.insert( [{ "a": 1 }, { "b": 2 }] )' admin
+	docker exec mongodb mongosh -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
+		--eval 'db.getSiblingDB("mydb").mycollection.insertMany( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
