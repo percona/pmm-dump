@@ -210,7 +210,7 @@ func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 	return resp.Timezone, nil
 }
 
-func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *kingpin.Application) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
 	_, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
@@ -264,6 +264,11 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *king
 		PMMTimezone:       pmmTz,
 		Arguments:         args,
 		PMMServerServices: pmmServices,
+		VMDataFormat:      "json",
+	}
+
+	if vmNativeData {
+		meta.VMDataFormat = "native"
 	}
 
 	return meta, nil
@@ -324,7 +329,7 @@ func (lw LevelWriter) Write(p []byte) (n int, err error) {
 }
 
 func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
-	checkUrls := []string{fmt.Sprintf("%s/api/v1/export/native", victoriaMetricsURL)}
+	checkUrls := []string{fmt.Sprintf("%s/api/v1/export", victoriaMetricsURL)}
 
 	for _, v := range checkUrls {
 		code, _, err := c.Get(v)
