@@ -50,6 +50,8 @@ func main() {
 
 		dumpPath = cli.Flag("dump-path", "Path to dump file").Short('d').String()
 
+		workersCount = cli.Flag("workers", "Set the number of reading workers").Int()
+
 		// export command options
 		exportCmd = cli.Command("export", "Export PMM Server metrics to dump file."+
 			"By default only the 4 last hours are exported, but it can be configured via start-ts/end-ts options")
@@ -76,8 +78,6 @@ func main() {
 				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
-
-		workersCount = exportCmd.Flag("workers", "Set the number of reading workers").Int()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 
@@ -319,7 +319,7 @@ func main() {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
 
-		if err = t.Import(*meta); err != nil {
+		if err = t.Import(ctx, *meta); err != nil {
 			var additionalInfo string
 			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
 				additionalInfo = ". Consider to decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
