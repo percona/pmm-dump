@@ -11,6 +11,8 @@ PMM_MONGO_USERNAME?=pmm_mongodb
 PMM_MONGO_PASSWORD?=password
 PMM_MONGO_URL?=mongodb:27017
 
+export PMM_VERSION?=latest
+
 ADMIN_MONGO_USERNAME?=admin
 ADMIN_MONGO_PASSWORD?=admin
 
@@ -27,12 +29,10 @@ build:
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
-	docker-compose up -d
-	sleep 15 # waiting for pmm server to be ready :(
-	docker exec pmm-client pmm-agent setup
+	docker compose up -d
 
 down:
-	docker-compose down --volumes
+	docker compose down --volumes
 	rm -rf setup/pmm
 
 re: down up
@@ -63,6 +63,11 @@ export-ch:
 import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+
+run-tests: build down
+	go test -v -timeout 100s -run ^TestShowMeta$$ pmm-dump/internal/test/e2e 
+	go test -v -timeout 100s -run ^TestExportImport$$ pmm-dump/internal/test/e2e 
+	go test -v -timeout 1000s -run ^TestPMMCompatibility$$ pmm-dump/internal/test/e2e 
 
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
