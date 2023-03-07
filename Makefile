@@ -1,4 +1,4 @@
-.PHONY= build up down re pmm-status mongo-reg mongo-insert export-all import-all clean
+.PHONY= build up down re pmm-status mongo-reg mongo-insert export-all import-all clean up-test down-test run-tests
 
 PMMD_BIN_NAME?=pmm-dump
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
@@ -27,25 +27,43 @@ build:
 
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
-	docker-compose up -d
+	docker compose up -d
 	sleep 15 # waiting for pmm server to be ready :(
-	docker exec pmm-client pmm-agent setup
+	docker compose exec pmm-client pmm-agent setup || true
 
 down:
-	docker-compose down --volumes
-	rm -rf setup/pmm
+	docker compose down --volumes
+	rm -rf setup/pmm/agent.yaml
+
+up-test:
+	mkdir -p setup/pmm && touch setup/pmm/agent_test.yaml && chmod 0666 setup/pmm/agent_test.yaml
+	docker compose -p test --env-file .env.test up -d
+	sleep 15 # waiting for pmm server to be ready :(
+	docker compose -p test exec pmm-client pmm-agent setup || true
+
+down-test:
+	docker compose -p test --env-file .env.test down --volumes
+	rm -rf setup/pmm/agent_test.yaml
 
 re: down up
 
 pmm-status:
-	docker exec pmm-client pmm-admin status
+	docker compose exec pmm-client pmm-admin status
 
 mongo-reg:
-	docker exec pmm-client pmm-admin add mongodb \
+	docker compose exec pmm-client pmm-admin add mongodb \
+		--username=$(PMM_MONGO_USERNAME) --password=$(PMM_MONGO_PASSWORD) mongo $(PMM_MONGO_URL)
+
+mongo-reg-test:
+	docker compose -p test exec pmm-client pmm-admin add mongodb \
 		--username=$(PMM_MONGO_USERNAME) --password=$(PMM_MONGO_PASSWORD) mongo $(PMM_MONGO_URL)
 
 mongo-insert:
-	docker exec mongodb mongosh -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
+	docker compose exec mongodb mongosh -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
+		--eval 'db.getSiblingDB("mydb").mycollection.insertMany( [{ "a": 1 }, { "b": 2 }] )' admin
+
+mongo-insert-test:
+	docker compose -p test exec mongodb mongosh -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
 		--eval 'db.getSiblingDB("mydb").mycollection.insertMany( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all:
@@ -63,6 +81,9 @@ export-ch:
 import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+
+run-tests: build down-test
+	go test -v -p 1 -timeout 2000s ./...
 
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
