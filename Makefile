@@ -28,6 +28,8 @@ build:
 up:
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
 	docker compose up -d
+	sleep 15 # waiting for pmm server to be ready :(
+	docker compose exec pmm-client pmm-agent setup || true
 
 down:
 	docker compose down --volumes
