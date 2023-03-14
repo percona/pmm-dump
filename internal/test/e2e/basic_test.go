@@ -8,13 +8,18 @@ import (
 )
 
 func TestExportImport(t *testing.T) {
-	b := new(testutil.Binary)
-	pmm := testutil.NewPMM(t, "")
-	pmm.Deploy()
+	testutil.SetEnvFromDotEnv(t)
 
+	b := new(testutil.Binary)
+	pmm := testutil.NewPMM(t)
+	pmm.Stop()
+	pmm.Deploy()
 	testDir := t.TempDir()
+
+	args := []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL(), "--dump-qan", "--click-house-url", testutil.ClickHouseURL()}
+
 	t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
-	stdout, stderr, err := b.Run("export", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL, "--ignore-load", "--dump-qan")
+	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
@@ -23,7 +28,7 @@ func TestExportImport(t *testing.T) {
 	pmm.Deploy()
 
 	t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
-	stdout, stderr, err = b.Run("import", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL, "--dump-qan")
+	stdout, stderr, err = b.Run(append([]string{"import"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -31,6 +36,8 @@ func TestExportImport(t *testing.T) {
 }
 
 func TestShowMeta(t *testing.T) {
+	testutil.SetEnvFromDotEnv(t)
+
 	b := new(testutil.Binary)
 	stdout, stderr, err := b.Run("show-meta", "-d", "data/onlymeta.tar.gz")
 	if err != nil {

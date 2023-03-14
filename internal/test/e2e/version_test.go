@@ -7,6 +7,8 @@ import (
 )
 
 func TestPMMCompatibility(t *testing.T) {
+	testutil.SetEnvFromDotEnv(t)
+
 	var PMMVersions = []string{
 		//"2.12.0",
 		//"2.13.0",
@@ -36,18 +38,20 @@ func TestPMMCompatibility(t *testing.T) {
 
 	b := new(testutil.Binary)
 	for i := 0; i < len(PMMVersions); i++ {
-		oldPMM := testutil.NewPMM(t, PMMVersions[i])
+		t.Setenv("PMM_VERSION", PMMVersions[i])
+		oldPMM := testutil.NewPMM(t)
+		oldPMM.Stop()
 		oldPMM.Deploy()
 
 		testDir := t.TempDir()
 		t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
-		stdout, stderr, err := b.Run("export", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL, "--ignore-load")
+		stdout, stderr, err := b.Run("export", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL(), "--ignore-load")
 		if err != nil {
 			t.Fatal("failed to export", err, stdout, stderr)
 		}
 
 		t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
-		stdout, stderr, err = b.Run("import", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL)
+		stdout, stderr, err = b.Run("import", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL())
 		if err != nil {
 			t.Fatal("failed to import", err, stdout, stderr)
 		}
@@ -56,11 +60,12 @@ func TestPMMCompatibility(t *testing.T) {
 		if i == len(PMMVersions)-1 {
 			break
 		}
-		newPMM := testutil.NewPMM(t, PMMVersions[i+1])
+		t.Setenv("PMM_VERSION", PMMVersions[i+1])
+		newPMM := testutil.NewPMM(t)
 		newPMM.Deploy()
 
 		t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
-		stdout, stderr, err = b.Run("import", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL)
+		stdout, stderr, err = b.Run("import", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", testutil.PMMURL())
 		if err != nil {
 			t.Fatal("failed to import", err, stdout, stderr)
 		}
