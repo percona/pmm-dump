@@ -396,6 +396,11 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 			return errors.Wrap(err, "failed to read chunk content")
 		}
 
+		if len(content) == 0 {
+			log.Warn().Msgf("Chunk '%s' is empty, skipping", header.Name)
+			continue
+		}
+
 		ch := &dump.Chunk{
 			ChunkMeta: dump.ChunkMeta{
 				Source: st,
@@ -404,11 +409,19 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 			Filename: filename,
 		}
 
-		log.Debug().Msgf("Sending chunk '%s' to the channel...", header.Name)
-		chunksC <- ch
+		isDone := false
+		select {
+		case <-gCtx.Done():
+			isDone = true
+		case chunksC <- ch:
+			log.Debug().Msgf("Sending chunk '%s' to the channel...", header.Name)
+		}
+		if isDone {
+			break
+		}
 	}
-	close(chunksC)
 
+	close(chunksC)
 	if err := g.Wait(); err != nil {
 		log.Debug().Msg("Got error, finishing import")
 		return err

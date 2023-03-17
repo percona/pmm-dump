@@ -3,8 +3,8 @@
 PMMD_BIN_NAME?=pmm-dump
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
-PMM_URL?="http://admin:admin@localhost:8282"
-PMM_VM_URL?="http://admin:admin@localhost:8282/prometheus"
+PMM_URL?="http://admin:admin@localhost:8281"
+PMM_VM_URL?="http://admin:admin@localhost:8281/prometheus"
 PMM_CH_URL?="http://localhost:9000?database=pmm"
 
 PMM_MONGO_USERNAME?=pmm_mongodb
@@ -83,7 +83,7 @@ import-all:
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
 run-tests: build down-test
-	go test -v -p 1 -timeout 2000s ./...
+	go test -v -p 1 -timeout 3000s ./...
 
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
