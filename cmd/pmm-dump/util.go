@@ -1,24 +1,30 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/alecthomas/kingpin"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/alecthomas/kingpin"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/clickhouse"
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 const minPMMServerVersion = "2.12.0"
@@ -352,4 +358,160 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 	if pmmVer < minPMMServerVersion {
 		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
 	}
+}
+
+func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string, nativeData bool) (*victoriametrics.Source, bool) {
+	if !dumpCore {
+		return nil, false
+	}
+
+	c := &victoriametrics.Config{
+		ConnectionURL:       url,
+		TimeSeriesSelectors: selectors,
+		NativeData:          nativeData,
+	}
+
+	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
+
+	return victoriametrics.NewSource(grafanaC, *c), true
+}
+
+func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
+	if !dumpQAN {
+		return nil, false
+	}
+
+	c := &clickhouse.Config{
+		ConnectionURL: url,
+		Where:         where,
+	}
+
+	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
+	if err != nil {
+		log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+	}
+
+	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
+
+	return clickhouseSource, true
+}
+
+func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
+	if *pmmUser == "" || *pmmPassword == "" {
+		log.Fatal().Msg("There is no credentials found neither in url or by flags")
+	}
+
+	err := client.Auth(*pmmURL, *pmmUser, *pmmPassword)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Cannot authenticate")
+	}
+}
+
+func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
+	parsedURL, err := url.Parse(*pmmURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Cannot parse pmm url")
+	}
+
+	// Host(scheme + hostname)
+	if parsedURL.Host == "" && parsedURL.Path != "" {
+		log.Error().Msg("pmm-url input can be mismatched as path and not as host!")
+	}
+	if *pmmHost != "" {
+		parsedHostURL, err := url.Parse(*pmmHost)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Cannot parse pmm-host")
+		}
+
+		parsedURL.Scheme = parsedHostURL.Scheme
+		parsedURL.Host = parsedHostURL.Hostname()
+	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		log.Fatal().Msg("There is no host found neither in pmm-url or pmm-host")
+	}
+
+	// Port
+	if *pmmPort != "" {
+		_, err := strconv.Atoi(*pmmPort)
+		if err != nil {
+			log.Fatal().Msg("Cannot parse port!")
+		}
+		parsedURL.Host = parsedURL.Hostname() + ":" + *pmmPort
+	}
+
+	// User
+	if parsedURL.User != nil {
+		if *pmmUser == "" {
+			log.Info().Msg("Credential user was obtained from pmm-url")
+			*pmmUser = parsedURL.User.Username()
+		}
+		if *pmmPassword == "" {
+			log.Info().Msg("Credential password was obtained from pmm-url")
+			*pmmPassword, _ = parsedURL.User.Password()
+		}
+		parsedURL.User = nil
+	}
+
+	*pmmURL = parsedURL.String()
+}
+
+func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+	var file io.ReadWriteCloser
+	if piped {
+		file = os.Stdin
+	} else {
+		var err error
+		log.Info().
+			Str("path", dumpPath).
+			Msg("Opening dump file...")
+
+		file, err = os.Open(dumpPath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
+		}
+	}
+	return file, nil
+}
+
+func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+	var file *os.File
+	if piped {
+		file = os.Stdout
+	} else {
+		exportTS := time.Now().UTC()
+		log.Debug().Msgf("Trying to determine filepath")
+		filepath, err := getDumpFilepath(dumpPath, exportTS)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debug().Msgf("Preparing dump file: %s", filepath)
+		if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
+			return nil, errors.Wrap(err, "failed to create folders for the dump file")
+		}
+		file, err = os.Create(filepath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create %s", filepath)
+		}
+	}
+	return file, nil
+}
+
+func getDumpFilepath(customPath string, ts time.Time) (string, error) {
+	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz", ts.Unix())
+	if customPath == "" {
+		return autoFilename, nil
+	}
+
+	customPathInfo, err := os.Stat(customPath)
+	if err != nil && !os.IsNotExist(err) {
+		return "", errors.Wrap(err, "failed to get custom path info")
+	}
+
+	if (err == nil && customPathInfo.IsDir()) || os.IsPathSeparator(customPath[len(customPath)-1]) {
+		// file exists and it's directory
+		return path.Join(customPath, autoFilename), nil
+	}
+
+	return customPath, nil
 }
