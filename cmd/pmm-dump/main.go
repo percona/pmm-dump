@@ -5,19 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
-	"pmm-dump/pkg/clickhouse"
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
-	"pmm-dump/pkg/transferer"
-	"pmm-dump/pkg/victoriametrics"
-	"strconv"
 	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/transferer"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 var (
@@ -210,7 +208,13 @@ func main() {
 			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
-		t, err := transferer.New(*dumpPath, *stdout, sources, *workersCount)
+		file, err := createFile(*dumpPath, *stdout)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create file: %v", err)
+		}
+		defer file.Close()
+
+		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err)
 		}
@@ -309,7 +313,13 @@ func main() {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		t, err := transferer.New(*dumpPath, piped, sources, *workersCount)
+		file, err := getFile(*dumpPath, *stdout)
+		if err != nil {
+			log.Fatal().Msgf("Failed to get file: %v", err)
+		}
+		defer file.Close()
+
+		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
@@ -372,99 +382,4 @@ func main() {
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
 	}
-}
-
-func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string, nativeData bool) (*victoriametrics.Source, bool) {
-	if !dumpCore {
-		return nil, false
-	}
-
-	c := &victoriametrics.Config{
-		ConnectionURL:       url,
-		TimeSeriesSelectors: selectors,
-		NativeData:          nativeData,
-	}
-
-	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
-
-	return victoriametrics.NewSource(grafanaC, *c), true
-}
-
-func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
-	if !dumpQAN {
-		return nil, false
-	}
-
-	c := &clickhouse.Config{
-		ConnectionURL: url,
-		Where:         where,
-	}
-
-	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
-	if err != nil {
-		log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
-	}
-
-	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
-
-	return clickhouseSource, true
-}
-
-func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
-	if *pmmUser == "" || *pmmPassword == "" {
-		log.Fatal().Msg("There is no credentials found neither in url or by flags")
-	}
-
-	err := client.Auth(*pmmURL, *pmmUser, *pmmPassword)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Cannot authenticate")
-	}
-}
-
-func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
-	parsedURL, err := url.Parse(*pmmURL)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Cannot parse pmm url")
-	}
-
-	// Host(scheme + hostname)
-	if parsedURL.Host == "" && parsedURL.Path != "" {
-		log.Error().Msg("pmm-url input can be mismatched as path and not as host!")
-	}
-	if *pmmHost != "" {
-		parsedHostURL, err := url.Parse(*pmmHost)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Cannot parse pmm-host")
-		}
-
-		parsedURL.Scheme = parsedHostURL.Scheme
-		parsedURL.Host = parsedHostURL.Hostname()
-	}
-	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		log.Fatal().Msg("There is no host found neither in pmm-url or pmm-host")
-	}
-
-	// Port
-	if *pmmPort != "" {
-		_, err := strconv.Atoi(*pmmPort)
-		if err != nil {
-			log.Fatal().Msg("Cannot parse port!")
-		}
-		parsedURL.Host = parsedURL.Hostname() + ":" + *pmmPort
-	}
-
-	// User
-	if parsedURL.User != nil {
-		if *pmmUser == "" {
-			log.Info().Msg("Credential user was obtained from pmm-url")
-			*pmmUser = parsedURL.User.Username()
-		}
-		if *pmmPassword == "" {
-			log.Info().Msg("Credential password was obtained from pmm-url")
-			*pmmPassword, _ = parsedURL.User.Password()
-		}
-		parsedURL.User = nil
-	}
-
-	*pmmURL = parsedURL.String()
 }

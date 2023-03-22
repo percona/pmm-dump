@@ -12,7 +12,8 @@ type Source interface {
 type SourceType int
 
 const (
-	UndefinedSource SourceType = iota
+	InvalidSource SourceType = iota - 1
+	UndefinedSource
 	VictoriaMetrics
 	ClickHouse
 )
