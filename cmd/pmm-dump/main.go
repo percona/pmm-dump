@@ -50,6 +50,7 @@ func main() {
 
 		workersCount = cli.Flag("workers", "Set the number of reading workers").Int()
 
+		vmNativeData = cli.Flag("vm-native-data", "Use VictoriaMetrics' native export format. Reduces dump size, but can be incompatible between PMM versions").Bool()
 		// export command options
 		exportCmd = cli.Command("export", "Export PMM Server metrics to dump file."+
 			"By default only the 4 last hours are exported, but it can be configured via start-ts/end-ts options")
@@ -78,8 +79,6 @@ func main() {
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
-
-		vmNativeData = exportCmd.Flag("vm-native-data", "Use VictoriaMetrics' native export format. Reduces dump size, but can be incompatible between PMM versions").Bool()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
@@ -281,22 +280,30 @@ func main() {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
 
-		dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, piped)
-		if err != nil {
-			log.Fatal().Msgf("Can't show meta: %v", err)
-		}
+		if piped {
+			if *vmNativeData {
+				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
+			} else {
+				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' JSON export format")
+			}
+		} else {
+			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false)
+			if err != nil {
+				log.Fatal().Msgf("Can't show meta: %v", err)
+			}
 
-		switch dumpMeta.VMDataFormat {
-		case "":
-			log.Warn().Msgf("Meta file doesn't contain `vm-data-format`. Using VictoriaMetrics' native export format")
-			*vmNativeData = true
-		case "native":
-			*vmNativeData = true
-		case "json":
-			*vmNativeData = false
-		default:
-			*vmNativeData = false
-			log.Warn().Msgf("Meta file contains invalid `vm-data-format`. Using VictoriaMetrics' JSON export format")
+			switch dumpMeta.VMDataFormat {
+			case "":
+				log.Warn().Msgf("Meta file doesn't contain `vm-data-format`. Using VictoriaMetrics' native export format")
+				*vmNativeData = true
+			case "native":
+				*vmNativeData = true
+			case "json":
+				*vmNativeData = false
+			default:
+				*vmNativeData = false
+				log.Warn().Msgf("Meta file contains invalid `vm-data-format`. Using VictoriaMetrics' JSON export format")
+			}
 		}
 
 		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil, *vmNativeData)
@@ -313,7 +320,7 @@ func main() {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		file, err := getFile(*dumpPath, *stdout)
+		file, err := getFile(*dumpPath, piped)
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
