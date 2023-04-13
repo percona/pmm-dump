@@ -9,3 +9,5 @@ setup/mongo/db/
 
 pmm-dump-*.tar.gz
 dump.tar.gz
+
+/test

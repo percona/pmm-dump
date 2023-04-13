@@ -1,4 +1,4 @@
-package testutil
+package util
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ type Binary struct {
 }
 
 func (b *Binary) Run(args ...string) (string, string, error) {
-	return Exec("", "../../../pmm-dump", args...)
+	return Exec(repoPath, "./pmm-dump", args...)
 }
 
 func Exec(wd string, name string, args ...string) (string, string, error) {
