@@ -37,8 +37,11 @@ func TestPMMCompatibility(t *testing.T) {
 
 	b := new(util.Binary)
 	for i := 0; i < len(PMMVersions); i++ {
-		t.Setenv("PMM_VERSION", PMMVersions[i])
-		oldPMM := util.NewPMM(t, "compatibility", "", "")
+		oldPMM := util.NewPMM(t, "compatibility", "")
+		if oldPMM.UseExistingDeployment() {
+			t.Skip("skipping test because existing deployment is used")
+		}
+		oldPMM.SetVersion(PMMVersions[i])
 		oldPMM.Stop()
 		oldPMM.Deploy()
 
@@ -59,8 +62,8 @@ func TestPMMCompatibility(t *testing.T) {
 		if i == len(PMMVersions)-1 {
 			break
 		}
-		t.Setenv("PMM_VERSION", PMMVersions[i+1])
-		newPMM := util.NewPMM(t, "compatibility", "", "")
+		newPMM := util.NewPMM(t, "compatibility", "")
+		newPMM.SetVersion(PMMVersions[i+1])
 		newPMM.Deploy()
 
 		t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))

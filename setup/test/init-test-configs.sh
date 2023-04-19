@@ -36,6 +36,9 @@ env_vars=(
 	"CLICKHOUSE_PORT=9001"
 	"CLICKHOUSE_PORT_HTTP=8124"
 	"MONGO_PORT=27018"
+	""
+	"USE_EXISTING_PMM=false # use existing pmm-server container"
+	"PMM_URL=http://admin:admin@localhost # pmm-server url (used only while USE_EXISTING_PMM=true)"
 )
 
 env_file="$test_dir/.env.test"
@@ -52,6 +55,9 @@ env_vars=(
 	"CLICKHOUSE_PORT=9002"
 	"CLICKHOUSE_PORT_HTTP=8125"
 	"MONGO_PORT=27019"
+	""
+	"USE_EXISTING_PMM=false # use existing pmm-server container"
+	"PMM_URL=http://admin:admin@localhost # pmm-server url (used only while USE_EXISTING_PMM=true)"
 )
 second_env_file="$test_dir/.env2.test"
 create_env_file .env "$second_env_file" "${env_vars[@]}"

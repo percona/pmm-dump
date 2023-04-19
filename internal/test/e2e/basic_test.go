@@ -8,12 +8,12 @@ import (
 )
 
 func TestExportImport(t *testing.T) {
-	pmm := util.NewPMM(t, "export-import", "", ".env.test")
+	pmm := util.NewPMM(t, "export-import", ".env.test")
 	pmm.Stop()
 	pmm.Deploy()
 	defer pmm.Stop()
 
-	newPMM := util.NewPMM(t, "export-import-2", "", ".env2.test")
+	newPMM := util.NewPMM(t, "export-import-2", ".env2.test")
 	newPMM.Stop()
 	newPMM.Deploy()
 	defer newPMM.Stop()
