@@ -23,8 +23,8 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	pmm := util.NewPMM(t, "validate", "", ".env.test")
-	newPMM := util.NewPMM(t, "validate-2", "", ".env2.test")
+	pmm := util.NewPMM(t, "validate", ".env.test")
+	newPMM := util.NewPMM(t, "validate-2", ".env2.test")
 	pmm.Stop()
 	newPMM.Stop()
 

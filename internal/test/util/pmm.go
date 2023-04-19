@@ -3,8 +3,10 @@ package util
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,42 +18,105 @@ const (
 	timeout = time.Second * 120
 )
 
+const (
+	envVarPMMURL             = "PMM_URL"
+	envVarPMMHTTPPort        = "PMM_HTTP_PORT"
+	envVarPMMVersion         = "PMM_VERSION"
+	envVarClickhousePort     = "CLICKHOUSE_PORT"
+	envVarUseExistingPMM     = "USE_EXISTING_PMM"
+	envVarPMMAgentConfigPath = "PMM_AGENT_CONFIG_FILE"
+)
+
+const (
+	defaultPMMURL = "http://localhost"
+)
+
 type PMM struct {
-	version        string
-	t              *testing.T
-	dotEnvFilename string
-	envMap         map[string]string
-	name           string
+	t                     *testing.T
+	dotEnvFilename        string
+	envMap                map[string]string
+	name                  string
+	useExistingDeployment bool
+}
+
+func (pmm *PMM) UseExistingDeployment() bool {
+	return pmm.useExistingDeployment
 }
 
 func (pmm *PMM) PMMURL() string {
-	return fmt.Sprintf("http://admin:admin@localhost:%s", pmm.envMap["PMM_HTTP_PORT"])
+	m := pmm.envMap
+
+	u, err := url.Parse(m[envVarPMMURL])
+	if err != nil {
+		pmm.t.Fatal(err)
+	}
+	if u.User.Username() == "" {
+		u.User = url.UserPassword("admin", "admin")
+	}
+	if u.Scheme == "" {
+		u.Scheme = "http"
+	}
+	if strings.Contains(u.Host, ":") {
+		u.Host = u.Host[0:strings.Index(u.Host, ":")]
+	}
+	u.Host += ":" + m[envVarPMMHTTPPort]
+
+	a := u.String()
+	return a
 }
 func (pmm *PMM) ClickhouseURL() string {
-	return fmt.Sprintf("http://localhost:%s?database=pmm", pmm.envMap["CLICKHOUSE_PORT"])
+	m := pmm.envMap
+
+	u, err := url.Parse(m[envVarPMMURL])
+	if err != nil {
+		pmm.t.Fatal(err)
+	}
+	if u.Scheme == "" {
+		u.Scheme = "http"
+	}
+	u.RawQuery = "database=pmm"
+	if strings.Contains(u.Host, ":") {
+		u.Host = u.Host[0:strings.Index(u.Host, ":")]
+	}
+	u.Host += ":" + m[envVarClickhousePort]
+
+	return u.String()
 }
 
-func GetEnvFromDotEnv(filepath string) (map[string]string, error) {
+func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 	envs, err := cli.GetEnvFromFile(map[string]string{}, "", []string{filepath})
 	if err != nil {
 		return nil, err
 	}
+	if v, ok := envs[envVarPMMURL]; !ok && v == "" {
+		envs[envVarPMMURL] = defaultPMMURL
+	}
+	for _, env := range []string{envVarPMMHTTPPort, envVarClickhousePort} {
+		if v, ok := envs[env]; !ok && v == "" {
+			return nil, errors.Errorf("env %s is not set in %s", env, filepath)
+		}
+	}
 	return envs, nil
 }
 
-func NewPMM(t *testing.T, name string, version string, dotEnvFilename string) *PMM {
-	envs, err := GetEnvFromDotEnv(filepath.Join(testDir, dotEnvFilename))
+func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
+	if dotEnvFilename == "" {
+		dotEnvFilename = ".env.test"
+	}
+	envs, err := getEnvFromDotEnv(filepath.Join(testDir, dotEnvFilename))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version == "" {
-		version = envs["PMM_VERSION"]
-		if version == "" {
-			version = "latest"
-		}
+	useExistingDeployment := false
+	if v, ok := envs[envVarUseExistingPMM]; ok && (v == "true" || v == "1") {
+		useExistingDeployment = true
 	}
-	if dotEnvFilename == "" {
-		dotEnvFilename = ".env.test"
+	if !useExistingDeployment {
+		envs[envVarPMMURL] = defaultPMMURL
+	}
+	version := envs[envVarPMMVersion]
+	if version == "" {
+		version = "latest"
 	}
 	if name == "" {
 		name = "test"
@@ -70,16 +135,20 @@ func NewPMM(t *testing.T, name string, version string, dotEnvFilename string) *P
 	if err := os.Chmod(agentConfigFilepath, 0666); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := envs["PMM_AGENT_CONFIG_FILE"]; !ok {
-		envs["PMM_AGENT_CONFIG_FILE"] = agentConfigFilepath
+	if _, ok := envs[envVarPMMAgentConfigPath]; !ok {
+		envs[envVarPMMAgentConfigPath] = agentConfigFilepath
 	}
 	return &PMM{
-		version:        version,
-		t:              t,
-		dotEnvFilename: dotEnvFilename,
-		envMap:         envs,
-		name:           name,
+		t:                     t,
+		dotEnvFilename:        dotEnvFilename,
+		envMap:                envs,
+		name:                  name,
+		useExistingDeployment: useExistingDeployment,
 	}
+}
+
+func (p *PMM) SetVersion(version string) {
+	p.envMap[envVarPMMVersion] = version
 }
 
 func (p *PMM) SetEnv() {
@@ -89,9 +158,12 @@ func (p *PMM) SetEnv() {
 }
 
 func (p *PMM) Deploy() {
+	if p.useExistingDeployment {
+		p.t.Log("Using existing PMM deployment")
+		return
+	}
 	p.SetEnv()
-	p.t.Setenv("PMM_VERSION", p.version)
-	p.t.Log("Starting PMM deployment", p.name, "version:", p.version)
+	p.t.Log("Starting PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
 	stdout, stderr, err := Exec(repoPath, "make", "up")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to start PMM: stderr: %s, stdout: %s", stderr, stdout))
@@ -117,8 +189,11 @@ func (p *PMM) Deploy() {
 }
 
 func (p *PMM) Stop() {
+	if p.useExistingDeployment {
+		return
+	}
 	p.SetEnv()
-	p.t.Log("Stopping PMM deployment", p.name, "version:", p.version)
+	p.t.Log("Stopping PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
 	stdout, stderr, err := Exec(repoPath, "make", "down")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to stop PMM: stderr: %s, stdout: %s", stderr, stdout))
