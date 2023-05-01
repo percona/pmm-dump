@@ -118,7 +118,7 @@ func (c *Client) Auth(pmmUrl, username, password string) error {
 		if httpResp.StatusCode() == fasthttp.StatusUnauthorized {
 			return errors.New("invalid username or password")
 		}
-		return errors.New("non-ok status code")
+		return errors.Errorf("non-ok status code: %d", httpResp.StatusCode())
 	}
 
 	sessionRaw := httpResp.Header.PeekCookie(AuthCookieName)

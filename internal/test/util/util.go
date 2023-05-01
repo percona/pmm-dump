@@ -11,8 +11,9 @@ import (
 
 var (
 	_, b, _, _ = runtime.Caller(0)
-	repoPath   = filepath.Join(filepath.Dir(b), "..", "..", "..")
-	testDir    = filepath.Join(repoPath, "test")
+
+	RepoPath = filepath.Join(filepath.Dir(b), "..", "..", "..")
+	testDir  = filepath.Join(RepoPath, "test")
 )
 
 func TestDir(t *testing.T, dirName string) string {

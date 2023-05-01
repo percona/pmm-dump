@@ -12,7 +12,7 @@ type Binary struct {
 }
 
 func (b *Binary) Run(args ...string) (string, string, error) {
-	return Exec(repoPath, "./pmm-dump", args...)
+	return Exec(RepoPath, "./pmm-dump", args...)
 }
 
 func Exec(wd string, name string, args ...string) (string, string, error) {

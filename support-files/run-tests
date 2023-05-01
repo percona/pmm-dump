@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# This script runs go tests.
+
+timeout="6000s"
+
+trap exit 1 SIGINT
+
+# Get list of all packages in this repository
+readarray -t packages < <(go list ./...)
+
+module_name="pmm-dump"
+
+failed_tests=()
+
+for package in "${packages[@]}"; do
+	# Get path of the package by replacing module name with `.`
+	package_path=${package/#$module_name/.}
+
+	pushd "$package_path" >/dev/null || echo "Failed to enter $package_path"
+
+	# Get list of all tests in the package
+	readarray -t tests < <(go test -list .)
+	for test in "${tests[@]}"; do
+		# Filtering lines which contain package name, like `? pmm-dump/pkg/victoriametrics [no test files]`
+		if [[ $test == *"$package"* ]]; then
+			continue
+		fi
+
+		echo "Running test $test"
+		if ! go test -timeout "$timeout" -v -run "^$test$"; then
+			failed_tests+=("$test")
+		fi
+	done
+	popd >/dev/null || echo "Failed to exit $package_path"
+done
+
+echo "Failed tests:" "${failed_tests[@]}"
