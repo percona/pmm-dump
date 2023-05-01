@@ -39,7 +39,7 @@ func TestExportImport(t *testing.T) {
 
 func TestShowMeta(t *testing.T) {
 	b := new(util.Binary)
-	stdout, stderr, err := b.Run("show-meta", "-d", "data/onlymeta.tar.gz")
+	stdout, stderr, err := b.Run("show-meta", "-d", filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "onlymeta.tar.gz"))
 	if err != nil {
 		t.Fatal(err, stdout, stderr)
 	}

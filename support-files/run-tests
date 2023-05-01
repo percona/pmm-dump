@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# This script runs go test ./... and filters 'no test files' lines output.
+
+set -e
+
+timeout="6000s"
+
+mkfifo /tmp/fifo-$$
+grep -v 'no test files' </tmp/fifo-$$ & go test -v -p 1 -timeout "$timeout" ./... >/tmp/fifo-$$
+rm /tmp/fifo-$$

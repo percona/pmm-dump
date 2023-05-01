@@ -69,7 +69,7 @@ init-test: build
 	./setup/test/init-test-configs.sh test
 
 run-tests: init-test build
-	go test -v -p 1 -timeout 3000s ./...
+	./support-files/run-tests	
 
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)

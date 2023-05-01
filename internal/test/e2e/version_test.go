@@ -1,47 +1,28 @@
 package e2e
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
 	"pmm-dump/internal/test/util"
+
+	"gopkg.in/yaml.v2"
 )
 
 func TestPMMCompatibility(t *testing.T) {
-	var PMMVersions = []string{
-		"2.12.0",
-		"2.13.0",
-		"2.14.0",
-		"2.15.0",
-		"2.16.0",
-		"2.17.0",
-		"2.18.0",
-		"2.19.0",
-		"2.20.0",
-		"2.21.0",
-		"2.22.0",
-		"2.23.0",
-		"2.24.0",
-		"2.25.0",
-		"2.26.0",
-		"2.27.0",
-		"2.28.0",
-		"2.29.0",
-		"2.30.0",
-		"2.31.0",
-		"2.32.0",
-		"2.33.0",
-		"2.34.0",
-		"2.35.0",
+	pmmVersions := getVersions(t)
+	if len(pmmVersions) < 2 {
+		t.Fatal("not enough versions to test provided in ")
 	}
 
 	b := new(util.Binary)
-	for i := 0; i < len(PMMVersions); i++ {
+	for i := 0; i < len(pmmVersions); i++ {
 		oldPMM := util.NewPMM(t, "compatibility", "")
 		if oldPMM.UseExistingDeployment() {
 			t.Skip("skipping test because existing deployment is used")
 		}
-		oldPMM.SetVersion(PMMVersions[i])
+		oldPMM.SetVersion(pmmVersions[i])
 		oldPMM.Stop()
 		oldPMM.Deploy()
 
@@ -59,11 +40,11 @@ func TestPMMCompatibility(t *testing.T) {
 		}
 
 		oldPMM.Stop()
-		if i == len(PMMVersions)-1 {
+		if i == len(pmmVersions)-1 {
 			break
 		}
 		newPMM := util.NewPMM(t, "compatibility", "")
-		newPMM.SetVersion(PMMVersions[i+1])
+		newPMM.SetVersion(pmmVersions[i+1])
 		newPMM.Deploy()
 
 		t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
@@ -73,4 +54,19 @@ func TestPMMCompatibility(t *testing.T) {
 		}
 		newPMM.Stop()
 	}
+}
+
+func getVersions(t *testing.T) []string {
+	type versionsConfig struct {
+		Versions []string `yaml:"versions"`
+	}
+	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "versions.yaml"))
+	if err != nil {
+		t.Fatal("failed to read test config", err)
+	}
+	cfg := versionsConfig{}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatal("failed to unmarshal test config", err)
+	}
+	return cfg.Versions
 }

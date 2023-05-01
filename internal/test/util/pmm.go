@@ -164,7 +164,7 @@ func (p *PMM) Deploy() {
 	}
 	p.SetEnv()
 	p.t.Log("Starting PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
-	stdout, stderr, err := Exec(repoPath, "make", "up")
+	stdout, stderr, err := Exec(RepoPath, "make", "up")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to start PMM: stderr: %s, stdout: %s", stderr, stdout))
 		return
@@ -174,13 +174,13 @@ func (p *PMM) Deploy() {
 		return
 	}
 	time.Sleep(15 * time.Second)
-	stdout, stderr, err = Exec(repoPath, "make", "mongo-reg")
+	stdout, stderr, err = Exec(RepoPath, "make", "mongo-reg")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to add mongo: stderr: %s, stdout: %s", stderr, stdout))
 		return
 	}
 	for i := 0; i < 10; i++ {
-		stdout, stderr, err = Exec(repoPath, "make", "mongo-insert")
+		stdout, stderr, err = Exec(RepoPath, "make", "mongo-insert")
 		if err != nil {
 			p.t.Fatal(errors.Wrapf(err, "failed to add mongo: stderr: %s, stdout: %s", stderr, stdout))
 			return
@@ -194,7 +194,7 @@ func (p *PMM) Stop() {
 	}
 	p.SetEnv()
 	p.t.Log("Stopping PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
-	stdout, stderr, err := Exec(repoPath, "make", "down")
+	stdout, stderr, err := Exec(RepoPath, "make", "down")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to stop PMM: stderr: %s, stdout: %s", stderr, stdout))
 		return
