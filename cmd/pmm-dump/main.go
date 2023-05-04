@@ -50,6 +50,8 @@ func main() {
 
 		dumpPath = cli.Flag("dump-path", "Path to dump file").Short('d').String()
 
+		workersCount = cli.Flag("workers", "Set the number of reading workers").Int()
+
 		// export command options
 		exportCmd = cli.Command("export", "Export PMM Server metrics to dump file."+
 			"By default only the 4 last hours are exported, but it can be configured via start-ts/end-ts options")
@@ -77,9 +79,9 @@ func main() {
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
-		workersCount = exportCmd.Flag("workers", "Set the number of reading workers").Int()
-
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
+
+		vmNativeData = exportCmd.Flag("vm-native-data", "Use VictoriaMetrics' native export format. Reduces dump size, but can be incompatible between PMM versions").Bool()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
@@ -165,7 +167,7 @@ func main() {
 				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
 			}
 		}
-		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors)
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors, *vmNativeData)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -227,7 +229,7 @@ func main() {
 			chunks = append(chunks, chChunks...)
 		}
 
-		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli)
+		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
@@ -270,7 +272,30 @@ func main() {
 
 		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
 
-		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil)
+		piped, err := checkPiped()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
+		}
+
+		dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, piped)
+		if err != nil {
+			log.Fatal().Msgf("Can't show meta: %v", err)
+		}
+
+		switch dumpMeta.VMDataFormat {
+		case "":
+			log.Warn().Msgf("Meta file doesn't contain `vm-data-format`. Using VictoriaMetrics' native export format")
+			*vmNativeData = true
+		case "native":
+			*vmNativeData = true
+		case "json":
+			*vmNativeData = false
+		default:
+			*vmNativeData = false
+			log.Warn().Msgf("Meta file contains invalid `vm-data-format`. Using VictoriaMetrics' JSON export format")
+		}
+
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil, *vmNativeData)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -278,11 +303,6 @@ func main() {
 		chSource, ok := prepareClickHouseSource(ctx, *dumpQAN, pmmConfig.ClickHouseURL, *where)
 		if ok {
 			sources = append(sources, chSource)
-		}
-
-		piped, err := checkPiped()
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
 
 		if *dumpPath == "" && piped == false {
@@ -294,12 +314,12 @@ func main() {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
 
-		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli)
+		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
 
-		if err = t.Import(*meta); err != nil {
+		if err = t.Import(ctx, *meta); err != nil {
 			var additionalInfo string
 			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
 				additionalInfo = ". Consider to decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
@@ -354,7 +374,7 @@ func main() {
 	}
 }
 
-func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string, nativeData bool) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}
@@ -362,6 +382,7 @@ func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url st
 	c := &victoriametrics.Config{
 		ConnectionURL:       url,
 		TimeSeriesSelectors: selectors,
+		NativeData:          nativeData,
 	}
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)

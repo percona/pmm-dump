@@ -55,7 +55,10 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		q.Add("end", strconv.FormatInt(m.End.Unix(), 10))
 	}
 
-	url := fmt.Sprintf("%s/api/v1/export/native?%s", s.cfg.ConnectionURL, q.String())
+	url := fmt.Sprintf("%s/api/v1/export?%s", s.cfg.ConnectionURL, q.String())
+	if s.cfg.NativeData {
+		url = fmt.Sprintf("%s/api/v1/export/native?%s", s.cfg.ConnectionURL, q.String())
+	}
 
 	log.Debug().
 		Stringer("timeout", requestTimeout).
@@ -120,7 +123,10 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 		return errors.Wrap(err, "failed to read chunk content")
 	}
 
-	url := fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
+	url := fmt.Sprintf("%s/api/v1/import", s.cfg.ConnectionURL)
+	if s.cfg.NativeData {
+		url = fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
+	}
 
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)

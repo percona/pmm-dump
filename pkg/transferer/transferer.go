@@ -16,13 +16,14 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 type Transferer struct {
-	dumpPath         string
-	sources          []dump.Source
-	readWorkersCount int
-	piped            bool
+	dumpPath     string
+	sources      []dump.Source
+	workersCount int
+	piped        bool
 }
 
 func New(dumpPath string, piped bool, s []dump.Source, workersCount int) (*Transferer, error) {
@@ -35,10 +36,10 @@ func New(dumpPath string, piped bool, s []dump.Source, workersCount int) (*Trans
 	}
 
 	return &Transferer{
-		dumpPath:         dumpPath,
-		sources:          s,
-		readWorkersCount: workersCount,
-		piped:            piped,
+		dumpPath:     dumpPath,
+		sources:      s,
+		workersCount: workersCount,
+		piped:        piped,
 	}, nil
 }
 
@@ -242,18 +243,21 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 		Int("size", maxChunksInMem).
 		Msg("Created chunks channel")
 
-	errCh := make(chan error)
-
 	readWG := &sync.WaitGroup{}
+	g, gCtx := errgroup.WithContext(ctx)
 
-	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", t.readWorkersCount)
-	readWG.Add(t.readWorkersCount)
-	for i := 0; i < t.readWorkersCount; i++ {
-		go func() {
-			errCh <- t.readChunksFromSource(ctx, lc, pool, chunksCh)
-			readWG.Done()
-			log.Debug().Msgf("Exiting from read chunks goroutine")
-		}()
+	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", t.workersCount)
+	readWG.Add(t.workersCount)
+	for i := 0; i < t.workersCount; i++ {
+		g.Go(func() error {
+			defer log.Debug().Msgf("Exiting from read chunks goroutine")
+			defer readWG.Done()
+
+			if err := t.readChunksFromSource(gCtx, lc, pool, chunksCh); err != nil {
+				return errors.Wrap(err, "failed to read chunks from source")
+			}
+			return nil
+		})
 	}
 
 	log.Debug().Msgf("Starting goroutine to close channel after read finish...")
@@ -264,18 +268,17 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	}()
 
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
-	go func() {
-		errCh <- t.writeChunksToFile(ctx, meta, chunksCh, logBuffer)
-		log.Debug().Msgf("Exiting from write chunks goroutine")
-	}()
-
-	log.Debug().Msg("Waiting for all chunks to be processed...")
-	for i := 0; i < t.readWorkersCount+1; i++ {
-		log.Debug().Msgf("Waiting for #%d status to be reported...", i)
-		if err := <-errCh; err != nil {
-			log.Debug().Msg("Got error, finishing export")
-			return err
+	g.Go(func() error {
+		defer log.Debug().Msgf("Exiting from write chunks goroutine")
+		if err := t.writeChunksToFile(ctx, meta, chunksCh, logBuffer); err != nil {
+			return errors.Wrap(err, "failed to write chunks to the dump")
 		}
+		return nil
+	})
+	log.Debug().Msg("Waiting for all chunks to be processed...")
+	if err := g.Wait(); err != nil {
+		log.Debug().Msg("Got error, finishing export")
+		return err
 	}
 
 	log.Info().Msg("Successfully exported!")
@@ -283,7 +286,37 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	return nil
 }
 
-func (t Transferer) Import(runtimeMeta dump.Meta) error {
+func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump.Chunk) error {
+	for {
+		log.Debug().Msg("New chunks writing loop iteration has been started")
+
+		select {
+		case <-ctx.Done():
+			log.Debug().Msg("Context is done, stopping chunks writing")
+			return ctx.Err()
+		default:
+			c, ok := <-chunkC
+			if !ok {
+				log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
+				return nil
+			}
+
+			s, ok := t.sourceByType(c.Source)
+			if !ok {
+				log.Warn().Msgf("Found dump data for %v, but it's not specified - skipped", c.Source)
+				continue
+			}
+
+			log.Debug().Msgf("Writing chunk '%v' to the source...", c.Filename)
+			if err := s.WriteChunk(c.Filename, bytes.NewBuffer(c.Content)); err != nil {
+				return errors.Wrap(err, "failed to write chunk")
+			}
+			log.Info().Msgf("Successfully processed '%v'", c.Filename)
+		}
+	}
+}
+
+func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	log.Info().Msg("Importing metrics...")
 
 	var file *os.File
@@ -311,6 +344,19 @@ func (t Transferer) Import(runtimeMeta dump.Meta) error {
 	tr := tar.NewReader(gzr)
 
 	var metafileExists bool
+
+	chunksC := make(chan *dump.Chunk, maxChunksInMem)
+
+	g, gCtx := errgroup.WithContext(ctx)
+	for i := 0; i < t.workersCount; i++ {
+		g.Go(func() error {
+			defer log.Debug().Msgf("Exiting from write chunks goroutine")
+			if err := t.writeChunksToSource(gCtx, chunksC); err != nil {
+				return errors.Wrap(err, "failed to write chunks to source")
+			}
+			return nil
+		})
+	}
 
 	for {
 		log.Debug().Msg("Reading file from dump...")
@@ -345,17 +391,27 @@ func (t Transferer) Import(runtimeMeta dump.Meta) error {
 			return errors.Errorf("corrupted dump: found undefined source: %s", dir)
 		}
 
-		s, ok := t.sourceByType(st)
-		if !ok {
-			log.Warn().Msgf("Found dump data for %v, but it's not specified - skipped", st)
-			continue
+		content, err := io.ReadAll(tr)
+		if err != nil {
+			return errors.Wrap(err, "failed to read chunk content")
 		}
 
-		if err = s.WriteChunk(filename, tr); err != nil {
-			return errors.Wrap(err, "failed to write chunk")
+		ch := &dump.Chunk{
+			ChunkMeta: dump.ChunkMeta{
+				Source: st,
+			},
+			Content:  content,
+			Filename: filename,
 		}
 
-		log.Info().Msgf("Successfully processed '%v'", header.Name)
+		log.Debug().Msgf("Sending chunk '%s' to the channel...", header.Name)
+		chunksC <- ch
+	}
+	close(chunksC)
+
+	if err := g.Wait(); err != nil {
+		log.Debug().Msg("Got error, finishing import")
+		return err
 	}
 
 	if !metafileExists {

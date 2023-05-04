@@ -20,6 +20,7 @@ type Meta struct {
 	MaxChunkSize      int64              `json:"max_chunk_size"`
 	PMMTimezone       *string            `json:"pmm-server-timezone"`
 	Arguments         string             `json:"arguments"`
+	VMDataFormat      string             `json:"vm-data-format"`
 	PMMServerServices []PMMServerService `json:"pmm-server-services,omitempty"`
 }
 

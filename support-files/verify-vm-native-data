@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# This script verifies whether the data in the dump uses VictoriaMetrics 1.77.2 or 1.82.1 native format.
+
+# $1 should have a PMM .tar.gz dump file path
+
+dump_file=$1
+
+if [ -z "$dump_file" ]; then
+	echo "Usage: $0 <dump-file>"
+	exit 1
+fi
+
+mkdir -p bin
+
+if [ ! -f bin/vmctl_1_82_1 ]; then
+	curl -L --silent https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.82.1/vmutils-linux-amd64-v1.82.1.tar.gz \
+		| tar -xz -C bin vmctl-prod
+	mv bin/vmctl-prod bin/vmctl_1_82_1
+fi
+
+if [ ! -f bin/vmctl_1_77_2 ]; then
+	curl -L --silent https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.77.2/vmutils-amd64-v1.77.2.tar.gz \
+		| tar -xz -C bin vmctl-prod
+	mv bin/vmctl-prod bin/vmctl_1_77_2
+fi
+
+tmpdir=$(mktemp -d)
+tar -xzf "$dump_file" -C "$tmpdir" vm/
+
+chunk_file="$tmpdir/vm/$(ls -AU "$tmpdir/vm" | head -1)"
+
+if [ -z "$chunk_file" ]; then
+	echo "No chunk files found in $dump_file"
+	exit 1
+fi
+
+echo 'Trying to verify chunk with vmctl v1.82.1'
+if ./bin/vmctl_1_82_1 verify-block --gunzip "$chunk_file"; then
+	echo 'Dump data uses VictoriaMetrics 1.82.1 native format'
+	exit 0
+else
+	echo "Dump data doesn't use VictoriaMetrics 1.82.1 native format"
+fi
+
+echo
+
+echo 'Trying to verify chunk with vmctl v1.77.2'
+if ./bin/vmctl_1_77_2 verify-block --gunzip "$chunk_file"; then
+	echo 'Dump data uses VictoriaMetrics 1.77.2 native format'
+	exit 0
+else
+	echo "Dump data doesn't use VictoriaMetrics 1.77.2 native format"
+fi
