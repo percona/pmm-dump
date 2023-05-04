@@ -22,6 +22,8 @@ type Set struct {
 }
 
 // NewSet creates new set of metrics.
+//
+// Pass the set to RegisterSet() function in order to export its metrics via global WritePrometheus() call.
 func NewSet() *Set {
 	return &Set{
 		m: make(map[string]*namedMetric),
@@ -58,9 +60,9 @@ func (s *Set) WritePrometheus(w io.Writer) {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned histogram is safe to use from concurrent goroutines.
 func (s *Set) NewHistogram(name string) *Histogram {
@@ -75,9 +77,9 @@ func (s *Set) NewHistogram(name string) *Histogram {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned histogram is safe to use from concurrent goroutines.
 //
@@ -116,9 +118,9 @@ func (s *Set) GetOrCreateHistogram(name string) *Histogram {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned counter is safe to use from concurrent goroutines.
 func (s *Set) NewCounter(name string) *Counter {
@@ -133,9 +135,9 @@ func (s *Set) NewCounter(name string) *Counter {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned counter is safe to use from concurrent goroutines.
 //
@@ -174,9 +176,9 @@ func (s *Set) GetOrCreateCounter(name string) *Counter {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned FloatCounter is safe to use from concurrent goroutines.
 func (s *Set) NewFloatCounter(name string) *FloatCounter {
@@ -191,9 +193,9 @@ func (s *Set) NewFloatCounter(name string) *FloatCounter {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned FloatCounter is safe to use from concurrent goroutines.
 //
@@ -233,9 +235,9 @@ func (s *Set) GetOrCreateFloatCounter(name string) *FloatCounter {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // f must be safe for concurrent calls.
 //
@@ -257,9 +259,9 @@ func (s *Set) NewGauge(name string, f func() float64) *Gauge {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned gauge is safe to use from concurrent goroutines.
 //
@@ -303,9 +305,9 @@ func (s *Set) GetOrCreateGauge(name string, f func() float64) *Gauge {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned summary is safe to use from concurrent goroutines.
 func (s *Set) NewSummary(name string) *Summary {
@@ -318,19 +320,26 @@ func (s *Set) NewSummary(name string) *Summary {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned summary is safe to use from concurrent goroutines.
 func (s *Set) NewSummaryExt(name string, window time.Duration, quantiles []float64) *Summary {
+	if err := validateMetric(name); err != nil {
+		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
+	}
 	sm := newSummary(window, quantiles)
-	s.registerMetric(name, sm)
-	registerSummary(sm)
-	s.registerSummaryQuantiles(name, sm)
+
 	s.mu.Lock()
+	// defer will unlock in case of panic
+	// checks in tests
+	defer s.mu.Unlock()
+
+	s.mustRegisterLocked(name, sm, false)
+	registerSummaryLocked(sm)
+	s.registerSummaryQuantilesLocked(name, sm)
 	s.summaries = append(s.summaries, sm)
-	s.mu.Unlock()
 	return sm
 }
 
@@ -340,9 +349,9 @@ func (s *Set) NewSummaryExt(name string, window time.Duration, quantiles []float
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned summary is safe to use from concurrent goroutines.
 //
@@ -358,9 +367,9 @@ func (s *Set) GetOrCreateSummary(name string) *Summary {
 // name must be valid Prometheus-compatible metric with possible labels.
 // For instance,
 //
-//     * foo
-//     * foo{bar="baz"}
-//     * foo{bar="baz",aaa="b"}
+//   - foo
+//   - foo{bar="baz"}
+//   - foo{bar="baz",aaa="b"}
 //
 // The returned summary is safe to use from concurrent goroutines.
 //
@@ -379,21 +388,17 @@ func (s *Set) GetOrCreateSummaryExt(name string, window time.Duration, quantiles
 			name:   name,
 			metric: sm,
 		}
-		mustRegisterQuantiles := false
 		s.mu.Lock()
 		nm = s.m[name]
 		if nm == nil {
 			nm = nmNew
 			s.m[name] = nm
 			s.a = append(s.a, nm)
-			registerSummary(sm)
-			mustRegisterQuantiles = true
+			registerSummaryLocked(sm)
+			s.registerSummaryQuantilesLocked(name, sm)
 		}
 		s.summaries = append(s.summaries, sm)
 		s.mu.Unlock()
-		if mustRegisterQuantiles {
-			s.registerSummaryQuantiles(name, sm)
-		}
 	}
 	sm, ok := nm.metric.(*Summary)
 	if !ok {
@@ -408,14 +413,14 @@ func (s *Set) GetOrCreateSummaryExt(name string, window time.Duration, quantiles
 	return sm
 }
 
-func (s *Set) registerSummaryQuantiles(name string, sm *Summary) {
+func (s *Set) registerSummaryQuantilesLocked(name string, sm *Summary) {
 	for i, q := range sm.quantiles {
 		quantileValueName := addTag(name, fmt.Sprintf(`quantile="%g"`, q))
 		qv := &quantileValue{
 			sm:  sm,
 			idx: i,
 		}
-		s.registerMetric(quantileValueName, qv)
+		s.mustRegisterLocked(quantileValueName, qv, true)
 	}
 }
 
@@ -424,16 +429,26 @@ func (s *Set) registerMetric(name string, m metric) {
 		panic(fmt.Errorf("BUG: invalid metric name %q: %s", name, err))
 	}
 	s.mu.Lock()
+	// defer will unlock in case of panic
+	// checks in test
+	defer s.mu.Unlock()
+	s.mustRegisterLocked(name, m, false)
+}
+
+// mustRegisterLocked registers given metric with the given name.
+//
+// Panics if the given name was already registered before.
+func (s *Set) mustRegisterLocked(name string, m metric, isAux bool) {
 	nm, ok := s.m[name]
 	if !ok {
 		nm = &namedMetric{
 			name:   name,
 			metric: m,
+			isAux:  isAux,
 		}
 		s.m[name] = nm
 		s.a = append(s.a, nm)
 	}
-	s.mu.Unlock()
 	if ok {
 		panic(fmt.Errorf("BUG: metric %q is already registered", name))
 	}
@@ -451,36 +466,46 @@ func (s *Set) UnregisterMetric(name string) bool {
 	if !ok {
 		return false
 	}
-	m := nm.metric
+	if nm.isAux {
+		// Do not allow deleting auxiliary metrics such as summary_metric{quantile="..."}
+		// Such metrics must be deleted via parent metric name, e.g. summary_metric .
+		return false
+	}
+	return s.unregisterMetricLocked(nm)
+}
 
+func (s *Set) unregisterMetricLocked(nm *namedMetric) bool {
+	name := nm.name
 	delete(s.m, name)
 
-	// remove metric from s.a
-	found := false
-	for i, nm := range s.a {
-		if nm.name == name {
-			s.a = append(s.a[:i], s.a[i+1:]...)
-			found = true
-			break
+	deleteFromList := func(metricName string) {
+		for i, nm := range s.a {
+			if nm.name == metricName {
+				s.a = append(s.a[:i], s.a[i+1:]...)
+				return
+			}
 		}
-	}
-	if !found {
 		panic(fmt.Errorf("BUG: cannot find metric %q in the list of registered metrics", name))
 	}
-	sm, ok := m.(*Summary)
+
+	// remove metric from s.a
+	deleteFromList(name)
+
+	sm, ok := nm.metric.(*Summary)
 	if !ok {
-		// There is no need in cleaning up s.summaries.
+		// There is no need in cleaning up non-summary metrics.
 		return true
 	}
 
-	// Remove summary metric name including quantile labels from set
+	// cleanup registry from per-quantile metrics
 	for _, q := range sm.quantiles {
 		quantileValueName := addTag(name, fmt.Sprintf(`quantile="%g"`, q))
 		delete(s.m, quantileValueName)
+		deleteFromList(quantileValueName)
 	}
 
 	// Remove sm from s.summaries
-	found = false
+	found := false
 	for i, xsm := range s.summaries {
 		if xsm == sm {
 			s.summaries = append(s.summaries[:i], s.summaries[i+1:]...)
@@ -495,11 +520,25 @@ func (s *Set) UnregisterMetric(name string) bool {
 	return true
 }
 
-// ListMetricNames returns a list of all the metrics in s.
-func (s *Set) ListMetricNames() []string {
-	var list []string
-	for name := range s.m {
-		list = append(list, name)
+// UnregisterAllMetrics de-registers all metrics registered in s.
+func (s *Set) UnregisterAllMetrics() {
+	metricNames := s.ListMetricNames()
+	for _, name := range metricNames {
+		s.UnregisterMetric(name)
 	}
-	return list
+}
+
+// ListMetricNames returns sorted list of all the metrics in s.
+func (s *Set) ListMetricNames() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	metricNames := make([]string, 0, len(s.m))
+	for _, nm := range s.m {
+		if nm.isAux {
+			continue
+		}
+		metricNames = append(metricNames, nm.name)
+	}
+	sort.Strings(metricNames)
+	return metricNames
 }

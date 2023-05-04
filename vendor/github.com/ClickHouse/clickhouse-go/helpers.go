@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
-	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -23,9 +22,13 @@ func numInput(query string) int {
 		inBetween     bool
 		like          = newMatcher("like")
 		limit         = newMatcher("limit")
+		offset        = newMatcher("offset")
 		between       = newMatcher("between")
 		in            = newMatcher("in")
 		and           = newMatcher("and")
+		from          = newMatcher("from")
+		join          = newMatcher("join")
+		subSelect     = newMatcher("select")
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
@@ -70,7 +73,8 @@ func numInput(query string) int {
 				char == '%':
 				keyword = true
 			default:
-				if limit.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
+				if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) ||
+					in.matchRune(char) || from.matchRune(char) || join.matchRune(char) || subSelect.matchRune(char) {
 					keyword = true
 				} else if between.matchRune(char) {
 					keyword = true
@@ -129,14 +133,12 @@ func quote(v driver.Value) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	case time.Time:
 		return formatTime(v)
+	case nil:
+		return "null"
 	}
 	return fmt.Sprint(v)
 }
 
-func formatTime(value time.Time) string {
-	// toDate() overflows after 65535 days, but toDateTime() only overflows when time.Time overflows (after 9223372036854775807 seconds)
-	if days := value.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
-		return fmt.Sprintf("toDate(%d)", days)
-	}
-	return fmt.Sprintf("toDateTime(%d)", value.Unix())
+func formatTime(v time.Time) string {
+	return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
 }

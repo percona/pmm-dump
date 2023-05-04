@@ -15,8 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/leakypool"
-
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/lib/data"
 	"github.com/ClickHouse/clickhouse-go/lib/protocol"
@@ -85,22 +83,22 @@ func open(dsn string) (*clickhouse, error) {
 		return nil, err
 	}
 	var (
-		hosts            = []string{url.Host}
-		query            = url.Query()
-		secure           = false
-		skipVerify       = false
-		tlsConfigName    = query.Get("tls_config")
-		noDelay          = true
-		compress         = false
-		database         = query.Get("database")
-		username         = query.Get("username")
-		password         = query.Get("password")
-		blockSize        = 1000000
-		connTimeout      = DefaultConnTimeout
-		readTimeout      = DefaultReadTimeout
-		writeTimeout     = DefaultWriteTimeout
-		connOpenStrategy = connOpenRandom
-		poolSize         = 100
+		hosts             = []string{url.Host}
+		query             = url.Query()
+		secure            = false
+		skipVerify        = false
+		tlsConfigName     = query.Get("tls_config")
+		noDelay           = true
+		compress          = false
+		database          = query.Get("database")
+		username          = query.Get("username")
+		password          = query.Get("password")
+		blockSize         = 1000000
+		connTimeout       = DefaultConnTimeout
+		readTimeout       = DefaultReadTimeout
+		writeTimeout      = DefaultWriteTimeout
+		connOpenStrategy  = connOpenRandom
+		checkConnLiveness = true
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -134,12 +132,6 @@ func open(dsn string) (*clickhouse, error) {
 	if size, err := strconv.ParseInt(query.Get("block_size"), 10, 64); err == nil {
 		blockSize = int(size)
 	}
-	if size, err := strconv.ParseInt(query.Get("pool_size"), 10, 64); err == nil {
-		poolSize = int(size)
-	}
-	poolInit.Do(func() {
-		leakypool.InitBytePool(poolSize)
-	})
 	if altHosts := strings.Split(query.Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {
 			if len(host) != 0 {
@@ -165,12 +157,21 @@ func open(dsn string) (*clickhouse, error) {
 		compress = v
 	}
 
+	if v, err := strconv.ParseBool(query.Get("check_connection_liveness")); err == nil {
+		checkConnLiveness = v
+	}
+	if secure {
+		// There is no way to check the liveness of a secure connection, as long as there is no access to raw TCP net.Conn
+		checkConnLiveness = false
+	}
+
 	var (
 		ch = clickhouse{
-			logf:      func(string, ...interface{}) {},
-			settings:  settings,
-			compress:  compress,
-			blockSize: blockSize,
+			logf:              func(string, ...interface{}) {},
+			settings:          settings,
+			compress:          compress,
+			blockSize:         blockSize,
+			checkConnLiveness: checkConnLiveness,
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},

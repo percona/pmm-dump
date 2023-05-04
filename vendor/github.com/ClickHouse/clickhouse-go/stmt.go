@@ -20,7 +20,9 @@ type stmt struct {
 var emptyResult = &result{}
 
 type key string
+
 var queryIDKey key
+
 //Put query ID into context and use it in ExecContext or QueryContext
 func WithQueryID(ctx context.Context, queryID string) context.Context {
 	return context.WithValue(ctx, queryIDKey, queryID)
@@ -119,9 +121,13 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 		inBetween      bool
 		like           = newMatcher("like")
 		limit          = newMatcher("limit")
+		offset         = newMatcher("offset")
 		between        = newMatcher("between")
 		and            = newMatcher("and")
 		in             = newMatcher("in")
+		from           = newMatcher("from")
+		join           = newMatcher("join")
+		subSelect      = newMatcher("select")
 		externalTables = make([]ExternalTable, 0)
 	)
 	switch {
@@ -172,7 +178,8 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 						char == '[':
 						keyword = true
 					default:
-						if limit.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
+						if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) ||
+							in.matchRune(char) || from.matchRune(char) || join.matchRune(char) || subSelect.matchRune(char) {
 							keyword = true
 						} else if between.matchRune(char) {
 							keyword = true

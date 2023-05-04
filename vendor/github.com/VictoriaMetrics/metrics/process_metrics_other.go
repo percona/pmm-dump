@@ -1,3 +1,4 @@
+//go:build !linux
 // +build !linux
 
 package metrics
@@ -8,4 +9,8 @@ import (
 
 func writeProcessMetrics(w io.Writer) {
 	// TODO: implement it
+}
+
+func writeFDMetrics(w io.Writer) {
+	// TODO: implement it.
 }

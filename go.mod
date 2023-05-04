@@ -1,20 +1,34 @@
 module pmm-dump
 
-go 1.16
+go 1.20
 
 require (
-	github.com/ClickHouse/clickhouse-go v1.4.5
-	github.com/VictoriaMetrics/metricsql v0.31.0
+	github.com/ClickHouse/clickhouse-go v1.5.2
+	github.com/VictoriaMetrics/metricsql v0.51.2
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
-	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.22.0
+	github.com/rs/zerolog v1.29.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
+	github.com/valyala/fasthttp v1.44.0
+)
+
+require (
+	github.com/VictoriaMetrics/metrics v1.23.1 // indirect
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
+	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
+	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/klauspost/compress v1.15.15 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
-	github.com/valyala/fasthttp v1.26.0
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fastrand v1.1.0 // indirect
+	github.com/valyala/histogram v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/sync v0.1.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
