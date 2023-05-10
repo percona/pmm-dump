@@ -1,17 +1,20 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"pmm-dump/pkg/grafana"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/compose-spec/compose-go/cli"
 	"github.com/pkg/errors"
+	"github.com/valyala/fasthttp"
 )
 
 const (
@@ -173,6 +176,10 @@ func (p *PMM) Deploy() {
 		p.t.Fatal(err, "failed to ping PMM")
 		return
 	}
+	if err := authUntilSuccess(p.PMMURL(), timeout); err != nil {
+		p.t.Fatal(err, "failed to auth PMM")
+		return
+	}
 	time.Sleep(15 * time.Second)
 	stdout, stderr, err = Exec(RepoPath, "make", "mongo-reg")
 	if err != nil {
@@ -202,29 +209,56 @@ func (p *PMM) Stop() {
 }
 
 func getUntilOk(url string, timeout time.Duration) error {
+	return doUntilSuccess(timeout, func() error {
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			return nil
+		}
+		return errors.New("not ok")
+	})
+}
+
+func doUntilSuccess(timeout time.Duration, f func() error) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
+	var err error
 	for {
 		select {
 		case <-ticker.C:
-			err := func() error {
-				resp, err := http.Get(url)
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
-					return nil
-				}
-				return errors.New("not ok")
-			}()
+			err = f()
 			if err == nil {
 				return nil
 			}
 		case <-timeoutTimer.C:
-			return errors.New("timeout")
+			return errors.Wrap(err, "timeout")
 		}
 	}
+}
+
+func authUntilSuccess(pmmURL string, timeout time.Duration) error {
+	u, err := url.Parse(pmmURL)
+	if err != nil {
+		return err
+	}
+	grafanaC := grafana.NewClient(&fasthttp.Client{
+		MaxConnsPerHost:           2,
+		MaxIdleConnDuration:       time.Minute,
+		MaxIdemponentCallAttempts: 5,
+		ReadTimeout:               time.Minute,
+		WriteTimeout:              time.Minute,
+		MaxConnWaitTimeout:        time.Second * 30,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	})
+	return doUntilSuccess(timeout, func() error {
+		pass, _ := u.User.Password()
+		return grafanaC.Auth(pmmURL, u.User.Username(), pass)
+	})
 }
