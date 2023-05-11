@@ -22,7 +22,7 @@ for package in "${packages[@]}"; do
 	# Get list of all tests in the package
 	readarray -t tests < <(go test -list .)
 	for test in "${tests[@]}"; do
-		# Filtering lines like `...`
+		# Filtering lines which contain package name, like `? pmm-dump/pkg/victoriametrics [no test files]`
 		if [[ $test == *"$package"* ]]; then
 			continue
 		fi
