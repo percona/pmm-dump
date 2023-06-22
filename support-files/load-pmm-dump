@@ -46,6 +46,11 @@ if [[ -n ${2} ]] && [[ arg_is_pmm_dump_file -eq 1 ]] && which pmm-dump > /dev/nu
   fi
   echo "## Getting PMM version from \`pmm-dump show-meta\` outputs (this can take a while if the dump file is large)..."
   pmm_version=`pmm-dump show-meta --dump-path=${2}|grep "PMM Version"|awk '{print $3}'|cut -d '-' -f1`
+  # Fix for https://jira.percona.com/browse/SE-83
+  if [[ ${pmm_version} == "2.33.0" ]]; then
+    echo "## Detected version 2.33.0. Using 2.32.0 instead, due to SE-83."
+    pmm_version="2.32.0"
+  fi
 elif [[ -n ${2} ]] && [[ arg_is_pmm_version -eq 1 ]]; then
   # If the second argument was a string like N[.N[.N]], we set that as version number.
   pmm_version=${2}
