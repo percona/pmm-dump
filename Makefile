@@ -1,5 +1,7 @@
 .PHONY: all build up down re pmm-status mongo-reg mongo-insert export-all export-vm export-ch import-all init-test run-tests clean
 
+export CGO_ENABLED=0
+
 PMMD_BIN_NAME?=pmm-dump
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
