@@ -102,6 +102,8 @@ func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 	return envs, nil
 }
 
+const composeProjectPrefix = "pmm-dump-test-"
+
 func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if dotEnvFilename == "" {
 		dotEnvFilename = ".env.test"
@@ -124,7 +126,7 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if name == "" {
 		name = "test"
 	}
-	envs["COMPOSE_PROJECT_NAME"] = name
+	envs["COMPOSE_PROJECT_NAME"] = composeProjectPrefix + name
 	agentConfigFilepath := filepath.Join(testDir, "pmm", fmt.Sprintf("agent_%s.yaml", name))
 	d := filepath.Dir(agentConfigFilepath)
 	if err := os.MkdirAll(d, os.ModePerm); err != nil {
