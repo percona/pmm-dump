@@ -6,12 +6,12 @@ require (
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/VictoriaMetrics/metricsql v0.51.2
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/compose-spec/compose-go v1.12.0
+	github.com/compose-spec/compose-go v1.15.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/valyala/fasthttp v1.44.0
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.3.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/imdario/mergo v0.3.13 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
@@ -41,4 +41,5 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/sys v0.5.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
