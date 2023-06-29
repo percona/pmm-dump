@@ -3,7 +3,7 @@ module pmm-dump
 go 1.20
 
 require (
-	github.com/ClickHouse/clickhouse-go v1.5.2
+	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/VictoriaMetrics/metricsql v0.51.2
 	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/compose-spec/compose-go v1.12.0
@@ -12,6 +12,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/valyala/fasthttp v1.44.0
 	golang.org/x/sync v0.1.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -40,5 +41,4 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/sys v0.5.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
