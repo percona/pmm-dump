@@ -18,6 +18,7 @@ package types
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,18 +29,19 @@ import (
 	godigest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
 )
 
 // Project is the result of loading a set of compose files
 type Project struct {
 	Name         string     `yaml:"name,omitempty" json:"name,omitempty"`
 	WorkingDir   string     `yaml:"-" json:"-"`
-	Services     Services   `json:"services"`
-	Networks     Networks   `yaml:",omitempty" json:"networks,omitempty"`
-	Volumes      Volumes    `yaml:",omitempty" json:"volumes,omitempty"`
-	Secrets      Secrets    `yaml:",omitempty" json:"secrets,omitempty"`
-	Configs      Configs    `yaml:",omitempty" json:"configs,omitempty"`
-	Extensions   Extensions `yaml:",inline" json:"-"` // https://github.com/golang/go/issues/6213
+	Services     Services   `yaml:"services" json:"services"`
+	Networks     Networks   `yaml:"networks,omitempty" json:"networks,omitempty"`
+	Volumes      Volumes    `yaml:"volumes,omitempty" json:"volumes,omitempty"`
+	Secrets      Secrets    `yaml:"secrets,omitempty" json:"secrets,omitempty"`
+	Configs      Configs    `yaml:"configs,omitempty" json:"configs,omitempty"`
+	Extensions   Extensions `yaml:"#extensions,inline" json:"-"` // https://github.com/golang/go/issues/6213
 	ComposeFiles []string   `yaml:"-" json:"-"`
 	Environment  Mapping    `yaml:"-" json:"-"`
 
@@ -394,6 +396,11 @@ func (p *Project) ForServices(names []string, options ...DependencyOption) error
 	var enabled Services
 	for _, s := range p.Services {
 		if _, ok := set[s.Name]; ok {
+			for _, option := range options {
+				if option == IgnoreDependencies {
+					s.DependsOn = nil
+				}
+			}
 			enabled = append(enabled, s)
 		} else {
 			p.DisabledServices = append(p.DisabledServices, s)
@@ -437,6 +444,44 @@ func (p *Project) ResolveImages(resolver func(named reference.Named) (godigest.D
 		})
 	}
 	return eg.Wait()
+}
+
+// MarshalYAML marshal Project into a yaml tree
+func (p *Project) MarshalYAML() ([]byte, error) {
+	buf := bytes.NewBuffer([]byte{})
+	encoder := yaml.NewEncoder(buf)
+	encoder.SetIndent(2)
+	// encoder.CompactSeqIndent() FIXME https://github.com/go-yaml/yaml/pull/753
+	err := encoder.Encode(p)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// MarshalJSON makes Config implement json.Marshaler
+func (p *Project) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"name":     p.Name,
+		"services": p.Services,
+	}
+
+	if len(p.Networks) > 0 {
+		m["networks"] = p.Networks
+	}
+	if len(p.Volumes) > 0 {
+		m["volumes"] = p.Volumes
+	}
+	if len(p.Secrets) > 0 {
+		m["secrets"] = p.Secrets
+	}
+	if len(p.Configs) > 0 {
+		m["configs"] = p.Configs
+	}
+	for k, v := range p.Extensions {
+		m[k] = v
+	}
+	return json.Marshal(m)
 }
 
 // ResolveServicesEnvironment parse env_files set for services to resolve the actual environment map for services
