@@ -20,6 +20,7 @@ import (
 
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 func TestValidate(t *testing.T) {
@@ -278,29 +279,18 @@ func vmParseChunk(data []byte) ([]vmMetric, error) {
 		return nil, errors.Wrap(err, "failed to create reader")
 	}
 	defer r.Close()
-
-	var result []vmMetric
-	decoder := json.NewDecoder(r)
-	for {
-		metric := vmMetric{}
-		err := decoder.Decode(&metric)
-		if err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				return nil, errors.Wrap(err, "failed to decode JSON stream")
-			}
-		}
-		result = append(result, metric)
+	metrics, err := victoriametrics.ParseMetrics(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse metrics")
+	}
+	result := make([]vmMetric, len(metrics))
+	for i, v := range metrics {
+		result[i] = vmMetric(v)
 	}
 	return result, nil
 }
 
-type vmMetric struct {
-	Metric     map[string]string `json:"metric"`
-	Values     []float64         `json:"values"`
-	Timestamps []int64           `json:"timestamps"`
-}
+type vmMetric victoriametrics.Metric
 
 func (vm vmMetric) MetricString() string {
 	m := vm.Metric

@@ -360,7 +360,7 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 	}
 }
 
-func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string, nativeData bool) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url string, selectors []string, nativeData bool, contentLimit uint64) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}
@@ -369,6 +369,7 @@ func prepareVictoriaMetricsSource(grafanaC grafana.Client, dumpCore bool, url st
 		ConnectionURL:       url,
 		TimeSeriesSelectors: selectors,
 		NativeData:          nativeData,
+		ContentLimit:        contentLimit,
 	}
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)

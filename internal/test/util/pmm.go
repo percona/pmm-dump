@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -15,10 +16,6 @@ import (
 	"github.com/compose-spec/compose-go/cli"
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
-)
-
-const (
-	timeout = time.Second * 120
 )
 
 const (
@@ -40,6 +37,7 @@ type PMM struct {
 	envMap                map[string]string
 	name                  string
 	useExistingDeployment bool
+	timeout               time.Duration
 }
 
 func (pmm *PMM) UseExistingDeployment() bool {
@@ -149,6 +147,7 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 		envMap:                envs,
 		name:                  name,
 		useExistingDeployment: useExistingDeployment,
+		timeout:               time.Minute * 8,
 	}
 }
 
@@ -163,33 +162,35 @@ func (p *PMM) SetEnv() {
 }
 
 func (p *PMM) Deploy() {
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
 	if p.useExistingDeployment {
 		p.t.Log("Using existing PMM deployment")
 		return
 	}
 	p.SetEnv()
 	p.t.Log("Starting PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
-	stdout, stderr, err := Exec(RepoPath, "make", "up")
+	stdout, stderr, err := Exec(ctx, RepoPath, "make", "up")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to start PMM: stderr: %s, stdout: %s", stderr, stdout))
 		return
 	}
-	if err := getUntilOk(p.PMMURL()+"/v1/version", timeout); err != nil {
+	if err := getUntilOk(p.PMMURL()+"/v1/version", p.timeout); err != nil {
 		p.t.Fatal(err, "failed to ping PMM")
 		return
 	}
-	if err := authUntilSuccess(p.PMMURL(), timeout); err != nil {
+	if err := authUntilSuccess(p.PMMURL(), p.timeout); err != nil {
 		p.t.Fatal(err, "failed to auth PMM")
 		return
 	}
 	time.Sleep(15 * time.Second)
-	stdout, stderr, err = Exec(RepoPath, "make", "mongo-reg")
+	stdout, stderr, err = Exec(ctx, RepoPath, "make", "mongo-reg")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to add mongo: stderr: %s, stdout: %s", stderr, stdout))
 		return
 	}
 	for i := 0; i < 10; i++ {
-		stdout, stderr, err = Exec(RepoPath, "make", "mongo-insert")
+		stdout, stderr, err = Exec(ctx, RepoPath, "make", "mongo-insert")
 		if err != nil {
 			p.t.Fatal(errors.Wrapf(err, "failed to add mongo: stderr: %s, stdout: %s", stderr, stdout))
 			return
@@ -201,11 +202,39 @@ func (p *PMM) Stop() {
 	if p.useExistingDeployment {
 		return
 	}
+	timeout := 2 * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	p.SetEnv()
 	p.t.Log("Stopping PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
-	stdout, stderr, err := Exec(RepoPath, "make", "down")
+	stdout, stderr, err := Exec(ctx, RepoPath, "make", "down")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to stop PMM: stderr: %s, stdout: %s", stderr, stdout))
+		return
+	}
+}
+
+func (p *PMM) Restart() {
+	if p.useExistingDeployment {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
+	p.SetEnv()
+	p.t.Log("Restarting PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
+
+	stdout, stderr, err := Exec(ctx, "", "docker", "compose", "restart")
+	if err != nil {
+		p.t.Fatal("failed to change nginx settings", err, stdout, stderr)
+	}
+
+	if err := getUntilOk(p.PMMURL()+"/v1/version", p.timeout); err != nil {
+		p.t.Fatal(err, "failed to ping PMM")
+		return
+	}
+	if err := authUntilSuccess(p.PMMURL(), p.timeout); err != nil {
+		p.t.Fatal(err, "failed to auth PMM")
 		return
 	}
 }

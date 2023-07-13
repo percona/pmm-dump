@@ -3,9 +3,9 @@ package victoriametrics
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana"
@@ -117,12 +117,135 @@ const (
 	errRequestEntityTooLarge = `received "413 Request Entity Too Large" error from PMM`
 )
 
-func (s Source) WriteChunk(_ string, r io.Reader) error {
-	chunkContent, err := ioutil.ReadAll(r)
+func decompressContent(content []byte) ([]byte, error) {
+	r, err := gzip.NewReader(bytes.NewReader(content))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create gzip reader")
+	}
+	defer r.Close()
+
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read gzip data")
+	}
+
+	return data, nil
+}
+
+func decompressChunk(content []byte) ([]Metric, error) {
+	r, err := gzip.NewReader(bytes.NewReader(content))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create gzip reader")
+	}
+	defer r.Close()
+
+	metrics, err := ParseMetrics(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse chunk content")
+	}
+	return metrics, nil
+}
+
+func compressChunk(chunk []Metric) ([]byte, error) {
+	var buf bytes.Buffer
+	w := gzip.NewWriter(&buf)
+	for _, metric := range chunk {
+		metricData, err := json.Marshal(metric)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal metric")
+		}
+		if _, err := w.Write(metricData); err != nil {
+			return nil, errors.Wrap(err, "failed to write gzip data")
+		}
+	}
+	if err := w.Close(); err != nil {
+		return nil, errors.Wrap(err, "failed to close gzip writer")
+	}
+	return buf.Bytes(), nil
+}
+
+func (s Source) splitChunkContent(chunkContent []byte, limit uint64) ([][]byte, error) {
+	metrics, err := decompressChunk(chunkContent)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse chunk content")
+	}
+
+	chunks, err := s.splitMetrics([][]Metric{metrics}, limit)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to split metrics")
+	}
+
+	data := make([][]byte, 0, len(chunks))
+	for _, chunk := range chunks {
+		compressedContent, err := compressChunk(chunk)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to compress chunk content")
+		}
+		data = append(data, compressedContent)
+	}
+
+	return data, nil
+}
+
+func (s Source) splitMetrics(metricChunks [][]Metric, limit uint64) ([][]Metric, error) {
+	newMetricChunks := make([][]Metric, 0, len(metricChunks))
+
+	for _, chunk := range metricChunks {
+		if len(chunk) <= 1 {
+			newMetricChunks = append(newMetricChunks, chunk)
+			continue
+		}
+		newMetricChunks = append(newMetricChunks, chunk[:len(chunk)/2])
+		newMetricChunks = append(newMetricChunks, chunk[len(chunk)/2:])
+	}
+
+	if len(newMetricChunks) == len(metricChunks) {
+		return nil, errors.New("unable to split metrics: content limit is too small")
+	}
+
+	for _, chunk := range newMetricChunks {
+		compressedData, err := compressChunk(chunk)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to compress metrics")
+		}
+		if len(compressedData) > int(limit) {
+			return s.splitMetrics(newMetricChunks, limit)
+		}
+	}
+	return newMetricChunks, nil
+}
+
+func (s Source) WriteChunk(filename string, r io.Reader) error {
+	if s.cfg.ContentLimit != 0 && s.cfg.NativeData {
+		return errors.New("content limit is not supported for native data")
+	}
+	chunkContent, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Wrap(err, "failed to read chunk content")
 	}
 
+	if s.cfg.ContentLimit > 0 && len(chunkContent) > int(s.cfg.ContentLimit) {
+		chunks, err := s.splitChunkContent(chunkContent, s.cfg.ContentLimit)
+		if err != nil {
+			return errors.Wrap(err, "failed to split chunk content")
+		}
+		for i, chunk := range chunks {
+			if err := s.sendChunk(chunk); err != nil {
+				return errors.Wrapf(err, "failed to send splitted chunk %s/%d", filename, i+1)
+			}
+		}
+
+		return nil
+	}
+
+	if err := s.sendChunk(chunkContent); err != nil {
+		return errors.Wrapf(err, "failed to send chunk %s", filename)
+	}
+
+	return nil
+}
+
+func (s *Source) sendChunk(content []byte) error {
 	url := fmt.Sprintf("%s/api/v1/import", s.cfg.ConnectionURL)
 	if s.cfg.NativeData {
 		url = fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
@@ -131,7 +254,7 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
 
-	req.SetBody(chunkContent)
+	req.SetBody(content)
 	req.Header.SetMethod(fasthttp.MethodPost)
 	req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
 	req.SetRequestURI(url)
@@ -154,7 +277,6 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
-
 	return nil
 }
 

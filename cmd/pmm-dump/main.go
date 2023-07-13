@@ -82,6 +82,8 @@ func main() {
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
+		vmContentLimit = importCmd.Flag("vm-content-limit", "Limit the chunk content size for VictoriaMetrics (in bytes). Doesn't work with native format").Default("0").Uint64()
+
 		// show meta command options
 		showMetaCmd  = cli.Command("show-meta", "Shows metadata from the specified dump file")
 		prettifyMeta = showMetaCmd.Flag("prettify", "Print meta in human readable format").Default("true").Bool()
@@ -164,7 +166,7 @@ func main() {
 				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
 			}
 		}
-		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors, *vmNativeData)
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors, *vmNativeData, *vmContentLimit)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -289,24 +291,29 @@ func main() {
 		} else {
 			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false)
 			if err != nil {
-				log.Fatal().Msgf("Can't show meta: %v", err)
-			}
-
-			switch dumpMeta.VMDataFormat {
-			case "":
-				log.Warn().Msgf("Meta file doesn't contain `vm-data-format`. Using VictoriaMetrics' native export format")
+				log.Warn().Msgf("Can't show meta: %v", err)
 				*vmNativeData = true
-			case "native":
-				*vmNativeData = true
-			case "json":
-				*vmNativeData = false
-			default:
-				*vmNativeData = false
-				log.Warn().Msgf("Meta file contains invalid `vm-data-format`. Using VictoriaMetrics' JSON export format")
+			} else {
+				switch dumpMeta.VMDataFormat {
+				case "":
+					log.Warn().Msgf("Meta file doesn't contain `vm-data-format`. Using VictoriaMetrics' native export format")
+					*vmNativeData = true
+				case "native":
+					*vmNativeData = true
+				case "json":
+					*vmNativeData = false
+				default:
+					*vmNativeData = false
+					log.Warn().Msgf("Meta file contains invalid `vm-data-format`. Using VictoriaMetrics' JSON export format")
+				}
 			}
 		}
 
-		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil, *vmNativeData)
+		if *vmNativeData && *vmContentLimit > 0 {
+			log.Fatal().Msgf("`--vm-content-limit` is not supported with native data format")
+		}
+
+		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, nil, *vmNativeData, *vmContentLimit)
 		if ok {
 			sources = append(sources, vmSource)
 		}
@@ -339,7 +346,7 @@ func main() {
 		if err = t.Import(ctx, *meta); err != nil {
 			var additionalInfo string
 			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
-				additionalInfo = ". Consider to decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
+				additionalInfo = ". Consider to use \"vm-content-limit\" option. Also, you can decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
 					"If you use nginx or Apache HTTP Server, consider increasing the maximum size of the client " +
 					"request body in their configuration"
 			}
