@@ -2,6 +2,8 @@
 
 # This script runs go tests.
 
+set -o errexit
+
 timeout="6000s"
 
 trap exit 1 SIGINT

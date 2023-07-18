@@ -73,7 +73,7 @@ import-all:
 init-test: build
 	./setup/test/init-test-configs.sh test
 
-run-tests: init-test build
+run-tests: init-test down-tests build
 	./support-files/run-tests	
 
 clean:
