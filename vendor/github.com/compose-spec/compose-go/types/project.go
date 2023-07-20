@@ -507,7 +507,7 @@ func (p Project) ResolveServicesEnvironment(discardEnvFiles bool) error {
 
 			fileVars, err := dotenv.ParseWithLookup(bytes.NewBuffer(b), resolve)
 			if err != nil {
-				return errors.Wrapf(err, "failed to read %s", envFile)
+				return err
 			}
 			environment.OverrideBy(Mapping(fileVars).ToMappingWithEquals())
 		}

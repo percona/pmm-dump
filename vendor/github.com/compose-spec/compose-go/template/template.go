@@ -144,11 +144,6 @@ func SubstituteWithOptions(template string, mapping Mapping, options ...Option) 
 }
 
 func DefaultReplacementFunc(substring string, mapping Mapping, cfg *Config) (string, error) {
-	value, _, err := DefaultReplacementAppliedFunc(substring, mapping, cfg)
-	return value, err
-}
-
-func DefaultReplacementAppliedFunc(substring string, mapping Mapping, cfg *Config) (string, bool, error) {
 	pattern := cfg.pattern
 	subsFunc := cfg.substituteFunc
 	if subsFunc == nil {
@@ -165,7 +160,7 @@ func DefaultReplacementAppliedFunc(substring string, mapping Mapping, cfg *Confi
 	matches := pattern.FindStringSubmatch(substring)
 	groups := matchGroups(matches, pattern)
 	if escaped := groups["escaped"]; escaped != "" {
-		return escaped, true, nil
+		return escaped, nil
 	}
 
 	braced := false
@@ -176,20 +171,20 @@ func DefaultReplacementAppliedFunc(substring string, mapping Mapping, cfg *Confi
 	}
 
 	if substitution == "" {
-		return "", false, &InvalidTemplateError{}
+		return "", &InvalidTemplateError{}
 	}
 
 	if braced {
 		value, applied, err := subsFunc(substitution, mapping)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 		if applied {
 			interpolatedNested, err := SubstituteWith(rest, mapping, pattern)
 			if err != nil {
-				return "", false, err
+				return "", err
 			}
-			return value + interpolatedNested, true, nil
+			return value + interpolatedNested, nil
 		}
 	}
 
@@ -198,7 +193,7 @@ func DefaultReplacementAppliedFunc(substring string, mapping Mapping, cfg *Confi
 		logrus.Warnf("The %q variable is not set. Defaulting to a blank string.", substitution)
 	}
 
-	return value, ok, nil
+	return value, nil
 }
 
 // SubstituteWith substitute variables in the string with their values.
