@@ -123,8 +123,8 @@ loop:
 			}
 
 			return "", "", inherited, fmt.Errorf(
-				`line %d: unexpected character %q in variable name %q`,
-				p.line, string(rune), strings.Split(src, "\n")[0])
+				`line %d: unexpected character %q in variable name`,
+				p.line, string(rune))
 		}
 	}
 
@@ -153,24 +153,17 @@ func (p *parser) extractVarValue(src string, envMap map[string]string, lookupFn 
 		return retVal, rest, err
 	}
 
-	previousCharIsEscape := false
 	// lookup quoted string terminator
 	for i := 1; i < len(src); i++ {
 		if src[i] == '\n' {
 			p.line++
 		}
 		if char := src[i]; char != quote {
-			if !previousCharIsEscape && char == '\\' {
-				previousCharIsEscape = true
-			} else {
-				previousCharIsEscape = false
-			}
 			continue
 		}
 
 		// skip escaped quote symbol (\" or \', depends on quote)
-		if previousCharIsEscape {
-			previousCharIsEscape = false
+		if prevChar := src[i-1]; prevChar == '\\' {
 			continue
 		}
 
