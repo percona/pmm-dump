@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compose-spec/compose-go/cli"
+	"github.com/compose-spec/compose-go/dotenv"
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 )
@@ -85,7 +85,7 @@ func (pmm *PMM) ClickhouseURL() string {
 }
 
 func getEnvFromDotEnv(filepath string) (map[string]string, error) {
-	envs, err := cli.GetEnvFromFile(map[string]string{}, "", []string{filepath})
+	envs, err := dotenv.GetEnvFromFile(map[string]string{}, "", []string{filepath})
 	if err != nil {
 		return nil, err
 	}
