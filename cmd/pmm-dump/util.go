@@ -69,11 +69,6 @@ func getPMMVersion(pmmURL string, c grafana.Client) (string, string, error) {
 			FullVersion string    `json:"full_version"`
 			Timestamp   time.Time `json:"timestamp"`
 		} `json:"server"`
-		Managed struct {
-			Version     string    `json:"version"`
-			FullVersion string    `json:"full_version"`
-			Timestamp   time.Time `json:"timestamp"`
-		} `json:"managed"`
 		DistributionMethod string `json:"distribution_method"`
 	}
 
@@ -353,6 +348,9 @@ func checkVersionSupport(c grafana.Client, pmmURL, victoriaMetricsURL string) {
 	pmmVer, _, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to get PMM version")
+	}
+	if pmmVer == "" {
+		log.Fatal().Msg("Could not find server version")
 	}
 
 	if pmmVer < minPMMServerVersion {
