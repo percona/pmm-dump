@@ -20,27 +20,29 @@ func parseQuery(query string, serviceNames []string, templateVars map[string]str
 	metricsql.VisitAll(expr, func(expr metricsql.Expr) {
 		if m, ok := expr.(*metricsql.MetricExpr); ok {
 			var filters []string
-			for _, f := range m.LabelFilters {
-				var s string
-				if f.Value == "$service_name" {
-					continue
-				} else if _, ok := templateVars[f.Value]; ok {
-					continue
-				} else {
-					s += f.Label
-					switch {
-					case f.IsNegative && f.IsRegexp:
-						s += "!~"
-					case f.IsNegative && !f.IsRegexp:
-						s += "!="
-					case !f.IsNegative && f.IsRegexp:
-						s += "=~"
-					case !f.IsNegative && !f.IsRegexp:
-						s += "="
+			for _, labelFilter := range m.LabelFilterss {
+				for _, f := range labelFilter {
+					var s string
+					if f.Value == "$service_name" {
+						continue
+					} else if _, ok := templateVars[f.Value]; ok {
+						continue
+					} else {
+						s += f.Label
+						switch {
+						case f.IsNegative && f.IsRegexp:
+							s += "!~"
+						case f.IsNegative && !f.IsRegexp:
+							s += "!="
+						case !f.IsNegative && f.IsRegexp:
+							s += "=~"
+						case !f.IsNegative && !f.IsRegexp:
+							s += "="
+						}
+						s += fmt.Sprintf(`"%s"`, f.Value)
 					}
-					s += fmt.Sprintf(`"%s"`, f.Value)
+					filters = append(filters, s)
 				}
-				filters = append(filters, s)
 			}
 			if len(serviceNames) == 1 {
 				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+serviceNames[0]+"$"))
