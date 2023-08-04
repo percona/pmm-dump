@@ -153,10 +153,10 @@ func toStringSlice(iSlice []interface{}) []string {
 }
 
 func (s Source) WriteChunk(_ string, r io.Reader) error {
-	reader := tsv.NewReader(r)
+	reader := tsv.NewReader(r, s.ColumnTypes())
 
 	for {
-		records, err := reader.Read(s.ColumnTypes())
+		records, err := reader.Read()
 		if err != nil {
 			if err == io.EOF {
 				break

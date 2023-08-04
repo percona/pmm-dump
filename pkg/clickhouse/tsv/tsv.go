@@ -14,6 +14,7 @@ import (
 
 type Reader struct {
 	*csv.Reader
+	columnTypes []*sql.ColumnType
 }
 
 type Writer struct {
@@ -26,25 +27,25 @@ func NewWriter(w io.Writer) *Writer {
 	return &Writer{writer}
 }
 
-func NewReader(r io.Reader) *Reader {
+func NewReader(r io.Reader, columnTypes []*sql.ColumnType) *Reader {
 	reader := csv.NewReader(r)
 	reader.Comma = '\t'
 	reader.FieldsPerRecord = 0
-	return &Reader{reader}
+	return &Reader{reader, columnTypes}
 }
 
-func (r *Reader) Read(ct []*sql.ColumnType) ([]interface{}, error) {
+func (r *Reader) Read() ([]interface{}, error) {
 	records, err := r.Reader.Read()
 	if err != nil {
 		return nil, err
 	}
-	if len(ct) != len(records) {
+	if len(r.columnTypes) != len(records) {
 		return nil, errors.New("amount of columns mismatch")
 	}
 
 	values := make([]interface{}, 0, len(records))
 	for i, record := range records {
-		st := ct[i].ScanType()
+		st := r.columnTypes[i].ScanType()
 		value, err := parseElement(record, st)
 		if err != nil {
 			return nil, fmt.Errorf("parsing error: %s", err.Error())
