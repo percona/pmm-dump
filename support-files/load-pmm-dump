@@ -2,12 +2,22 @@
 
 # $1 should have ticket number or name for the containers
 # $2 can have a PMM .tar.gz dump path/file or version for pmm-server
+# the rest of the arguments are assumed to be pmm-dump.tar.gz files to be used blindly with `pmm-dump import` (no metadata is checked)
+
+# Exit codes:
+#  0 - no error
+#  1 - arg issues
+#  2 - container name already used
+#  3 - pmm-dump file does not exist
+#  4 - at least one pmm-dump import was not successful (error)
+#  5 - at least one pmm-dump import had a warning
+#  6 - #4 and #5 apply
 
 # At least one argument should be defined
 [[ -z ${1} ]] && {
   echo "ERROR: Arguments expected."
   echo " 1st argument: Ticket number"
-  echo " 2nd argument (optional): PMM-dump tar.gz file or version for percona/pmm-server"
+  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using percona/pmm-server"
   exit 1
 }
 
@@ -20,7 +30,8 @@ docker ps -a|egrep "pmm-data-${ticket_number}|pmm-server-${ticket_number}" >/dev
   exit 2
 }
 
-tar_gz_regex='.*\.tar\.gz$'
+# Regex will match strings ending with either ".tar.gz" or ".tgz"
+tar_gz_regex='.*\.t(ar\.)?gz$'
 version_regex='^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'
 
 if [[ ${2} =~ ${tar_gz_regex} ]]; then
@@ -42,7 +53,7 @@ fi
 if [[ -n ${2} ]] && [[ arg_is_pmm_dump_file -eq 1 ]] && which pmm-dump > /dev/null 2>&1; then
   if [[ ! -f ${2} ]]; then
     echo "ERROR: PMM dump file (${2}) does not exist."
-    exit 1
+    exit 3
   fi
   echo "## Getting PMM version from \`pmm-dump show-meta\` outputs (this can take a while if the dump file is large)..."
   pmm_version=`pmm-dump show-meta --dump-path=${2}|grep "PMM Version"|awk '{print $3}'|cut -d '-' -f1`
@@ -63,9 +74,7 @@ echo "## Using version: $pmm_version"
 
 docker pull percona/pmm-server:${pmm_version}
 
-docker create --volume /srv --name pmm-data-${ticket_number} percona/pmm-server:${pmm_version} /bin/true
-
-docker run --detach --restart always --publish :443 --volumes-from pmm-data-${ticket_number} --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+docker run --detach --publish :443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
 
 pmm_port_443=`docker ps --format "{{.Ports}} {{.Names}}"|grep ${ticket_number}|cut -d ':' -f2|cut -d '-' -f1`
 
@@ -89,27 +98,104 @@ echo "## Disabling PMM's cap on client_max_body_size from Nginx..."
 docker exec pmm-server-${ticket_number} sed -i.bak -e 's/client_max_body_size 10m/client_max_body_size 0/g' /etc/nginx/conf.d/pmm.conf
 docker exec pmm-server-${ticket_number} supervisorctl restart nginx
 
+# Wait for PMM server to restart
+echo -n "## Waiting for PMM sever to restart"
+while true; do
+  pmm_status=`docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:443/v1/readyz`
+  if [[ ${pmm_status} == "{}" ]]; then
+    echo
+    echo "## PMM sever started"
+    break
+  else
+    echo -n "."
+    sleep 1
+  fi
+done
+
+# Import pmm-dump files.
+# We try to import all arguments used from the second one onwards. It's up to the user to use this correctly.
+# If second argument used was version number, all other arguments are ignored and not imported.
+
+# Discard first argument (it was the name for containers)
+shift
+
+# Create empty outputs debug file
+pmm_dump_import_global_outputs_file=$(mktemp /tmp/load-pmm-dump-import-global-outputs.XXXXXXXXXX) || mktemp1_failed=1
+if [[ ${mktemp1_failed} -eq 1 ]]; then
+  echo "## ERROR: mktemp failed. Using /tmp/load-pmm-dump-import-global-outputs.out"
+  pmm_dump_import_global_outputs_file="/tmp/load-pmm-dump-import-global-outputs.out"
+fi
+pmm_dump_import_local_outputs_file=$(mktemp /tmp/load-pmm-dump-import-iter-outputs.XXXXXXXXXX) || mktemp2_failed=1
+if [[ ${mktemp2_failed} -eq 1 ]]; then
+  echo "## ERROR: mktemp failed. Using /tmp/load-pmm-dump-import-iter-outputs.out"
+  pmm_dump_import_local_outputs_file="/tmp/load-pmm-dump-import-iter-outputs.out"
+fi
+
+echo > ${pmm_dump_import_global_outputs_file}
+echo > ${pmm_dump_import_local_outputs_file}
+
+pmm_dump_import_err=0
+pmm_dump_import_warn=0
+
+if [[ ${arg_is_pmm_dump_file} -eq 1 ]]; then
+  while (( $# )); do
+    echo "## Trying to pmm-dump import: "${1}
+    echo "## Importing: "${1} >> ${pmm_dump_import_global_outputs_file}
+    pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=${1} > ${pmm_dump_import_local_outputs_file} 2>&1
+    pmm_dump_result=$?
+
+    cat ${pmm_dump_import_local_outputs_file} >> ${pmm_dump_import_global_outputs_file}
+
+    if [[ ${pmm_dump_result} -eq 0 ]]; then
+      echo "## Sample imported successfully."
+      first_sample_date=`grep "Processing" ${pmm_dump_import_local_outputs_file} | head -n1 | cut -d '/' -f 2 | cut -d '-' -f 1 | xargs -I{} date -d @{}`
+      last_sample_date_seconds_epoch=`grep "Processing" ${pmm_dump_import_local_outputs_file} | tail -n1 | cut -d '/' -f 2 | cut -d '-' -f 2 | cut -d '.' -f 1`
+      last_sample_date=`date -d @${last_sample_date_seconds_epoch}`
+      echo "## First sample date: "${first_sample_date}
+      echo "## Last sample date: "${last_sample_date}
+      # Print warning if samples are older than 30 days
+      date_diff_days=$((($(date +%s) - ${last_sample_date_seconds_epoch})/60/60/24))
+      if [[ ${date_diff_days} -gt 30 ]]; then
+        echo "## WARN: last samples are older than default retention time of 30 days! Increase PMM retention and import them again."
+        pmm_dump_import_warn=1
+      fi
+    else
+      echo "## Issues detected with pmm-dump import command for "${1}
+      echo "## Check /tmp/load-pmm-dump-import-outputs.out for outputs."
+      pmm_dump_import_err=1
+    fi
+    shift
+  done;
+fi
 
 echo
 echo "## USEFUL INFORMATION AND COMMANDS."
 echo
-echo "## Port 443 is exported to: " ${pmm_port_443}
+echo "## Port 443 is exported to: "${pmm_port_443}
 echo
 echo "## Use the following for port redirection from your local machine:"
-echo "ssh -L 8443:127.0.0.1:${pmm_port_443} " `hostname`
+echo "ssh -L 8443:127.0.0.1:${pmm_port_443}" `hostname`
 echo
 echo "## To import a PMM dump:"
-[[ arg_is_pmm_dump_file -eq 1 ]] && {
-  echo "pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=${2}"
-} || {
-  echo "pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=[...]"
-}
+echo "pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=[...]"
 echo
 echo "## Use the following to get human readable dates from a Unix timestamp:"
 echo "date -d @1657948064"
 echo
 echo "## Increase 'Data Retention' in the advanced settings if the samples are older than the default 30 days."
+echo "## For example, to increase to 60 days:"
+echo "## docker exec pmm-server-${ticket_number} curl -s -u admin:admin --request POST -k --url https://127.0.0.1:443/v1/Settings/Change -H 'Content-Type: application/json' -d '{\"data_retention\":\"5184000s\"}'"
 echo
-echo "## To destroy docker containers:"
-echo "docker rm -vf pmm-data-${ticket_number} pmm-server-${ticket_number}"
+echo "## To destroy docker PMM server container:"
+echo "docker rm -vf pmm-server-${ticket_number}"
+
+if [[ ${pmm_dump_import_warn} -eq '1' && ${pmm_dump_import_err} -eq '1' ]]; then
+  exit 6
+elif [[ ${pmm_dump_import_warn} -eq '1' ]]; then
+  exit 5
+elif [[ ${pmm_dump_import_err} -eq '1' ]]; then
+  exit 4
+else
+  exit 0
+fi
 
