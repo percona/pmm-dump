@@ -11,3 +11,5 @@ pmm-dump-*.tar.gz
 dump.tar.gz
 
 /test
+
+/.env

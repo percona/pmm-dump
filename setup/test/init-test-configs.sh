@@ -22,6 +22,8 @@ function create_env_file() {
 	done
 }
 
+base_file=".env.example"
+
 test_dir="$1"
 mkdir -p "$test_dir"
 
@@ -42,7 +44,7 @@ env_vars=(
 )
 
 env_file="$test_dir/.env.test"
-create_env_file .env "$env_file" "${env_vars[@]}"
+create_env_file "$base_file" "$env_file" "${env_vars[@]}"
 
 # Create the .env2.test file
 env_vars=(
@@ -60,4 +62,4 @@ env_vars=(
 	"PMM_URL=http://admin:admin@localhost # pmm-server url (used only while USE_EXISTING_PMM=true)"
 )
 second_env_file="$test_dir/.env2.test"
-create_env_file .env "$second_env_file" "${env_vars[@]}"
+create_env_file "$base_file" "$second_env_file" "${env_vars[@]}"
