@@ -1,4 +1,4 @@
-.PHONY: all build up down re pmm-status mongo-reg mongo-insert export-all export-vm export-ch import-all init-test run-tests clean
+.PHONY: all build up down re pmm-status mongo-reg mongo-insert export-all export-vm export-ch import-all init-test run-tests clean init
 
 export CGO_ENABLED=0
 
@@ -25,10 +25,13 @@ VERSION:=$(shell git describe --tags --abbrev=0)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
+init:
+	bash -c "[ ! -f .env ] && cp .env.example .env || true"
+
 build:
 	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)' -X 'main.GitVersion=$(VERSION)'" -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
 
-up:
+up: init
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
 	docker compose up -d
 	sleep 15 # waiting for pmm server to be ready :(
@@ -70,7 +73,7 @@ import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
-init-test: build
+init-test: init build
 	./setup/test/init-test-configs.sh test
 
 run-tests: init-test down-tests build
