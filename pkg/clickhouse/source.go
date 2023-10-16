@@ -78,24 +78,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
-	where := make([]string, 0, 3)
-	if s.cfg.Where != "" {
-		where = append(where, fmt.Sprintf("(%s)", s.cfg.Where))
-	}
-	if m.Start != nil {
-		where = append(where, fmt.Sprintf("period_start > %d", m.Start.Unix()))
-	}
-	if m.End != nil {
-		where = append(where, fmt.Sprintf("period_start < %d", m.End.Unix()))
-	}
-	for i := range where {
-		if i == 0 {
-			query += " WHERE "
-		} else {
-			query += " AND "
-		}
-		query += where[i]
-	}
+	query += fmt.Sprintf(" %s", prepareWhereClause(s.cfg.Where, m.Start, m.End))
 	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -191,11 +174,35 @@ func (s Source) FinalizeWrites() error {
 	return s.tx.Commit()
 }
 
-func (s Source) Count(where string) (int, error) {
+func prepareWhereClause(whereCondition string, start, end *time.Time) string {
+	where := []string{}
+	if whereCondition != "" {
+		where = append(where, fmt.Sprintf("(%s)", whereCondition))
+	}
+	if start != nil {
+		where = append(where, fmt.Sprintf("period_start > %d", start.Unix()))
+	}
+	if end != nil {
+		where = append(where, fmt.Sprintf("period_start < %d", end.Unix()))
+	}
+
+	query := ""
+	for i := range where {
+		if i == 0 {
+			query += "WHERE "
+		} else {
+			query += " AND "
+		}
+		query += where[i]
+	}
+	return query
+}
+
+func (s Source) Count(where string, startTime, endTime time.Time) (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
 	if where != "" {
-		query += fmt.Sprintf(" WHERE %s", where)
+		query += fmt.Sprintf(" %s", prepareWhereClause(where, &startTime, &endTime))
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
@@ -213,7 +220,7 @@ func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) 
 		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
 
-	totalRows, err := s.Count(s.cfg.Where)
+	totalRows, err := s.Count(s.cfg.Where, startTime, endTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
 	}
