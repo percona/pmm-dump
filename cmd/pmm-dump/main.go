@@ -34,6 +34,7 @@ func main() {
 		pmmHost     = cli.Flag("pmm-host", "PMM server host(with scheme)").Envar("PMM_HOST").String()
 		pmmPort     = cli.Flag("pmm-port", "PMM server port").Envar("PMM_PORT").String()
 		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
+		pmmToken    = cli.Flag("pmm-token", "PMM API token").Envar("PMM_TOKEN").String()
 		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASS").String()
 
 		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
@@ -123,7 +124,14 @@ func main() {
 		grafanaC := grafana.NewClient(httpC)
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
+
+		if *pmmToken != "" {
+			// Use API token if present.
+			grafanaC.SetToken(*pmmToken)
+		} else {
+			// Otherwise acquire auth cookie.
+			auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
+		}
 
 		dumpLog := new(bytes.Buffer)
 
