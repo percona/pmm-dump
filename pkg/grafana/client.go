@@ -3,9 +3,10 @@ package grafana
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
-	"time"
 )
 
 func NewClient(httpC *fasthttp.Client) Client {
@@ -17,19 +18,20 @@ func NewClient(httpC *fasthttp.Client) Client {
 type Client struct {
 	client     *fasthttp.Client
 	authCookie string
+	token      string
 }
 
 const AuthCookieName = "grafana_session"
 
 func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
-	req.Header.SetCookie(AuthCookieName, c.authCookie)
+	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.Do(req, httpResp)
 	return httpResp, errors.Wrap(err, "failed to make request in network client")
 }
 
 func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*fasthttp.Response, error) {
-	req.Header.SetCookie(AuthCookieName, c.authCookie)
+	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.DoTimeout(req, httpResp, timeout)
 	return httpResp, errors.Wrap(err, "failed to make request in network client")
@@ -93,6 +95,10 @@ func (c *Client) GetWithTimeout(url string, timeout time.Duration) (int, []byte,
 	return httpResp.StatusCode(), httpResp.Body(), err
 }
 
+func (c *Client) SetToken(token string) {
+	c.token = token
+}
+
 func (c *Client) Auth(pmmUrl, username, password string) error {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
@@ -133,4 +139,9 @@ func (c *Client) Auth(pmmUrl, username, password string) error {
 	c.authCookie = string(cookie.Value())
 
 	return nil
+}
+
+func (c *Client) setAuthHeaders(req *fasthttp.Request) {
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	req.Header.SetCookie(AuthCookieName, c.authCookie)
 }

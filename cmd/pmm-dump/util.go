@@ -400,6 +400,11 @@ func auth(pmmURL, pmmUser, pmmPassword *string, client *grafana.Client) {
 		log.Fatal().Msg("There is no credentials found neither in url or by flags")
 	}
 
+	if *pmmUser == "api_key" {
+		client.SetToken(*pmmPassword)
+		return
+	}
+
 	err := client.Auth(*pmmURL, *pmmUser, *pmmPassword)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Cannot authenticate")
