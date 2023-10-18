@@ -142,6 +142,11 @@ func (c *Client) Auth(pmmUrl, username, password string) error {
 }
 
 func (c *Client) setAuthHeaders(req *fasthttp.Request) {
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
-	req.Header.SetCookie(AuthCookieName, c.authCookie)
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	if c.authCookie != "" {
+		req.Header.SetCookie(AuthCookieName, c.authCookie)
+	}
 }
