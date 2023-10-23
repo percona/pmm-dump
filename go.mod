@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/ClickHouse/clickhouse-go v1.5.4
-	github.com/VictoriaMetrics/metricsql v0.65.0
+	github.com/VictoriaMetrics/metricsql v0.68.0
 	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/compose-spec/compose-go v1.18.4
 	github.com/pkg/errors v0.9.1
