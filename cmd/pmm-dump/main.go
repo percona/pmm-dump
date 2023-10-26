@@ -35,6 +35,7 @@ func main() {
 		pmmPort     = cli.Flag("pmm-port", "PMM server port").Envar("PMM_PORT").String()
 		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
 		pmmToken    = cli.Flag("pmm-token", "PMM API token").Envar("PMM_TOKEN").String()
+		pmmCookie   = cli.Flag("pmm-cookie", "PMM Auth cookie").Envar("PMM_COOKIE").String()
 		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASS").String()
 
 		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
@@ -125,12 +126,18 @@ func main() {
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
-		if *pmmToken != "" {
-			// Use API token if present.
+		switch {
+		case *pmmToken != "":
+			log.Info().Msg("Using token authentication")
 			grafanaC.SetToken(*pmmToken)
-		} else {
-			// Otherwise acquire auth cookie.
+		case *pmmCookie != "":
+			log.Info().Msg("Using cookie authentication")
+			grafanaC.SetCookie(*pmmCookie)
+		case *pmmUser != "":
+			log.Info().Msg("Using login/password authentication")
 			auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
+		default:
+			log.Fatal().Msg("Missing authentication credentials. API token, cookie or user/password should be provided.")
 		}
 
 		dumpLog := new(bytes.Buffer)

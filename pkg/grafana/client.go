@@ -99,6 +99,10 @@ func (c *Client) SetToken(token string) {
 	c.token = token
 }
 
+func (c *Client) SetCookie(cookie string) {
+	c.authCookie = cookie
+}
+
 func (c *Client) Auth(pmmUrl, username, password string) error {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
