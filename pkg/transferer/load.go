@@ -4,17 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/valyala/fasthttp"
 	"net/http"
-	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"pmm-dump/pkg/grafana"
+
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/valyala/fasthttp"
 )
 
 type LoadStatus int
@@ -48,7 +50,7 @@ const (
 )
 
 type LoadChecker struct {
-	c             grafana.Client
+	c             *grafana.Client
 	connectionURL string
 
 	thresholds []Threshold
@@ -59,7 +61,7 @@ type LoadChecker struct {
 	latestStatusCount int
 }
 
-func NewLoadChecker(ctx context.Context, c grafana.Client, url string, thresholds []Threshold) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c *grafana.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,

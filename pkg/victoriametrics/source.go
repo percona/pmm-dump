@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
 	"strconv"
 	"time"
+
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -18,11 +19,11 @@ import (
 )
 
 type Source struct {
-	c   grafana.Client
+	c   *grafana.Client
 	cfg Config
 }
 
-func NewSource(c grafana.Client, cfg Config) *Source {
+func NewSource(c *grafana.Client, cfg Config) *Source {
 	if len(cfg.TimeSeriesSelectors) == 0 {
 		cfg.TimeSeriesSelectors = []string{`{__name__=~".*"}`}
 	}

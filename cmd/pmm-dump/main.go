@@ -122,22 +122,18 @@ func main() {
 	switch cmd {
 	case exportCmd.FullCommand():
 		httpC := newClientHTTP(*allowInsecureCerts)
-		grafanaC := grafana.NewClient(httpC)
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-		validateAuthCreds(*pmmUser, *pmmToken, *pmmCookie)
-		switch {
-		case *pmmToken != "":
-			log.Info().Msg("Using token authentication")
-			grafanaC.SetToken(*pmmToken)
-		case *pmmCookie != "":
-			log.Info().Msg("Using cookie authentication")
-			grafanaC.SetCookie(*pmmCookie)
-		case *pmmUser != "":
-			log.Info().Msg("Using login/password authentication")
-			auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
-		default:
-			log.Fatal().Msg("Missing authentication credentials. API token, cookie or user/password should be provided.")
+
+		authParams := grafana.AuthParams{
+			User:       *pmmUser,
+			Password:   *pmmPassword,
+			APIToken:   *pmmToken,
+			AuthCookie: *pmmCookie,
+		}
+		grafanaC, err := grafana.NewClient(httpC, authParams)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
 		}
 
 		dumpLog := new(bytes.Buffer)
@@ -274,11 +270,18 @@ func main() {
 		}
 	case importCmd.FullCommand():
 		httpC := newClientHTTP(*allowInsecureCerts)
-		grafanaC := grafana.NewClient(httpC)
-
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
 
+		authParams := grafana.AuthParams{
+			User:       *pmmUser,
+			Password:   *pmmPassword,
+			APIToken:   *pmmToken,
+			AuthCookie: *pmmCookie,
+		}
+		grafanaC, err := grafana.NewClient(httpC, authParams)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
+		}
 		if !(*dumpQAN || *dumpCore) {
 			log.Fatal().Msg("Please, specify at least one data source")
 		}
@@ -410,22 +413,5 @@ func main() {
 		fmt.Printf("Version: %v, Build: %v\n", GitVersion, GitCommit)
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
-	}
-}
-
-func validateAuthCreds(user, token, cookie string) {
-	var i int
-	if user != "" {
-		i++
-	}
-	if token != "" {
-		i++
-	}
-	if cookie != "" {
-		i++
-	}
-
-	if i > 1 {
-		log.Fatal().Msg("Only one authentication method can be specified (user/password, API token or auth cookie)")
 	}
 }
