@@ -125,7 +125,7 @@ func main() {
 		grafanaC := grafana.NewClient(httpC)
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-
+		validateAuthCreds(*pmmUser, *pmmToken, *pmmCookie)
 		switch {
 		case *pmmToken != "":
 			log.Info().Msg("Using token authentication")
@@ -410,5 +410,22 @@ func main() {
 		fmt.Printf("Version: %v, Build: %v\n", GitVersion, GitCommit)
 	default:
 		log.Fatal().Msgf("Undefined command found: %s", cmd)
+	}
+}
+
+func validateAuthCreds(user, token, cookie string) {
+	var i int
+	if user != "" {
+		i++
+	}
+	if token != "" {
+		i++
+	}
+	if cookie != "" {
+		i++
+	}
+
+	if i > 1 {
+		log.Fatal().Msg("Only one authentication method can be specified (user/password, API token or auth cookie)")
 	}
 }
