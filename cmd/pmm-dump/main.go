@@ -70,7 +70,7 @@ func main() {
 
 		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
 			"5 minutes by default, example '45s', '5m', '1h'").Default("5m").Duration()
-		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("1000").Int()
+		chunkRows = exportCmd.Flag("chunk-rows", "Amount of rows to fit into a single chunk (qan metrics)").Default("100000").Int()
 
 		ignoreLoad = exportCmd.Flag("ignore-load", "Disable checking for load threshold values").Bool()
 		maxLoad    = exportCmd.Flag("max-load", "Max load threshold values. For the CPU value is overall regardless cores count: 0-100%").
