@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"pmm-dump/internal/test/util"
-	"pmm-dump/pkg/grafana"
 	"strings"
 	"testing"
+
+	"pmm-dump/internal/test/util"
+	"pmm-dump/pkg/grafana"
 )
 
 func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
