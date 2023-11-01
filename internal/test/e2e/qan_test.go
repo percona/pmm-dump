@@ -186,12 +186,55 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 				return nil, errors.Wrap(err, "failed to read chunk content")
 			}
 
-			if len(content) == 0 {
-				continue
-			}
-
 			chunkMap[header.Name] = content
 		}
 	}
 	return chunkMap, nil
+}
+
+func TestQANEmptyChunks(t *testing.T) {
+	pmm := util.NewPMM(t, "qan-empty-chunks", ".env.test")
+	pmm.Stop()
+	pmm.Deploy()
+	defer pmm.Stop()
+
+	b := new(util.Binary)
+	testDir := util.TestDir(t, "qan-empty-chunks")
+
+	startTime := time.Now()
+	t.Log("Waiting for QAN data for 3 minutes")
+	time.Sleep(time.Minute * 3)
+
+	endTime := time.Now().Add(-time.Minute)
+
+	dumpPath := filepath.Join(testDir, "dump.tar.gz")
+	args := []string{
+		"-d", dumpPath,
+		"--pmm-url", pmm.PMMURL(),
+		"--dump-qan",
+		"--no-dump-core",
+		"--click-house-url", pmm.ClickhouseURL(),
+		"--instance", "pmm-server-postgresql",
+		"--start-ts", startTime.Format(time.RFC3339),
+		"--end-ts", endTime.Format(time.RFC3339),
+		"--chunk-rows", "1",
+	}
+
+	t.Log("Exporting data to", dumpPath)
+	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+	if err != nil {
+		t.Fatal("failed to export", err, stdout, stderr)
+	}
+
+	// We shouldn't have any empty chunks in the dump
+	chunks, err := getQANChunks(dumpPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, data := range chunks {
+		if len(data) == 0 {
+			t.Fatalf("Empty chunk %s found in the dump %s", name, dumpPath)
+		}
+	}
 }
