@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"pmm-dump/pkg/grafana"
