@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
