@@ -9,7 +9,6 @@ require (
 	github.com/compose-spec/compose-go v1.20.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.31.0
-	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/valyala/fasthttp v1.50.0
 	golang.org/x/sync v0.4.0
