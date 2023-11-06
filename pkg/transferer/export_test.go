@@ -112,9 +112,9 @@ func TestExport(t *testing.T) {
 				tr := Transferer{
 					sources:      sources,
 					workersCount: opt.workersCount,
-					file:         new(bytes.Buffer),
+					file:         bytes.NewBuffer(nil),
 				}
-				meta := dump.Meta{}
+				var meta dump.Meta
 				var chunks []dump.ChunkMeta
 				if tt.chunkSourceType != dump.UndefinedSource {
 					chunks = prepareFakeChunks(time.Now().Add(-time.Hour), time.Now(), tt.chunkTimeRange, tt.chunkSourceType)

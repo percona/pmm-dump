@@ -7,9 +7,10 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"pmm-dump/pkg/dump"
 	"sync"
 	"time"
+
+	"pmm-dump/pkg/dump"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -24,7 +25,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 		Int("size", maxChunksInMem).
 		Msg("Created chunks channel")
 
-	readWG := &sync.WaitGroup{}
+	var readWG sync.WaitGroup
 	g, gCtx := errgroup.WithContext(ctx)
 
 	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", t.workersCount)
@@ -125,10 +126,10 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 	if err != nil {
 		return errors.Wrap(err, "failed to create gzip writer")
 	}
-	defer gzw.Close()
+	defer gzw.Close() //nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer tw.Close() //nolint:errcheck
 
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
@@ -163,7 +164,7 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			Typeflag: tar.TypeReg,
 			Name:     path.Join(s.Type().String(), c.Filename),
 			Size:     chunkSize,
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -185,7 +186,7 @@ func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 		Typeflag: tar.TypeReg,
 		Name:     dump.LogFilename,
 		Size:     int64(len(byteLog)),
-		Mode:     0600,
+		Mode:     0o600,
 		ModTime:  time.Now(),
 	})
 	if err != nil {

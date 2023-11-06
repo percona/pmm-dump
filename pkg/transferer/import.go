@@ -21,7 +21,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 

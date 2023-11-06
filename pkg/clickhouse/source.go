@@ -5,14 +5,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
+	"strings"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"io"
+
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
-	"strings"
-	"time"
 )
 
 type Source struct {
@@ -35,9 +37,8 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	if err := db.PingContext(ctx); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
 			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 	tx, err := db.Begin()
 	if err != nil {
@@ -94,10 +95,11 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	}
 	values := make([]interface{}, len(columns))
 	for i := range columns {
-		values[i] = new(interface{})
+		var ei interface{}
+		values[i] = &ei
 	}
-	buf := new(bytes.Buffer)
-	writer := tsv.NewWriter(buf)
+	var buf bytes.Buffer
+	writer := tsv.NewWriter(&buf)
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
@@ -175,7 +177,7 @@ func (s Source) FinalizeWrites() error {
 }
 
 func prepareWhereClause(whereCondition string, start, end *time.Time) string {
-	where := []string{}
+	var where []string
 	if whereCondition != "" {
 		where = append(where, fmt.Sprintf("(%s)", whereCondition))
 	}

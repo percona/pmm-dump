@@ -131,8 +131,10 @@ func TestImport(t *testing.T) {
 }
 
 func fakeFileData(t *testing.T, opts fakeFileOpts) []byte {
-	buf := new(bytes.Buffer)
-	writeFakeFile(t, buf, opts)
+	t.Helper()
+
+	var buf bytes.Buffer
+	writeFakeFile(t, &buf, opts)
 	return buf.Bytes()
 }
 
@@ -141,13 +143,13 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 	if err != nil {
 		t.Fatal(err, "failed to create gzip writer")
 	}
-	defer gzw.Close()
+	defer gzw.Close() //nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer tw.Close() //nolint:errcheck
 	if opts.withInvalidTar {
-		content := new(bytes.Buffer)
-		_, err := io.CopyN(content, rand.Reader, 1024)
+		var content bytes.Buffer
+		_, err := io.CopyN(&content, rand.Reader, 1024)
 		if err != nil {
 			t.Fatal(err, "failed to fill content")
 		}
@@ -159,8 +161,8 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 	}
 
 	if opts.withUndefinedSource {
-		content := new(bytes.Buffer)
-		_, err := io.CopyN(content, rand.Reader, 1024)
+		var content bytes.Buffer
+		_, err := io.CopyN(&content, rand.Reader, 1024)
 		if err != nil {
 			t.Fatal(err, "failed to fill content")
 		}
@@ -168,7 +170,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("unknownsource", "chunk.bin"),
 			Size:     int64(content.Len()),
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -189,8 +191,8 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 	}
 
 	if opts.withInvalidFile {
-		content := new(bytes.Buffer)
-		_, err := io.CopyN(content, rand.Reader, 1024)
+		var content bytes.Buffer
+		_, err := io.CopyN(&content, rand.Reader, 1024)
 		if err != nil {
 			t.Fatal(err, "failed to fill content")
 		}
@@ -198,7 +200,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     "invalidfile.bin",
 			Size:     int64(content.Len()),
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -210,7 +212,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 	}
 
 	for i := 0; i < 10; i++ {
-		content := new(bytes.Buffer)
+		var content bytes.Buffer
 		switch {
 		case opts.withEmptyChunk && i == 5:
 		case opts.withInvalidChunk && i == 6:
@@ -219,7 +221,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 				t.Fatal(err, "failed to fill invalid content")
 			}
 		default:
-			_, err := io.CopyN(content, rand.Reader, 1024)
+			_, err := io.CopyN(&content, rand.Reader, 1024)
 			if err != nil {
 				t.Fatal(err, "failed to fill content")
 			}
@@ -230,7 +232,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("vm", fmt.Sprintf("chunk-%d.bin", i)),
 			Size:     chunkSize,
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 			Uid:      1,
 		})
@@ -245,7 +247,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("ch", fmt.Sprintf("chunk-%d.bin", i)),
 			Size:     chunkSize,
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 		})
 		if err != nil {

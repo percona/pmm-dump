@@ -18,7 +18,7 @@ func TestExportImport(t *testing.T) {
 	newPMM.Deploy()
 	defer newPMM.Stop()
 
-	b := new(util.Binary)
+	var b util.Binary
 	testDir := t.TempDir()
 
 	args := []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL()}
@@ -38,7 +38,7 @@ func TestExportImport(t *testing.T) {
 }
 
 func TestShowMeta(t *testing.T) {
-	b := new(util.Binary)
+	var b util.Binary
 	stdout, stderr, err := b.Run("show-meta", "-d", filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "onlymeta.tar.gz"))
 	if err != nil {
 		t.Fatal(err, stdout, stderr)

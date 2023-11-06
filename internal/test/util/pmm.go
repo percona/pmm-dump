@@ -8,10 +8,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"pmm-dump/pkg/grafana"
 	"strings"
 	"testing"
 	"time"
+
+	"pmm-dump/pkg/grafana"
 
 	"github.com/compose-spec/compose-go/dotenv"
 	"github.com/pkg/errors"
@@ -65,6 +66,7 @@ func (pmm *PMM) PMMURL() string {
 	a := u.String()
 	return a
 }
+
 func (pmm *PMM) ClickhouseURL() string {
 	m := pmm.envMap
 
@@ -85,7 +87,7 @@ func (pmm *PMM) ClickhouseURL() string {
 }
 
 func getEnvFromDotEnv(filepath string) (map[string]string, error) {
-	envs, err := dotenv.GetEnvFromFile(map[string]string{}, "", []string{filepath})
+	envs, err := dotenv.GetEnvFromFile(make(map[string]string), "", []string{filepath})
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +136,8 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
-	if err := os.Chmod(agentConfigFilepath, 0666); err != nil {
+	_ = f.Close()
+	if err := os.Chmod(agentConfigFilepath, 0o666); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := envs[envVarPMMAgentConfigPath]; !ok {

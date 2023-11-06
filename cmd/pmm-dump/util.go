@@ -73,15 +73,14 @@ func getPMMVersion(pmmURL string, c grafana.Client) (string, string, error) {
 	}
 
 	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
-
 	if err != nil {
 		return "", "", err
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	resp := new(versionResp)
-	if err = json.Unmarshal(body, resp); err != nil {
+	var resp versionResp
+	if err = json.Unmarshal(body, &resp); err != nil {
 		return "", "", fmt.Errorf("failed to unmarshal response: %s", err)
 	}
 	return resp.Server.Version, resp.Server.FullVersion, nil
@@ -103,13 +102,13 @@ func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, e
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	serviceResp := new(servicesResp)
-	if err = json.Unmarshal(body, serviceResp); err != nil {
+	var serviceResp servicesResp
+	if err = json.Unmarshal(body, &serviceResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
 	}
 
 	services := make([]dump.PMMServerService, 0)
-	for _, serviceType := range *serviceResp {
+	for _, serviceType := range serviceResp {
 		for _, service := range serviceType {
 			newService := dump.PMMServerService{
 				Name:   service.Name,
@@ -144,15 +143,14 @@ func getPMMServiceNodeName(pmmURL string, c grafana.Client, nodeID string) (stri
 	statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
 		NodeID string `json:"node_id"`
 	}{nodeID})
-
 	if err != nil {
 		return "", err
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	nodeResp := new(nodeRespStruct)
-	if err = json.Unmarshal(body, nodeResp); err != nil {
+	var nodeResp nodeRespStruct
+	if err = json.Unmarshal(body, &nodeResp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response: %s", err)
 	}
 
@@ -172,14 +170,14 @@ func getPMMServiceAgentsIds(pmmURL string, c grafana.Client, serviceID string) (
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	agentsResp := new(agentsRespStruct)
-	if err = json.Unmarshal(body, agentsResp); err != nil {
+	var agentsResp agentsRespStruct
+	if err = json.Unmarshal(body, &agentsResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
 	}
 
 	agentsIDs := make([]string, 0)
 
-	for _, agentType := range *agentsResp {
+	for _, agentType := range agentsResp {
 		for _, agent := range agentType {
 			if agent.ServiceID != nil && *agent.ServiceID == serviceID {
 				agentsIDs = append(agentsIDs, *agent.AgentID)
@@ -204,8 +202,8 @@ func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
 
-	resp := new(tzResp)
-	if err = json.Unmarshal(body, resp); err != nil {
+	var resp tzResp
+	if err = json.Unmarshal(body, &resp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response: %s", err)
 	}
 	return resp.Timezone, nil
@@ -485,7 +483,7 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 		}
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
-		if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
+		if err := os.MkdirAll(path.Dir(filepath), 0o777); err != nil {
 			return nil, errors.Wrap(err, "failed to create folders for the dump file")
 		}
 		file, err = os.Create(filepath)

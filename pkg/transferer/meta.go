@@ -5,14 +5,15 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
-	"pmm-dump/pkg/dump"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+
+	"pmm-dump/pkg/dump"
 )
 
 func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
@@ -26,13 +27,13 @@ func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
 			return nil, errors.Wrap(err, "failed to open file")
 		}
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 
@@ -79,7 +80,7 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 		Typeflag: tar.TypeReg,
 		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
-		Mode:     0600,
+		Mode:     0o600,
 		ModTime:  time.Now(),
 	})
 	if err != nil {
@@ -94,18 +95,17 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 }
 
 func readMetafile(r io.Reader) (*dump.Meta, error) {
-	metaBytes, err := ioutil.ReadAll(r)
+	metaBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read bytes")
 	}
 
-	meta := &dump.Meta{}
-
-	if err := json.Unmarshal(metaBytes, meta); err != nil {
+	var meta dump.Meta
+	if err := json.Unmarshal(metaBytes, &meta); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal")
 	}
 
-	return meta, nil
+	return &meta, nil
 }
 
 func readAndCompareDumpMeta(r io.Reader, runtimeMeta dump.Meta) {

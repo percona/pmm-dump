@@ -35,8 +35,8 @@ func Exec(ctx context.Context, wd string, name string, args ...string) (string, 
 		cmd.Dir = wd
 	}
 	cmd.Stdin = nil
-	cmd.Stdout = new(bytes.Buffer)
-	cmd.Stderr = new(bytes.Buffer)
+	cmd.Stdout = &bytes.Buffer{}
+	cmd.Stderr = &bytes.Buffer{}
 	err = cmd.Run()
 	stdout := cmd.Stdout.(*bytes.Buffer).String()
 	stderr := cmd.Stderr.(*bytes.Buffer).String()

@@ -2,8 +2,9 @@ package grafana
 
 import (
 	"fmt"
-	"github.com/VictoriaMetrics/metricsql"
 	"strings"
+
+	"github.com/VictoriaMetrics/metricsql"
 )
 
 func parseQuery(query string, serviceNames []string, templateVars map[string]struct{}, existingSelectors map[string]struct{}) error {
@@ -18,43 +19,45 @@ func parseQuery(query string, serviceNames []string, templateVars map[string]str
 		return err
 	}
 	metricsql.VisitAll(expr, func(expr metricsql.Expr) {
-		if m, ok := expr.(*metricsql.MetricExpr); ok {
-			var filters []string
-			for _, labelFilter := range m.LabelFilterss {
-				for _, f := range labelFilter {
-					var s string
-					if f.Value == "$service_name" {
-						continue
-					} else if _, ok := templateVars[f.Value]; ok {
-						continue
-					} else {
-						s += f.Label
-						switch {
-						case f.IsNegative && f.IsRegexp:
-							s += "!~"
-						case f.IsNegative && !f.IsRegexp:
-							s += "!="
-						case !f.IsNegative && f.IsRegexp:
-							s += "=~"
-						case !f.IsNegative && !f.IsRegexp:
-							s += "="
-						}
-						s += fmt.Sprintf(`"%s"`, f.Value)
-					}
-					filters = append(filters, s)
-				}
-			}
-			if len(serviceNames) == 1 {
-				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+serviceNames[0]+"$"))
-			} else if len(serviceNames) > 1 {
-				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(serviceNames, "|")+")$"))
-			}
-			if len(filters) == 0 {
-				return
-			}
-			s := fmt.Sprintf("{%s}", strings.Join(filters, ","))
-			existingSelectors[s] = struct{}{}
+		m, ok := expr.(*metricsql.MetricExpr)
+		if !ok {
+			return
 		}
+		var filters []string
+		for _, labelFilter := range m.LabelFilterss {
+			for _, f := range labelFilter {
+				var s string
+				if f.Value == "$service_name" {
+					continue
+				} else if _, ok := templateVars[f.Value]; ok {
+					continue
+				} else {
+					s += f.Label
+					switch {
+					case f.IsNegative && f.IsRegexp:
+						s += "!~"
+					case f.IsNegative && !f.IsRegexp:
+						s += "!="
+					case !f.IsNegative && f.IsRegexp:
+						s += "=~"
+					case !f.IsNegative && !f.IsRegexp:
+						s += "="
+					}
+					s += fmt.Sprintf(`"%s"`, f.Value)
+				}
+				filters = append(filters, s)
+			}
+		}
+		if len(serviceNames) == 1 {
+			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+serviceNames[0]+"$"))
+		} else if len(serviceNames) > 1 {
+			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(serviceNames, "|")+")$"))
+		}
+		if len(filters) == 0 {
+			return
+		}
+		s := fmt.Sprintf("{%s}", strings.Join(filters, ","))
+		existingSelectors[s] = struct{}{}
 	})
 	return nil
 }

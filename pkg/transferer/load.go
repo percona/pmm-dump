@@ -4,17 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/valyala/fasthttp"
 	"net/http"
-	"pmm-dump/pkg/grafana"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/grafana"
 )
 
 type LoadStatus int
@@ -69,7 +71,7 @@ func NewLoadChecker(ctx context.Context, c grafana.Client, url string, threshold
 
 	lc.updateStatus()
 
-	if len(thresholds) != 0 { // nothing to check so no status updates
+	if len(thresholds) > 0 { // nothing to check so no status updates
 		lc.runStatusUpdate(ctx)
 	}
 

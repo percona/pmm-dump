@@ -2,8 +2,9 @@ package grafana
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 )
 
@@ -12,7 +13,7 @@ func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c C
 	for _, d := range dashboards {
 		sel, err := getSingleDashboardSelectors(pmmURL, d, serviceNames, c)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve selectors for dashboard \"%s\": %v", d, err)
+			return nil, fmt.Errorf("failed to retrieve selectors for dashboard \"%s\": %w", d, err)
 		}
 		selectors = append(selectors, sel...)
 	}
@@ -33,8 +34,8 @@ func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []st
 		return nil, fmt.Errorf("non-ok status: %d", status)
 	}
 
-	exprResp := new(dashboardExprResp)
-	if err = json.Unmarshal(data, exprResp); err != nil {
+	var exprResp dashboardExprResp
+	if err = json.Unmarshal(data, &exprResp); err != nil {
 		return nil, err
 	}
 	selectors, err := exprResp.parseSelectors(serviceNames)
@@ -55,7 +56,7 @@ type templateElement struct {
 }
 
 func (t *templateElement) UnmarshalJSON(data []byte) error {
-	var v map[string]interface{}
+	v := make(map[string]interface{})
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}

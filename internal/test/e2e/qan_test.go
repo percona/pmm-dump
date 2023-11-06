@@ -29,7 +29,7 @@ func TestQANWhere(t *testing.T) {
 	pmm.Deploy()
 	defer pmm.Stop()
 
-	b := new(util.Binary)
+	var b util.Binary
 	testDir := util.TestDir(t, "qan-where")
 
 	t.Log("Waiting for QAN data for 2 minutes")
@@ -52,7 +52,7 @@ func TestQANWhere(t *testing.T) {
 		{
 			name:     "no filter",
 			query:    "",
-			equalMap: map[string]string{},
+			equalMap: make(map[string]string),
 		},
 		{
 			name:  "filter by service name",
@@ -151,7 +151,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 	chunkMap := make(chunkMap)
@@ -198,7 +198,7 @@ func TestQANEmptyChunks(t *testing.T) {
 	pmm.Deploy()
 	defer pmm.Stop()
 
-	b := new(util.Binary)
+	var b util.Binary
 	testDir := util.TestDir(t, "qan-empty-chunks")
 
 	startTime := time.Now()

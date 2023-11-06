@@ -3,9 +3,10 @@ package grafana
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
-	"time"
 )
 
 func NewClient(httpC *fasthttp.Client) Client {
@@ -126,7 +127,7 @@ func (c *Client) Auth(pmmUrl, username, password string) error {
 		return errors.New("authentication error")
 	}
 
-	cookie := new(fasthttp.Cookie)
+	var cookie fasthttp.Cookie
 	if err = cookie.ParseBytes(sessionRaw); err != nil {
 		return errors.Wrap(err, "failed to parse cookie")
 	}

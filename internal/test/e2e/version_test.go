@@ -11,12 +11,14 @@ import (
 )
 
 func TestPMMCompatibility(t *testing.T) {
+	t.Helper()
+
 	pmmVersions := getVersions(t)
 	if len(pmmVersions) < 2 {
 		t.Fatal("not enough versions to test provided in ")
 	}
 
-	b := new(util.Binary)
+	var b util.Binary
 	for i := 0; i < len(pmmVersions); i++ {
 		oldPMM := util.NewPMM(t, "compatibility", "")
 		if oldPMM.UseExistingDeployment() {

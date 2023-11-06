@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"pmm-dump/pkg/grafana"
+
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
-
-	"pmm-dump/pkg/grafana"
 )
 
 func TestWriteChunk(t *testing.T) {
@@ -57,10 +57,10 @@ func TestWriteChunk(t *testing.T) {
 					InsecureSkipVerify: true,
 				},
 			}
-			recievedMetrics := []Metric{}
+			var recievedMetrics []Metric
 			server := httptest.NewServer(http.HandlerFunc(
 				func(rw http.ResponseWriter, req *http.Request) {
-					defer req.Body.Close()
+					defer req.Body.Close() //nolint:errcheck
 					if req.ContentLength > int64(tt.contentLimit) && tt.contentLimit != 0 {
 						rw.WriteHeader(http.StatusRequestEntityTooLarge)
 						return
@@ -117,7 +117,7 @@ func generateFakeChunk(size int) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal metrics")
 	}
-	data := []byte{}
+	var data []byte
 	for i := 0; i < size; i++ {
 		data = append(data, metricsData...)
 	}

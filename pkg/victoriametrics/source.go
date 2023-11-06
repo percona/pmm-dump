@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
 	"strconv"
 	"time"
+
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -122,7 +123,7 @@ func decompressContent(content []byte) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gzip reader")
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -137,7 +138,7 @@ func decompressChunk(content []byte) ([]Metric, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gzip reader")
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	metrics, err := ParseMetrics(r)
 	if err != nil {

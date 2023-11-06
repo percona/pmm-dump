@@ -29,7 +29,7 @@ func TestValidate(t *testing.T) {
 	pmm.Stop()
 	newPMM.Stop()
 
-	b := new(util.Binary)
+	var b util.Binary
 	tmpDir := util.TestDir(t, "validate-test")
 	xDumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
@@ -52,8 +52,7 @@ func TestValidate(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339),
 		"--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String(),
-	)
+		"--chunk-time-range", chunkTimeRange.String())
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
@@ -69,8 +68,7 @@ func TestValidate(t *testing.T) {
 		"-d", xDumpPath,
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
-		"--click-house-url", newPMM.ClickhouseURL(),
-	)
+		"--click-house-url", newPMM.ClickhouseURL())
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -87,8 +85,7 @@ func TestValidate(t *testing.T) {
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String(),
-	)
+		"--chunk-time-range", chunkTimeRange.String())
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -177,7 +174,7 @@ func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
 		return 0, errors.Errorf("len(x)=%d, len(y)=%d", len(xChunk), len(yChunk))
 	}
 
-	xHashMap := map[string]vmMetric{}
+	xHashMap := make(map[string]vmMetric)
 	for _, v := range xChunk {
 		if _, ok := xHashMap[v.MetricHash()]; ok && v.Hash() != xHashMap[v.MetricHash()].Hash() {
 			return 0, errors.New("duplicate metric but different values")
@@ -185,7 +182,7 @@ func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
 		xHashMap[v.MetricHash()] = v
 	}
 
-	yHashMap := map[string]vmMetric{}
+	yHashMap := make(map[string]vmMetric)
 	for _, v := range yChunk {
 		if _, ok := yHashMap[v.MetricHash()]; ok && v.Hash() != yHashMap[v.MetricHash()].Hash() {
 			return 0, errors.New("duplicate metric but different values")
@@ -221,13 +218,13 @@ func readChunks(filename string) (chunkMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 	chunkMap := make(chunkMap)
@@ -278,7 +275,7 @@ func vmParseChunk(data []byte) ([]vmMetric, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create reader")
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 	metrics, err := victoriametrics.ParseMetrics(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse metrics")
@@ -314,11 +311,11 @@ func (vm vmMetric) MetricHash() string {
 }
 
 func (vm vmMetric) CompareTimestampValues(t *testing.T, with vmMetric) int {
-	xMap := map[int64]float64{}
+	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]
 	}
-	yMap := map[int64]float64{}
+	yMap := make(map[int64]float64)
 	for i, v := range with.Timestamps {
 		yMap[v] = with.Values[i]
 	}

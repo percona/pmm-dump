@@ -3,13 +3,14 @@ package tsv
 import (
 	"database/sql"
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Reader struct {

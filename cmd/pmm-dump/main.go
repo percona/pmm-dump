@@ -125,14 +125,14 @@ func main() {
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
 
-		dumpLog := new(bytes.Buffer)
+		var dumpLog bytes.Buffer
 
 		hasLevel := log.Logger.GetLevel()
 
 		log.Logger = log.Logger.Level(zerolog.DebugLevel).Output(zerolog.MultiLevelWriter(LevelWriter{
 			Writer: logConsoleWriter,
 			Level:  hasLevel,
-		}, dumpLog))
+		}, &dumpLog))
 
 		if !(*dumpQAN || *dumpCore) {
 			log.Fatal().Msg("Please, specify at least one data source")
@@ -213,7 +213,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
-		defer file.Close()
+		defer file.Close() //nolint:errcheck
 
 		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
@@ -254,7 +254,7 @@ func main() {
 
 		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool, dumpLog); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool, &dumpLog); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -331,7 +331,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
-		defer file.Close()
+		defer file.Close() //nolint:errcheck
 
 		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
