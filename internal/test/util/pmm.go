@@ -247,7 +247,7 @@ func getUntilOk(url string, timeout time.Duration) error {
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolit:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil
 		}

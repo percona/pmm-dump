@@ -8,14 +8,12 @@ linters-settings:
         deny:
           - pkg: errors
             desc: Use "github.com/pkg/errors" instead
-          - pkg: github.com/gogo/protobuf/proto
-            desc: Use "github.com/golang/protobuf/proto" instead
 
   goimports:
     local-prefixes: github.com/percona/pmm-dump
 
   unused:
-    check-exported: true
+    exported-is-used: true
 
   unparam:
     check-exported: true

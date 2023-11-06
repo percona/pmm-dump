@@ -36,9 +36,6 @@ jobs:
           pushd tools && go mod download -x
           popd        && go mod download -x
 
-      - name: Start development environment
-        run: make env-up
-
       - name: Install development tools
         run: make init
 

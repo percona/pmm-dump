@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"time"
 
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 )
 
 type Source struct {

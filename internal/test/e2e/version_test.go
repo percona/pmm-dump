@@ -59,6 +59,8 @@ func TestPMMCompatibility(t *testing.T) {
 }
 
 func getVersions(t *testing.T) []string {
+	t.Helper()
+
 	type versionsConfig struct {
 		Versions []string `yaml:"versions"`
 	}
