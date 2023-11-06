@@ -11,7 +11,7 @@ require (
 	github.com/rs/zerolog v1.31.0
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/valyala/fasthttp v1.50.0
-	golang.org/x/sync v0.4.0
+	golang.org/x/sync v0.5.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
