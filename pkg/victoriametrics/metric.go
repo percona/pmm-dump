@@ -22,9 +22,8 @@ func ParseMetrics(r io.Reader) ([]Metric, error) {
 		if err != nil {
 			if err == io.EOF {
 				break
-			} else {
-				return nil, errors.Wrap(err, "failed to decode JSON stream")
 			}
+			return nil, errors.Wrap(err, "failed to decode JSON stream")
 		}
 		result = append(result, metric)
 	}

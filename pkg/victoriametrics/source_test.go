@@ -54,7 +54,7 @@ func TestWriteChunk(t *testing.T) {
 				WriteTimeout:              time.Minute,
 				MaxConnWaitTimeout:        time.Second * 30,
 				TLSConfig: &tls.Config{
-					InsecureSkipVerify: true,
+					InsecureSkipVerify: true, //nolint:gosec
 				},
 			}
 			var recievedMetrics []Metric
