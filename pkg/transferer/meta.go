@@ -22,7 +22,7 @@ func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
 		file = os.Stdin
 	} else {
 		var err error
-		file, err = os.Open(dumpPath)
+		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open file")
 		}

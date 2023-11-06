@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"pmm-dump/pkg/grafana"
-
 	"github.com/compose-spec/compose-go/dotenv"
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/grafana"
 )
 
 const (
@@ -247,7 +247,7 @@ func getUntilOk(url string, timeout time.Duration) error {
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close() //nolit:errcheck
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil
 		}
@@ -287,7 +287,7 @@ func authUntilSuccess(pmmURL string, timeout time.Duration) error {
 		WriteTimeout:              time.Minute,
 		MaxConnWaitTimeout:        time.Second * 30,
 		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, //nolint:gosec
 		},
 	})
 	return doUntilSuccess(timeout, func() error {

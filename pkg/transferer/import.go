@@ -45,7 +45,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 
 		header, err := tr.Next()
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			log.Debug().Msg("Processed complete dump file")
 			break
 		}

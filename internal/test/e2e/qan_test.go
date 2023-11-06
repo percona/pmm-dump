@@ -145,7 +145,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {

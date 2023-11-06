@@ -286,7 +286,6 @@ func ParseThresholdList(max, critical string) ([]Threshold, error) {
 	}
 
 	var thresholds []Threshold
-
 	for _, k := range AllThresholdKeys() {
 		maxLoad, maxOk := maxV[k]
 		criticalLoad, criticalOk := criticalV[k]

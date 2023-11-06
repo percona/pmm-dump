@@ -140,7 +140,7 @@ func generateFakeDump(filepath string) error {
 }
 
 func generateFakeChunk(size int) ([]byte, error) {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
+	r := rand.New(rand.NewSource(time.Now().Unix())) //nolint:gosec
 	var data []byte
 	for i := 0; i < size; i++ {
 		metricsData, err := json.Marshal(victoriametrics.Metric{

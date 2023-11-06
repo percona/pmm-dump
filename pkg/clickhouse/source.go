@@ -143,7 +143,7 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	for {
 		records, err := reader.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err

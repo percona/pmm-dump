@@ -38,7 +38,7 @@ func newClientHTTP(insecureSkipVerify bool) *fasthttp.Client {
 		WriteTimeout:              time.Minute,
 		MaxConnWaitTimeout:        time.Second * 30,
 		TLSConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify,
+			InsecureSkipVerify: insecureSkipVerify, //nolit:gosec
 		},
 	}
 }
@@ -60,7 +60,7 @@ func getGoroutineID() int {
 	return id
 }
 
-// getPMMVersion returns version, full-version and error
+// getPMMVersion returns version, full-version and error.
 func getPMMVersion(pmmURL string, c grafana.Client) (string, string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
@@ -81,7 +81,7 @@ func getPMMVersion(pmmURL string, c grafana.Client) (string, string, error) {
 	}
 	var resp versionResp
 	if err = json.Unmarshal(body, &resp); err != nil {
-		return "", "", fmt.Errorf("failed to unmarshal response: %s", err)
+		return "", "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
@@ -104,7 +104,7 @@ func getPMMServices(pmmURL string, c grafana.Client) ([]dump.PMMServerService, e
 	}
 	var serviceResp servicesResp
 	if err = json.Unmarshal(body, &serviceResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	services := make([]dump.PMMServerService, 0)
@@ -188,7 +188,7 @@ func getPMMServiceAgentsIds(pmmURL string, c grafana.Client, serviceID string) (
 	return agentsIDs, nil
 }
 
-// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings.
 func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 	type tzResp struct {
 		Timezone string `json:"timezone"`
@@ -318,9 +318,9 @@ type LevelWriter struct {
 func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
 	if level >= lw.Level {
 		return lw.Write(p)
-	} else {
-		return len(p), nil
 	}
+
+	return len(p), nil
 }
 
 func (lw LevelWriter) Write(p []byte) (n int, err error) {
@@ -462,7 +462,7 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 			Str("path", dumpPath).
 			Msg("Opening dump file...")
 
-		file, err = os.Open(dumpPath)
+		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
 		}
