@@ -30,11 +30,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
-
-	"github.com/pkg/errors"
 )
 
 func TestContentLimit(t *testing.T) {

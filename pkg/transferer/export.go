@@ -24,11 +24,11 @@ import (
 	"sync"
 	"time"
 
-	"pmm-dump/pkg/dump"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
+
+	"pmm-dump/pkg/dump"
 )
 
 func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer) error {

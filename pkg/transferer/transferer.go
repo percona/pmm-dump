@@ -18,9 +18,9 @@ import (
 	"io"
 	"runtime"
 
-	"pmm-dump/pkg/dump"
-
 	"github.com/pkg/errors"
+
+	"pmm-dump/pkg/dump"
 )
 
 type Transferer struct {

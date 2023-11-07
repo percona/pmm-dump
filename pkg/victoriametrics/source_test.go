@@ -25,10 +25,10 @@ import (
 	"testing"
 	"time"
 
-	"pmm-dump/pkg/grafana"
-
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/grafana"
 )
 
 func TestWriteChunk(t *testing.T) {
