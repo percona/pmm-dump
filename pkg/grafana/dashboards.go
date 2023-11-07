@@ -63,17 +63,17 @@ func (t *templateElement) UnmarshalJSON(data []byte) error {
 	if name, ok := v["name"]; ok {
 		t.Name, _ = name.(string)
 	}
-	switch v["query"].(type) {
+	switch s := v["query"].(type) {
 	case string:
-		t.Query = v["query"].(string)
+		t.Query = s
 	case map[string]interface{}:
-		t.Query, _ = v["query"].(map[string]interface{})["query"].(string)
+		t.Query, _ = s["query"].(string)
 	}
 	return nil
 }
 
 type panel struct {
-	Id      int     `json:"id"`
+	ID      int     `json:"id"`
 	Panels  []panel `json:"panels"`
 	Targets []struct {
 		Expr string `json:"expr"`
@@ -104,13 +104,13 @@ func findDashboardUID(pmmURL, name string, c Client) (string, error) {
 	if len(resp) == 0 {
 		return "", errors.New("dashboard not found")
 	} else if len(resp) == 1 {
-		return resp[0].Uid, nil
+		return resp[0].UID, nil
 	}
 
 	uid := ""
 	for _, v := range resp {
 		if v.Title == name {
-			uid = v.Uid
+			uid = v.UID
 			break
 		}
 	}
@@ -122,17 +122,17 @@ func findDashboardUID(pmmURL, name string, c Client) (string, error) {
 }
 
 type dashboardSearchResp struct {
-	Id          int      `json:"id"`
-	Uid         string   `json:"uid"`
+	ID          int      `json:"id"`
+	UID         string   `json:"uid"`
 	Title       string   `json:"title"`
-	Uri         string   `json:"uri"`
-	Url         string   `json:"url"`
+	URI         string   `json:"uri"`
+	URL         string   `json:"url"`
 	Slug        string   `json:"slug"`
 	Type        string   `json:"type"`
 	Tags        []string `json:"tags"`
 	IsStarred   bool     `json:"isStarred"`
-	FolderId    int      `json:"folderId"`
-	FolderUid   string   `json:"folderUid"`
+	FolderID    int      `json:"folderId"`
+	FolderUID   string   `json:"folderUid"`
 	FolderTitle string   `json:"folderTitle"`
-	FolderUrl   string   `json:"folderUrl"`
+	FolderURL   string   `json:"folderUrl"`
 }

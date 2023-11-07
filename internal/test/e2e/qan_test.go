@@ -113,7 +113,7 @@ func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string
 	for {
 		values, err := tr.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return errors.Wrap(err, "failed to read tsv")
@@ -141,7 +141,7 @@ func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string
 }
 
 func getQANChunks(filename string) (map[string][]byte, error) {
-	f, err := os.Open(filename)
+	f, err := os.Open(filename) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

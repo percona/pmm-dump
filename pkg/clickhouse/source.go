@@ -35,7 +35,8 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
+		var exception *clickhouse.Exception
+		if errors.As(err, &exception) {
 			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return nil, err
@@ -68,6 +69,10 @@ func columnTypes(db *sql.DB) ([]*sql.ColumnType, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close() //nolint:errcheck
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return rows.ColumnTypes()
 }
 
@@ -85,9 +90,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func(rows *sql.Rows) {
-		_ = rows.Close()
-	}(rows)
+	defer rows.Close() //nolint:errcheck
 
 	columns, err := rows.Columns()
 	if err != nil {
@@ -127,7 +130,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 func toStringSlice(iSlice []interface{}) []string {
 	values := make([]string, 0, cap(iSlice))
 	for _, v := range iSlice {
-		value := v.(*interface{})
+		value := v.(*interface{}) //nolint:forcetypeassert
 		if value == nil {
 			values = append(values, "")
 			continue

@@ -188,12 +188,12 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	var resp metricResponse
 
 	if err = json.Unmarshal(body, &resp); err != nil {
-		return 0, fmt.Errorf("error parsing thresholds: %s", err)
+		return 0, fmt.Errorf("error parsing thresholds: %w", err)
 	}
 
 	value, err := resp.getValidValue()
 	if err != nil {
-		return 0, fmt.Errorf("error parsing threshold: %s", err)
+		return 0, fmt.Errorf("error parsing threshold: %w", err)
 	}
 	log.Debug().Msgf("Got %f threshold value", value)
 	return value, nil
@@ -285,8 +285,9 @@ func ParseThresholdList(max, critical string) ([]Threshold, error) {
 		return nil, errors.Wrap(err, "invalid critical load list")
 	}
 
-	var thresholds []Threshold
-	for _, k := range AllThresholdKeys() {
+	keys := AllThresholdKeys()
+	thresholds := make([]Threshold, 0, len(keys))
+	for _, k := range keys {
 		maxLoad, maxOk := maxV[k]
 		criticalLoad, criticalOk := criticalV[k]
 

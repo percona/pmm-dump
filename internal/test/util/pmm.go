@@ -41,16 +41,16 @@ type PMM struct {
 	timeout               time.Duration
 }
 
-func (pmm *PMM) UseExistingDeployment() bool {
-	return pmm.useExistingDeployment
+func (p *PMM) UseExistingDeployment() bool {
+	return p.useExistingDeployment
 }
 
-func (pmm *PMM) PMMURL() string {
-	m := pmm.envMap
+func (p *PMM) PMMURL() string {
+	m := p.envMap
 
 	u, err := url.Parse(m[envVarPMMURL])
 	if err != nil {
-		pmm.t.Fatal(err)
+		p.t.Fatal(err)
 	}
 	if u.User.Username() == "" {
 		u.User = url.UserPassword("admin", "admin")
@@ -67,12 +67,12 @@ func (pmm *PMM) PMMURL() string {
 	return a
 }
 
-func (pmm *PMM) ClickhouseURL() string {
-	m := pmm.envMap
+func (p *PMM) ClickhouseURL() string {
+	m := p.envMap
 
 	u, err := url.Parse(m[envVarPMMURL])
 	if err != nil {
-		pmm.t.Fatal(err)
+		p.t.Fatal(err)
 	}
 	if u.Scheme == "" {
 		u.Scheme = "http"
@@ -105,6 +105,8 @@ func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 const composeProjectPrefix = "pmm-dump-test-"
 
 func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
+	t.Helper()
+
 	if dotEnvFilename == "" {
 		dotEnvFilename = ".env.test"
 	}
@@ -119,10 +121,6 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if !useExistingDeployment {
 		envs[envVarPMMURL] = defaultPMMURL
 	}
-	version := envs[envVarPMMVersion]
-	if version == "" {
-		version = "latest"
-	}
 	if name == "" {
 		name = "test"
 	}
@@ -132,12 +130,12 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if err := os.MkdirAll(d, os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Create(agentConfigFilepath)
+	f, err := os.Create(agentConfigFilepath) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = f.Close()
-	if err := os.Chmod(agentConfigFilepath, 0o666); err != nil {
+	if err := os.Chmod(agentConfigFilepath, 0o666); err != nil { //nolint:gosec
 		t.Fatal(err)
 	}
 	if _, ok := envs[envVarPMMAgentConfigPath]; !ok {
@@ -243,7 +241,7 @@ func (p *PMM) Restart() {
 
 func getUntilOk(url string, timeout time.Duration) error {
 	return doUntilSuccess(timeout, func() error {
-		resp, err := http.Get(url)
+		resp, err := http.Get(url) //nolint:gosec,noctx
 		if err != nil {
 			return err
 		}

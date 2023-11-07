@@ -24,7 +24,7 @@ var (
 	GitVersion string
 )
 
-func main() {
+func main() { //nolint:gocyclo,maintidx
 	var (
 		cli = kingpin.New("pmm-dump", "Percona PMM Dump")
 
@@ -217,7 +217,7 @@ func main() {
 
 		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
-			log.Fatal().Msgf("Failed to setup export: %v", err)
+			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
 
 		var chunks []dump.ChunkMeta
@@ -282,7 +282,7 @@ func main() {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
 
-		if piped {
+		if piped { //nolint:nestif
 			if *vmNativeData {
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
 			} else {
@@ -323,7 +323,7 @@ func main() {
 			sources = append(sources, chSource)
 		}
 
-		if *dumpPath == "" && piped == false {
+		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
@@ -357,7 +357,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-		if *dumpPath == "" && piped == false {
+		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 

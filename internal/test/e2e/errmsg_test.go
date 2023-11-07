@@ -55,7 +55,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 			}
 			server := httptest.NewServer(http.HandlerFunc(
 				func(w http.ResponseWriter, r *http.Request) {
-					defer r.Body.Close()
+					defer r.Body.Close() //nolint:errcheck
 					switch r.URL.Path {
 					case "/graph/login":
 						http.SetCookie(w, &http.Cookie{

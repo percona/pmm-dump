@@ -38,7 +38,7 @@ func newClientHTTP(insecureSkipVerify bool) *fasthttp.Client {
 		WriteTimeout:              time.Minute,
 		MaxConnWaitTimeout:        time.Second * 30,
 		TLSConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify, //nolit:gosec
+			InsecureSkipVerify: insecureSkipVerify, //nolint:gosec
 		},
 	}
 }
@@ -151,7 +151,7 @@ func getPMMServiceNodeName(pmmURL string, c grafana.Client, nodeID string) (stri
 	}
 	var nodeResp nodeRespStruct
 	if err = json.Unmarshal(body, &nodeResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return nodeResp.Generic.Name, nil
@@ -172,7 +172,7 @@ func getPMMServiceAgentsIds(pmmURL string, c grafana.Client, serviceID string) (
 	}
 	var agentsResp agentsRespStruct
 	if err = json.Unmarshal(body, &agentsResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	agentsIDs := make([]string, 0)
@@ -204,7 +204,7 @@ func getPMMTimezone(pmmURL string, c grafana.Client) (string, error) {
 
 	var resp tzResp
 	if err = json.Unmarshal(body, &resp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 	return resp.Timezone, nil
 }
@@ -232,11 +232,11 @@ func composeMeta(pmmURL string, c grafana.Client, exportServices bool, cli *king
 	}
 	var args []string
 	for _, element := range context.Elements {
-		switch element.Clause.(type) {
+		switch cl := element.Clause.(type) {
 		case *kingpin.CmdClause:
-			args = append(args, element.Clause.(*kingpin.CmdClause).FullCommand())
+			args = append(args, cl.FullCommand())
 		case *kingpin.FlagClause:
-			model := element.Clause.(*kingpin.FlagClause).Model()
+			model := cl.Model()
 			value := model.Value.String()
 			switch model.Name {
 			case "pmm-user", "pmm-pass":
@@ -315,7 +315,7 @@ type LevelWriter struct {
 	Level  zerolog.Level
 }
 
-func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
+func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 	if level >= lw.Level {
 		return lw.Write(p)
 	}
@@ -323,7 +323,7 @@ func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err erro
 	return len(p), nil
 }
 
-func (lw LevelWriter) Write(p []byte) (n int, err error) {
+func (lw LevelWriter) Write(p []byte) (int, error) {
 	return lw.Writer.Write(p)
 }
 
@@ -483,10 +483,10 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 		}
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
-		if err := os.MkdirAll(path.Dir(filepath), 0o777); err != nil {
+		if err := os.MkdirAll(path.Dir(filepath), 0o777); err != nil { //nolint:gosec
 			return nil, errors.Wrap(err, "failed to create folders for the dump file")
 		}
-		file, err = os.Create(filepath)
+		file, err = os.Create(filepath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create %s", filepath)
 		}

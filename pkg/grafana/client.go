@@ -94,10 +94,10 @@ func (c *Client) GetWithTimeout(url string, timeout time.Duration) (int, []byte,
 	return httpResp.StatusCode(), httpResp.Body(), err
 }
 
-func (c *Client) Auth(pmmUrl, username, password string) error {
+func (c *Client) Auth(pmmURL, username, password string) error {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
-	req.SetRequestURI(fmt.Sprintf("%s/graph/login", pmmUrl))
+	req.SetRequestURI(fmt.Sprintf("%s/graph/login", pmmURL))
 	req.Header.SetMethod(fasthttp.MethodPost)
 	req.Header.SetContentType("application/json")
 	ls := struct {

@@ -75,7 +75,7 @@ func TestContentLimit(t *testing.T) {
 }
 
 func generateFakeDump(filepath string) error {
-	file, err := os.Create(filepath)
+	file, err := os.Create(filepath) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "failed to open file")
 	}
@@ -95,7 +95,7 @@ func generateFakeDump(filepath string) error {
 
 	metaContent, err := json.Marshal(meta)
 	if err != nil {
-		return fmt.Errorf("failed to marshal dump meta: %s", err)
+		return fmt.Errorf("failed to marshal dump meta: %w", err)
 	}
 
 	err = tw.WriteHeader(&tar.Header{

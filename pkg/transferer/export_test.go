@@ -121,7 +121,7 @@ func TestExport(t *testing.T) {
 				} else {
 					vmChunks := prepareFakeChunks(time.Now().Add(-time.Hour), time.Now(), tt.chunkTimeRange, dump.VictoriaMetrics)
 					chChunks := prepareFakeChunks(time.Now().Add(-time.Hour), time.Now(), tt.chunkTimeRange, dump.ClickHouse)
-					chunks = append(vmChunks, chChunks...)
+					chunks = append(vmChunks, chChunks...) //nolint:gocritic
 				}
 				pool, err := dump.NewChunkPool(chunks)
 				if err != nil {
@@ -158,7 +158,8 @@ func (g fakeStatusGetter) GetLatestStatus() (LoadStatus, int) {
 	return g.status, *g.count
 }
 
-func prepareFakeChunks(start, end time.Time, delta time.Duration, sourceType dump.SourceType) (chunks []dump.ChunkMeta) {
+func prepareFakeChunks(start, end time.Time, delta time.Duration, sourceType dump.SourceType) []dump.ChunkMeta {
+	var chunks []dump.ChunkMeta
 	chunkStart := start
 	for {
 		s, e := chunkStart, chunkStart.Add(delta)
@@ -173,5 +174,5 @@ func prepareFakeChunks(start, end time.Time, delta time.Duration, sourceType dum
 			break
 		}
 	}
-	return
+	return chunks
 }

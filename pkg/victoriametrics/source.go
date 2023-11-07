@@ -118,7 +118,8 @@ const (
 	errRequestEntityTooLarge = `received "413 Request Entity Too Large" error from PMM`
 )
 
-func decompressContent(content []byte) ([]byte, error) {
+// TODO: this function is not used, can it be removed?
+func decompressContent(content []byte) ([]byte, error) { //nolint:deadcode,unused
 	r, err := gzip.NewReader(bytes.NewReader(content))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gzip reader")
@@ -309,7 +310,8 @@ func (s Source) FinalizeWrites() error {
 	return nil
 }
 
-func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) (chunks []dump.ChunkMeta) {
+func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) []dump.ChunkMeta {
+	var chunks []dump.ChunkMeta
 	chunkStart := start
 	for {
 		s, e := chunkStart, chunkStart.Add(delta)
@@ -332,5 +334,5 @@ func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) (chunks
 		Int("chunks", len(chunks)).
 		Msg("Split Victoria Metrics timerange into chunks")
 
-	return
+	return chunks
 }

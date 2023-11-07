@@ -101,7 +101,7 @@ func (p *panel) selectors(serviceNames []string, templateVars map[string]struct{
 
 	for _, target := range p.Targets {
 		if err := parseQuery(target.Expr, serviceNames, templateVars, existingSelectors); err != nil {
-			return fmt.Errorf("failed to parse query \"%s\": %v", target.Expr, err)
+			return fmt.Errorf("failed to parse query \"%s\": %w", target.Expr, err)
 		}
 	}
 
@@ -113,13 +113,13 @@ func (p *panel) selectors(serviceNames []string, templateVars map[string]struct{
 	return nil
 }
 
-func (d *dashboardExprResp) parseSelectors(serviceNames []string) (selectors []string, err error) {
+func (d *dashboardExprResp) parseSelectors(serviceNames []string) ([]string, error) {
 	existingSelectors := make(map[string]struct{})
 	templateVars := make(map[string]struct{})
 	if err := d.Dashboard.selectors(serviceNames, templateVars, existingSelectors); err != nil {
 		return nil, err
 	}
-	selectors = make([]string, 0, len(existingSelectors))
+	selectors := make([]string, 0, len(existingSelectors))
 	for v := range existingSelectors {
 		selectors = append(selectors, v)
 	}

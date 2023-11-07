@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"pmm-dump/internal/test/util"
-
 	"gopkg.in/yaml.v2"
+
+	"pmm-dump/internal/test/util"
 )
 
 func TestPMMCompatibility(t *testing.T) {

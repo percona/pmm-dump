@@ -139,6 +139,8 @@ func fakeFileData(t *testing.T, opts fakeFileOpts) []byte {
 }
 
 func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
+	t.Helper()
+
 	gzw, err := gzip.NewWriterLevel(w, gzip.BestCompression)
 	if err != nil {
 		t.Fatal(err, "failed to create gzip writer")
@@ -186,7 +188,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 		}
 	}
 
-	if err = writeLog(tw, bytes.NewBuffer([]byte("logs"))); err != nil {
+	if err = writeLog(tw, bytes.NewBufferString("logs")); err != nil {
 		t.Fatal(err)
 	}
 

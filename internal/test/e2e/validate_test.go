@@ -104,6 +104,8 @@ func TestValidate(t *testing.T) {
 }
 
 func validateChunks(t *testing.T, xDump, yDump string) (float64, error) {
+	t.Helper()
+
 	xChunkMap, err := readChunks(xDump)
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to read dump %s", xDump)
@@ -170,6 +172,8 @@ func vmValuesCount(xChunk []vmMetric) int {
 }
 
 func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
+	t.Helper()
+
 	if len(xChunk) != len(yChunk) {
 		return 0, errors.Errorf("len(x)=%d, len(y)=%d", len(xChunk), len(yChunk))
 	}
@@ -214,7 +218,7 @@ func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
 type chunkMap map[string][]byte
 
 func readChunks(filename string) (chunkMap, error) {
-	f, err := os.Open(filename)
+	f, err := os.Open(filename) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +236,7 @@ func readChunks(filename string) (chunkMap, error) {
 	for {
 		header, err := tr.Next()
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 
@@ -311,6 +315,8 @@ func (vm vmMetric) MetricHash() string {
 }
 
 func (vm vmMetric) CompareTimestampValues(t *testing.T, with vmMetric) int {
+	t.Helper()
+
 	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]

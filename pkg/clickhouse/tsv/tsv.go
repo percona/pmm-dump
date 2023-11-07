@@ -74,7 +74,9 @@ func parseSlice(slice string, st reflect.Type) (interface{}, error) {
 	return result, nil
 }
 
-func parseElement(record string, st reflect.Type) (value interface{}, err error) {
+func parseElement(record string, st reflect.Type) (interface{}, error) {
+	var value interface{}
+	var err error
 	switch st.Kind() {
 	case reflect.Slice:
 		value, err = parseSlice(record, st.Elem())
@@ -151,5 +153,5 @@ func parseElement(record string, st reflect.Type) (value interface{}, err error)
 			return nil, errors.New("unknown type")
 		}
 	}
-	return
+	return value, nil
 }

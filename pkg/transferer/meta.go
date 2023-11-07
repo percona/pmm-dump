@@ -42,7 +42,7 @@ func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
 
 		header, err := tr.Next()
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			log.Debug().Msg("Processed complete dump file - no meta found")
 			return nil, errors.New("no meta file found in dump")
 		}
@@ -73,7 +73,7 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 
 	metaContent, err := json.Marshal(meta)
 	if err != nil {
-		return fmt.Errorf("failed to marshal dump meta: %s", err)
+		return fmt.Errorf("failed to marshal dump meta: %w", err)
 	}
 
 	err = tw.WriteHeader(&tar.Header{

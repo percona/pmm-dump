@@ -18,6 +18,11 @@ linters-settings:
   unparam:
     check-exported: true
 
+  tagliatelle:
+    case:
+        rules:
+          json: snake
+
 linters:
   enable-all: true
   disable:
@@ -37,6 +42,20 @@ linters:
     - godox            # annoying and useless
     - varnamelen       # annoying
     - exhaustruct      # verbose style
+
+      ## TODO: Temporary disabled linters, review this list
+    - tagliatelle      # this project uses both
+    - revive           # multiple warnings
+    - paralleltest     # tests should be checked for ability to run in parallel
+    - stylecheck       # multiple warnings
+    - gocognit         # requires refactoring
+    - exhaustive       # good linter, warnings should be checked
+    - gochecknoglobals # requires refactoring
+    - cyclop           # requires refactoring
+    - nilnil           # good linter, warnings should be checked
+    - misspell         # should be checked and probably configured for some cases
+    - forbidigo        # probably this one can be disabled permanently
+    - gofumpt          # there are some problems with this linter
 
 issues:
   exclude-use-default: false
