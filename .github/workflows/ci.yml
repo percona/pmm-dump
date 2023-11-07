@@ -17,7 +17,7 @@ permissions:
 jobs:
   test:
     name: Test
-    timeout-minutes: 20
+    timeout-minutes: 10
     continue-on-error: false
     runs-on: ubuntu-20.04
 
