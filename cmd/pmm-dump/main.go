@@ -34,6 +34,8 @@ func main() {
 		pmmHost     = cli.Flag("pmm-host", "PMM server host(with scheme)").Envar("PMM_HOST").String()
 		pmmPort     = cli.Flag("pmm-port", "PMM server port").Envar("PMM_PORT").String()
 		pmmUser     = cli.Flag("pmm-user", "PMM credentials user").Envar("PMM_USER").String()
+		pmmToken    = cli.Flag("pmm-token", "PMM API token").Envar("PMM_TOKEN").String()
+		pmmCookie   = cli.Flag("pmm-cookie", "PMM Auth cookie").Envar("PMM_COOKIE").String()
 		pmmPassword = cli.Flag("pmm-pass", "PMM credentials password").Envar("PMM_PASS").String()
 
 		victoriaMetricsURL = cli.Flag("victoria-metrics-url", "VictoriaMetrics connection string").String()
@@ -120,10 +122,19 @@ func main() {
 	switch cmd {
 	case exportCmd.FullCommand():
 		httpC := newClientHTTP(*allowInsecureCerts)
-		grafanaC := grafana.NewClient(httpC)
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
+
+		authParams := grafana.AuthParams{
+			User:       *pmmUser,
+			Password:   *pmmPassword,
+			APIToken:   *pmmToken,
+			AuthCookie: *pmmCookie,
+		}
+		grafanaC, err := grafana.NewClient(httpC, authParams)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
+		}
 
 		dumpLog := new(bytes.Buffer)
 
@@ -259,11 +270,18 @@ func main() {
 		}
 	case importCmd.FullCommand():
 		httpC := newClientHTTP(*allowInsecureCerts)
-		grafanaC := grafana.NewClient(httpC)
-
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
-		auth(pmmURL, pmmUser, pmmPassword, &grafanaC)
 
+		authParams := grafana.AuthParams{
+			User:       *pmmUser,
+			Password:   *pmmPassword,
+			APIToken:   *pmmToken,
+			AuthCookie: *pmmCookie,
+		}
+		grafanaC, err := grafana.NewClient(httpC, authParams)
+		if err != nil {
+			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
+		}
 		if !(*dumpQAN || *dumpCore) {
 			log.Fatal().Msg("Please, specify at least one data source")
 		}
