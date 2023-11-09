@@ -33,11 +33,11 @@ import (
 )
 
 type Source struct {
-	c   grafana.Client
+	c   *grafana.Client
 	cfg Config
 }
 
-func NewSource(c grafana.Client, cfg Config) *Source {
+func NewSource(c *grafana.Client, cfg Config) *Source {
 	if len(cfg.TimeSeriesSelectors) == 0 {
 		cfg.TimeSeriesSelectors = []string{`{__name__=~".*"}`}
 	}

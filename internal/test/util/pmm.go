@@ -16,7 +16,6 @@ package util
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,9 +27,6 @@ import (
 
 	"github.com/compose-spec/compose-go/dotenv"
 	"github.com/pkg/errors"
-	"github.com/valyala/fasthttp"
-
-	"pmm-dump/pkg/grafana"
 )
 
 const (
@@ -193,10 +189,6 @@ func (p *PMM) Deploy() {
 		p.t.Fatal(err, "failed to ping PMM")
 		return
 	}
-	if err := authUntilSuccess(p.PMMURL(), p.timeout); err != nil {
-		p.t.Fatal(err, "failed to auth PMM")
-		return
-	}
 	time.Sleep(15 * time.Second)
 	stdout, stderr, err = Exec(ctx, RepoPath, "make", "mongo-reg")
 	if err != nil {
@@ -247,10 +239,6 @@ func (p *PMM) Restart() {
 		p.t.Fatal(err, "failed to ping PMM")
 		return
 	}
-	if err := authUntilSuccess(p.PMMURL(), p.timeout); err != nil {
-		p.t.Fatal(err, "failed to auth PMM")
-		return
-	}
 }
 
 func getUntilOk(url string, timeout time.Duration) error {
@@ -284,26 +272,4 @@ func doUntilSuccess(timeout time.Duration, f func() error) error {
 			return errors.Wrap(err, "timeout")
 		}
 	}
-}
-
-func authUntilSuccess(pmmURL string, timeout time.Duration) error {
-	u, err := url.Parse(pmmURL)
-	if err != nil {
-		return err
-	}
-	grafanaC := grafana.NewClient(&fasthttp.Client{
-		MaxConnsPerHost:           2,
-		MaxIdleConnDuration:       time.Minute,
-		MaxIdemponentCallAttempts: 5,
-		ReadTimeout:               time.Minute,
-		WriteTimeout:              time.Minute,
-		MaxConnWaitTimeout:        time.Second * 30,
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true, //nolint:gosec
-		},
-	})
-	return doUntilSuccess(timeout, func() error {
-		pass, _ := u.User.Password()
-		return grafanaC.Auth(pmmURL, u.User.Username(), pass)
-	})
 }

@@ -96,7 +96,14 @@ func TestWriteChunk(t *testing.T) {
 			))
 			defer server.Close()
 
-			s := NewSource(grafana.NewClient(httpC), Config{
+			grafanaC, err := grafana.NewClient(httpC, grafana.AuthParams{
+				User:     "admin",
+				Password: "admin",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := NewSource(grafanaC, Config{
 				ConnectionURL: server.URL,
 				NativeData:    tt.nativeData,
 				ContentLimit:  uint64(tt.contentLimit),

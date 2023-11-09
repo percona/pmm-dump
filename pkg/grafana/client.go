@@ -15,6 +15,7 @@
 package grafana
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -23,28 +24,69 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func NewClient(httpC *fasthttp.Client) Client {
-	return Client{
-		client: httpC,
+type AuthParams struct {
+	User       string
+	Password   string
+	APIToken   string
+	AuthCookie string
+}
+
+func (p *AuthParams) Validate() error {
+	var i int
+	if p.User != "" {
+		i++
 	}
+	if p.APIToken != "" {
+		i++
+	}
+	if p.AuthCookie != "" {
+		i++
+	}
+
+	if i > 1 {
+		return errors.New("only one authentication method can be specified (user/password, API token or auth cookie")
+	}
+
+	if i == 0 {
+		return errors.New("missing authentication credentials. API token, cookie or user/password should be provided.")
+	}
+
+	return nil
+}
+
+func NewClient(httpC *fasthttp.Client, params AuthParams) (*Client, error) {
+	if err := params.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		client:     httpC,
+		user:       params.User,
+		password:   params.Password,
+		token:      params.APIToken,
+		authCookie: params.AuthCookie,
+	}, nil
 }
 
 type Client struct {
 	client     *fasthttp.Client
 	authCookie string
+	token      string
+	user       string
+	password   string
 }
 
 const AuthCookieName = "grafana_session"
 
 func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
-	req.Header.SetCookie(AuthCookieName, c.authCookie)
+	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.Do(req, httpResp)
 	return httpResp, errors.Wrap(err, "failed to make request in network client")
 }
 
 func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*fasthttp.Response, error) {
-	req.Header.SetCookie(AuthCookieName, c.authCookie)
+	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.DoTimeout(req, httpResp, timeout)
 	return httpResp, errors.Wrap(err, "failed to make request in network client")
@@ -108,44 +150,17 @@ func (c *Client) GetWithTimeout(url string, timeout time.Duration) (int, []byte,
 	return httpResp.StatusCode(), httpResp.Body(), err
 }
 
-func (c *Client) Auth(pmmURL, username, password string) error {
-	req := fasthttp.AcquireRequest()
-	defer fasthttp.ReleaseRequest(req)
-	req.SetRequestURI(fmt.Sprintf("%s/graph/login", pmmURL))
-	req.Header.SetMethod(fasthttp.MethodPost)
-	req.Header.SetContentType("application/json")
-	ls := struct {
-		Password string `json:"password"`
-		User     string `json:"user"`
-	}{password, username}
-	lsb, err := json.Marshal(ls)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal login struct")
-	}
-	req.SetBody(lsb)
-	httpResp, err := c.Do(req)
-	defer fasthttp.ReleaseResponse(httpResp)
-	if err != nil {
-		return errors.Wrap(err, "failed to make login request")
+func (c *Client) setAuthHeaders(req *fasthttp.Request) {
+	if c.user != "" {
+		h := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.user, c.password)))
+		req.Header.Set("Authorization", fmt.Sprintf("Basic %s", h))
 	}
 
-	if httpResp.StatusCode() != fasthttp.StatusOK {
-		if httpResp.StatusCode() == fasthttp.StatusUnauthorized {
-			return errors.New("invalid username or password")
-		}
-		return errors.Errorf("non-ok status code: %d", httpResp.StatusCode())
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	}
 
-	sessionRaw := httpResp.Header.PeekCookie(AuthCookieName)
-	if len(sessionRaw) == 0 {
-		return errors.New("authentication error")
+	if c.authCookie != "" {
+		req.Header.SetCookie(AuthCookieName, c.authCookie)
 	}
-
-	var cookie fasthttp.Cookie
-	if err = cookie.ParseBytes(sessionRaw); err != nil {
-		return errors.Wrap(err, "failed to parse cookie")
-	}
-	c.authCookie = string(cookie.Value())
-
-	return nil
 }

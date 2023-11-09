@@ -64,7 +64,7 @@ const (
 )
 
 type LoadChecker struct {
-	c             grafana.Client
+	c             *grafana.Client
 	connectionURL string
 
 	thresholds []Threshold
@@ -75,7 +75,7 @@ type LoadChecker struct {
 	latestStatusCount int
 }
 
-func NewLoadChecker(ctx context.Context, c grafana.Client, url string, thresholds []Threshold) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c *grafana.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
