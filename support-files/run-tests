@@ -5,24 +5,22 @@
 set -o errexit
 
 timeout="6000s"
+build_tag="$1"
 
 trap exit 1 SIGINT
 
-# Get list of all packages in this repository
-readarray -t packages < <(go list ./...)
+run_e2e_tests() {
+	module_name="pmm-dump"
 
-module_name="pmm-dump"
+	failed_tests=()
 
-failed_tests=()
-
-for package in "${packages[@]}"; do
-	# Get path of the package by replacing module name with `.`
+	package="$module_name/internal/test/e2e"
 	package_path=${package/#$module_name/.}
 
 	pushd "$package_path" >/dev/null || echo "Failed to enter $package_path"
 
 	# Get list of all tests in the package
-	readarray -t tests < <(go test -list .)
+	readarray -t tests < <(go test -list . -tags "$build_tag")
 	for test in "${tests[@]}"; do
 		# Filtering lines which contain package name, like `? pmm-dump/pkg/victoriametrics [no test files]`
 		if [[ $test == *"$package"* ]]; then
@@ -30,11 +28,20 @@ for package in "${packages[@]}"; do
 		fi
 
 		echo "Running test $test"
-		if ! go test -timeout "$timeout" -v -run "^$test$"; then
+		if ! go test -timeout "$timeout" -v -run "^$test$" -tags "$build_tag"; then
 			failed_tests+=("$test")
 		fi
 	done
-	popd >/dev/null || echo "Failed to exit $package_path"
-done
+	echo "Failed tests:" "${failed_tests[@]}"
+}
 
-echo "Failed tests:" "${failed_tests[@]}"
+run_unit_tests() {
+	go test -timeout "$timeout" ./... -v \
+		| grep -v '\[no test files\]' # Filtering lines like `? pmm-dump/pkg/victoriametrics [no test files]`
+}
+
+if [[ -n $build_tag ]]; then
+	run_e2e_tests
+else
+	run_unit_tests
+fi

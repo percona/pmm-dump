@@ -138,15 +138,22 @@ There is a Makefile for easier testing locally. It uses docker-compose to set up
 
 You will need to have Go 1.16+ and Docker installed.
 
-| Rule            | Description                  |
-| --------------- | ---------------------------- |
-| make            | Shortcut for fast test       |
-| make build      | Builds pmm-dump binary       |
-| make up         | Sets up docker containers    |
-| mongo-reg       | Registers MongoDB in PMM     |
-| mongo-insert    | Executes MongoDB insert      |
-| make down       | Shuts down docker containers |
-| make re         | Shortcut for `down up`       |
-| make export-all | Runs export from local PMM   |
+| Rule                | Description                  |
+| ------------------- | ---------------------------- |
+| make                | Shortcut for fast test       |
+| make build          | Builds pmm-dump binary       |
+| make up             | Sets up docker containers    |
+| mongo-reg           | Registers MongoDB in PMM     |
+| mongo-insert        | Executes MongoDB insert      |
+| make down           | Shuts down docker containers |
+| make re             | Shortcut for `down up`       |
+| make export-all     | Runs export from local PMM   |
+| make run-tests      | Runs all tests               |
+| make run-e2e-tests  | Runs all e2e tests           |
+| make run-unit-tests | Runs all unit tests          |
 
 For more rules, please see `Makefile`
+
+## Running End-to-End Tests
+
+For detailed instructions on executing end-to-end tests, please refer to the [Exectuing e2e tests](./internal/test/README.md).

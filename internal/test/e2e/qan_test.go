@@ -1,3 +1,5 @@
+//go:build e2e
+
 package e2e
 
 import (
@@ -25,8 +27,7 @@ import (
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
 	pmm := util.NewPMM(t, "qan-where", ".env.test")
-	pmm.Stop()
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 	defer pmm.Stop()
 
 	b := new(util.Binary)
@@ -193,9 +194,10 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 }
 
 func TestQANEmptyChunks(t *testing.T) {
+	ctx := context.Background()
+
 	pmm := util.NewPMM(t, "qan-empty-chunks", ".env.test")
-	pmm.Stop()
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 	defer pmm.Stop()
 
 	b := new(util.Binary)

@@ -12,20 +12,29 @@ import (
 	"time"
 
 	"github.com/compose-spec/compose-go/dotenv"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 )
 
 const (
-	envVarPMMURL             = "PMM_URL"
-	envVarPMMHTTPPort        = "PMM_HTTP_PORT"
-	envVarPMMVersion         = "PMM_VERSION"
-	envVarClickhousePort     = "CLICKHOUSE_PORT"
-	envVarUseExistingPMM     = "USE_EXISTING_PMM"
-	envVarPMMAgentConfigPath = "PMM_AGENT_CONFIG_FILE"
+	envVarPMMURL                 = "PMM_URL"
+	envVarPMMHTTPPort            = "PMM_HTTP_PORT"
+	envVarPMMVersion             = "PMM_VERSION"
+	envVarClickhousePort         = "CLICKHOUSE_PORT"
+	envVarUseExistingPMM         = "USE_EXISTING_PMM"
+	envVarPMMAgentConfigPath     = "PMM_AGENT_CONFIG_FILE"
+	envVarContainerNamePMMServer = "PMM_SERVER_NAME"
+	envVarContainerNamePMMClient = "PMM_CLIENT_NAME"
+	envVarContainerNameMongo     = "PMM_MONGO_NAME"
+
+	envVarComposeProjectName = "COMPOSE_PROJECT_NAME"
 )
 
 const (
 	defaultPMMURL = "http://localhost"
+
+	composeProjectPrefix = "pmm-dump-test-"
 )
 
 type PMM struct {
@@ -97,8 +106,6 @@ func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 	return envs, nil
 }
 
-const composeProjectPrefix = "pmm-dump-test-"
-
 func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if dotEnvFilename == "" {
 		dotEnvFilename = ".env.test"
@@ -121,7 +128,7 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if name == "" {
 		name = "test"
 	}
-	envs["COMPOSE_PROJECT_NAME"] = composeProjectPrefix + name
+	envs[envVarComposeProjectName] = composeProjectPrefix + name
 	agentConfigFilepath := filepath.Join(testDir, "pmm", fmt.Sprintf("agent_%s.yaml", name))
 	d := filepath.Dir(agentConfigFilepath)
 	if err := os.MkdirAll(d, os.ModePerm); err != nil {
@@ -158,8 +165,8 @@ func (p *PMM) SetEnv() {
 	}
 }
 
-func (p *PMM) Deploy() {
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+func (p *PMM) Deploy(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
 	if p.useExistingDeployment {
 		p.t.Log("Using existing PMM deployment")
@@ -167,6 +174,9 @@ func (p *PMM) Deploy() {
 	}
 	p.SetEnv()
 	p.t.Log("Starting PMM deployment", p.name, "version:", p.envMap[envVarPMMVersion])
+	if err := p.removeExistingTestDeployments(ctx); err != nil {
+		p.t.Fatal(errors.Wrap(err, "remove existing test deployments"))
+	}
 	stdout, stderr, err := Exec(ctx, RepoPath, "make", "up")
 	if err != nil {
 		p.t.Fatal(errors.Wrapf(err, "failed to start PMM: stderr: %s, stdout: %s", stderr, stdout))
@@ -189,6 +199,65 @@ func (p *PMM) Deploy() {
 			return
 		}
 	}
+}
+
+func (p *PMM) removeExistingTestDeployments(ctx context.Context) error {
+	t := p.t
+
+	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+	defer dockerCli.Close()
+
+	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
+		All: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	getContainer := func(containers []types.Container, containerName string) (types.Container, bool) {
+		for _, container := range containers {
+			for _, name := range container.Names {
+				if containerName == strings.TrimPrefix(name, "/") {
+					return container, true
+				}
+			}
+		}
+		return types.Container{}, false
+	}
+
+	containerNameEnvs := []string{
+		envVarContainerNamePMMServer,
+		envVarContainerNamePMMClient,
+		envVarContainerNameMongo,
+	}
+	for _, envName := range containerNameEnvs {
+		containerName := p.envMap[envName]
+		existingContainer, ok := getContainer(containers, containerName)
+		if !ok {
+			continue
+		}
+
+		projectName := existingContainer.Labels["com.docker.compose.project"]
+		if !strings.HasPrefix(projectName, composeProjectPrefix) {
+			t.Fatal("container", containerName, "is already running and doesn't belong to any test PMM deployment.",
+				"Please stop it manually or edit", envName, "env variable in", p.dotEnvFilename, "file")
+		}
+
+		t.Setenv(envVarComposeProjectName, projectName)
+		t.Log("PMM test deployment", projectName, "is already running. Trying to stop it...")
+		stdout, stderr, err := Exec(ctx, RepoPath, "make", "down")
+		if err != nil {
+			return errors.Wrapf(err, "failed to stop PMM deployment %s: stderr: %s, stdout: %s", projectName, stderr, stdout)
+		}
+		t.Log("PMM test deployment", projectName, "is stopped.")
+		p.SetEnv()
+
+		return p.removeExistingTestDeployments(ctx)
+	}
+	return nil
 }
 
 func (p *PMM) Stop() {

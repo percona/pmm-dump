@@ -1,6 +1,9 @@
+//go:build e2e
+
 package e2e
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -8,14 +11,13 @@ import (
 )
 
 func TestExportImport(t *testing.T) {
+	ctx := context.Background()
 	pmm := util.NewPMM(t, "export-import", ".env.test")
-	pmm.Stop()
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 	defer pmm.Stop()
 
 	newPMM := util.NewPMM(t, "export-import-2", ".env2.test")
-	newPMM.Stop()
-	newPMM.Deploy()
+	newPMM.Deploy(ctx)
 	defer newPMM.Stop()
 
 	b := new(util.Binary)

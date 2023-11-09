@@ -1,9 +1,12 @@
+//go:build e2e
+
 package e2e
 
 import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -24,10 +27,9 @@ import (
 )
 
 func TestValidate(t *testing.T) {
+	ctx := context.Background()
 	pmm := util.NewPMM(t, "validate", ".env.test")
 	newPMM := util.NewPMM(t, "validate-2", ".env2.test")
-	pmm.Stop()
-	newPMM.Stop()
 
 	b := new(util.Binary)
 	tmpDir := util.TestDir(t, "validate-test")
@@ -35,7 +37,7 @@ func TestValidate(t *testing.T) {
 	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
 	chunkTimeRange := time.Second * 30
 
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 
 	start := time.Now().UTC()
 	t.Log("Sleeping for 120 seconds")
@@ -61,7 +63,7 @@ func TestValidate(t *testing.T) {
 	t.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
 	time.Sleep(chunkTimeRange)
 
-	newPMM.Deploy()
+	newPMM.Deploy(ctx)
 
 	t.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
