@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package e2e
 
 import (
@@ -11,15 +25,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"pmm-dump/internal/test/util"
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/victoriametrics"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+
+	"pmm-dump/internal/test/util"
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 func TestContentLimit(t *testing.T) {
@@ -31,7 +46,7 @@ func TestContentLimit(t *testing.T) {
 
 	ctx := context.Background()
 
-	b := new(util.Binary)
+	var b util.Binary
 	tmpDir := util.TestDir(t, "content-limit-test")
 	dumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	err := generateFakeDump(dumpPath)
@@ -52,8 +67,7 @@ func TestContentLimit(t *testing.T) {
 	stdout, stderr, err = b.Run(
 		"import",
 		"-d", dumpPath,
-		"--pmm-url", pmm.PMMURL(),
-	)
+		"--pmm-url", pmm.PMMURL())
 	if err != nil {
 		if !strings.Contains(stderr, "413 Request Entity Too Large") {
 			t.Fatal("expected `413 Request Entity Too Large` error, got", err, stdout, stderr)
@@ -68,27 +82,26 @@ func TestContentLimit(t *testing.T) {
 		"import",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL(),
-		"--vm-content-limit", "10024",
-	)
+		"--vm-content-limit", "10024")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
 }
 
 func generateFakeDump(filepath string) error {
-	file, err := os.Create(filepath)
+	file, err := os.Create(filepath) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "failed to open file")
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 	gzw, err := gzip.NewWriterLevel(file, gzip.BestCompression)
 	if err != nil {
 		return errors.Wrap(err, "failed to create gzip writer")
 	}
-	defer gzw.Close()
+	defer gzw.Close() //nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer tw.Close() //nolint:errcheck
 
 	meta := &dump.Meta{
 		VMDataFormat: "json",
@@ -96,14 +109,14 @@ func generateFakeDump(filepath string) error {
 
 	metaContent, err := json.Marshal(meta)
 	if err != nil {
-		return fmt.Errorf("failed to marshal dump meta: %s", err)
+		return fmt.Errorf("failed to marshal dump meta: %w", err)
 	}
 
 	err = tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeReg,
 		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
-		Mode:     0600,
+		Mode:     0o600,
 		ModTime:  time.Now(),
 	})
 	if err != nil {
@@ -126,7 +139,7 @@ func generateFakeDump(filepath string) error {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("vm", fmt.Sprintf("chunk-%d.bin", i)),
 			Size:     chunkSize,
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 			Uid:      1,
 		})
@@ -141,8 +154,8 @@ func generateFakeDump(filepath string) error {
 }
 
 func generateFakeChunk(size int) ([]byte, error) {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
-	data := []byte{}
+	r := rand.New(rand.NewSource(time.Now().Unix())) //nolint:gosec
+	var data []byte
 	for i := 0; i < size; i++ {
 		metricsData, err := json.Marshal(victoriametrics.Metric{
 			Metric: map[string]string{

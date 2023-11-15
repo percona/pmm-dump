@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transferer
 
 import (
@@ -7,13 +21,14 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"pmm-dump/pkg/dump"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
+
+	"pmm-dump/pkg/dump"
 )
 
 func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer) error {
@@ -24,7 +39,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 		Int("size", maxChunksInMem).
 		Msg("Created chunks channel")
 
-	readWG := &sync.WaitGroup{}
+	var readWG sync.WaitGroup
 	g, gCtx := errgroup.WithContext(ctx)
 
 	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", t.workersCount)
@@ -125,10 +140,10 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 	if err != nil {
 		return errors.Wrap(err, "failed to create gzip writer")
 	}
-	defer gzw.Close()
+	defer gzw.Close() //nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer tw.Close() //nolint:errcheck
 
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
@@ -163,7 +178,7 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			Typeflag: tar.TypeReg,
 			Name:     path.Join(s.Type().String(), c.Filename),
 			Size:     chunkSize,
-			Mode:     0600,
+			Mode:     0o600,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -185,7 +200,7 @@ func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 		Typeflag: tar.TypeReg,
 		Name:     dump.LogFilename,
 		Size:     int64(len(byteLog)),
-		Mode:     0600,
+		Mode:     0o600,
 		ModTime:  time.Now(),
 	})
 	if err != nil {

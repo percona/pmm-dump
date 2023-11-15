@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -24,7 +38,7 @@ var (
 	GitVersion string
 )
 
-func main() {
+func main() { //nolint:gocyclo,maintidx
 	var (
 		cli = kingpin.New("pmm-dump", "Percona PMM Dump")
 
@@ -136,14 +150,14 @@ func main() {
 			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
 		}
 
-		dumpLog := new(bytes.Buffer)
+		var dumpLog bytes.Buffer
 
 		hasLevel := log.Logger.GetLevel()
 
 		log.Logger = log.Logger.Level(zerolog.DebugLevel).Output(zerolog.MultiLevelWriter(LevelWriter{
 			Writer: logConsoleWriter,
 			Level:  hasLevel,
-		}, dumpLog))
+		}, &dumpLog))
 
 		if !(*dumpQAN || *dumpCore) {
 			log.Fatal().Msg("Please, specify at least one data source")
@@ -224,11 +238,11 @@ func main() {
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
-		defer file.Close()
+		defer file.Close() //nolint:errcheck
 
 		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
-			log.Fatal().Msgf("Failed to setup export: %v", err)
+			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
 
 		var chunks []dump.ChunkMeta
@@ -265,7 +279,7 @@ func main() {
 
 		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool, dumpLog); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool, &dumpLog); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -300,7 +314,7 @@ func main() {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
 
-		if piped {
+		if piped { //nolint:nestif
 			if *vmNativeData {
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
 			} else {
@@ -341,7 +355,7 @@ func main() {
 			sources = append(sources, chSource)
 		}
 
-		if *dumpPath == "" && piped == false {
+		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
@@ -349,7 +363,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
-		defer file.Close()
+		defer file.Close() //nolint:errcheck
 
 		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
@@ -375,7 +389,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-		if *dumpPath == "" && piped == false {
+		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 

@@ -1,0 +1,67 @@
+---
+# Almost all linters; some of them are optional.
+
+linters-settings:
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: errors
+            desc: Use "github.com/pkg/errors" instead
+
+  goimports:
+    local-prefixes: github.com/percona/pmm-dump
+
+  unused:
+    exported-is-used: true
+
+  unparam:
+    check-exported: true
+
+  tagliatelle:
+    case:
+        rules:
+          json: snake
+
+linters:
+  enable-all: true
+  disable:
+    - exhaustivestruct # too annoying
+    - gci              # works poorly
+    - goerr113         # we use pkg/errors for stack traces
+    - golint           # deprecated
+    - gomnd            # too annoying
+    - interfacer       # deprecated
+    - lll              # gRPC types are long
+    - maligned         # deprecated
+    - nlreturn         # conflicts with formatter
+    - scopelint        # deprecated
+    - wrapcheck        # forces to wrap errors everywhere
+    - wsl              # too annoying
+    - funlen           # annoying
+    - godox            # annoying and useless
+    - varnamelen       # annoying
+    - exhaustruct      # verbose style
+
+      ## TODO: Temporary disabled linters, review this list
+    - tagliatelle      # this project uses both
+    - revive           # multiple warnings
+    - paralleltest     # tests should be checked for ability to run in parallel
+    - stylecheck       # multiple warnings
+    - gocognit         # requires refactoring
+    - exhaustive       # good linter, warnings should be checked
+    - gochecknoglobals # requires refactoring
+    - cyclop           # requires refactoring
+    - nilnil           # good linter, warnings should be checked
+    - misspell         # should be checked and probably configured for some cases
+    - forbidigo        # probably this one can be disabled permanently
+    - gofumpt          # there are some problems with this linter
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen       # tests may be long
+        - testpackage  # senseless
+        - unused       # very annoying false positive: https://github.com/golangci/golangci-lint/issues/791

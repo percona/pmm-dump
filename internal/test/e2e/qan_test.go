@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package e2e
 
 import (
@@ -29,7 +43,7 @@ func TestQANWhere(t *testing.T) {
 	pmm.Deploy()
 	defer pmm.Stop()
 
-	b := new(util.Binary)
+	var b util.Binary
 	testDir := util.TestDir(t, "qan-where")
 
 	t.Log("Waiting for QAN data for 2 minutes")
@@ -52,7 +66,7 @@ func TestQANWhere(t *testing.T) {
 		{
 			name:     "no filter",
 			query:    "",
-			equalMap: map[string]string{},
+			equalMap: make(map[string]string),
 		},
 		{
 			name:  "filter by service name",
@@ -113,7 +127,7 @@ func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string
 	for {
 		values, err := tr.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return errors.Wrap(err, "failed to read tsv")
@@ -141,17 +155,17 @@ func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string
 }
 
 func getQANChunks(filename string) (map[string][]byte, error) {
-	f, err := os.Open(filename)
+	f, err := os.Open(filename) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 	chunkMap := make(chunkMap)
@@ -198,7 +212,7 @@ func TestQANEmptyChunks(t *testing.T) {
 	pmm.Deploy()
 	defer pmm.Stop()
 
-	b := new(util.Binary)
+	var b util.Binary
 	testDir := util.TestDir(t, "qan-empty-chunks")
 
 	startTime := time.Now()

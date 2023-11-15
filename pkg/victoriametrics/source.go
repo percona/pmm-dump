@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package victoriametrics
 
 import (
@@ -10,12 +24,12 @@ import (
 	"strconv"
 	"time"
 
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/grafana"
 )
 
 type Source struct {
@@ -118,12 +132,13 @@ const (
 	errRequestEntityTooLarge = `received "413 Request Entity Too Large" error from PMM`
 )
 
-func decompressContent(content []byte) ([]byte, error) {
+// TODO: this function is not used, can it be removed?
+func decompressContent(content []byte) ([]byte, error) { //nolint:deadcode,unused
 	r, err := gzip.NewReader(bytes.NewReader(content))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gzip reader")
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -138,7 +153,7 @@ func decompressChunk(content []byte) ([]Metric, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create gzip reader")
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	metrics, err := ParseMetrics(r)
 	if err != nil {
@@ -309,7 +324,8 @@ func (s Source) FinalizeWrites() error {
 	return nil
 }
 
-func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) (chunks []dump.ChunkMeta) {
+func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) []dump.ChunkMeta {
+	var chunks []dump.ChunkMeta
 	chunkStart := start
 	for {
 		s, e := chunkStart, chunkStart.Add(delta)
@@ -332,5 +348,5 @@ func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) (chunks
 		Int("chunks", len(chunks)).
 		Msg("Split Victoria Metrics timerange into chunks")
 
-	return
+	return chunks
 }

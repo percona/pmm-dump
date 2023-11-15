@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package e2e
 
 import (
@@ -12,7 +26,7 @@ import (
 )
 
 func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
-	b := new(util.Binary)
+	var b util.Binary
 	tests := []struct {
 		name          string
 		internalError bool
@@ -55,7 +69,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 			}
 			server := httptest.NewServer(http.HandlerFunc(
 				func(w http.ResponseWriter, r *http.Request) {
-					defer r.Body.Close()
+					defer r.Body.Close() //nolint:errcheck
 					switch r.URL.Path {
 					case "/graph/login":
 						http.SetCookie(w, &http.Cookie{
@@ -84,8 +98,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 				"-d", "some-dumppath",
 				"--pmm-url", server.URL,
 				"--pmm-user", "some-user",
-				"--pmm-pass", "some-password",
-			)
+				"--pmm-pass", "some-password")
 			if err != nil && err.Error() != "exit status 1" {
 				t.Fatal(err)
 			}
