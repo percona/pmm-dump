@@ -6,7 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/VictoriaMetrics/metricsql v0.69.0
 	github.com/alecthomas/kingpin/v2 v2.3.2
-	github.com/compose-spec/compose-go v1.20.0
+	github.com/compose-spec/compose-go v1.20.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.31.0
 	github.com/shirou/gopsutil/v3 v3.23.10
