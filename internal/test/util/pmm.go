@@ -1,21 +1,32 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package util
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"pmm-dump/pkg/grafana"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/compose-spec/compose-go/dotenv"
 	"github.com/pkg/errors"
-	"github.com/valyala/fasthttp"
 )
 
 const (
@@ -40,16 +51,16 @@ type PMM struct {
 	timeout               time.Duration
 }
 
-func (pmm *PMM) UseExistingDeployment() bool {
-	return pmm.useExistingDeployment
+func (p *PMM) UseExistingDeployment() bool {
+	return p.useExistingDeployment
 }
 
-func (pmm *PMM) PMMURL() string {
-	m := pmm.envMap
+func (p *PMM) PMMURL() string {
+	m := p.envMap
 
 	u, err := url.Parse(m[envVarPMMURL])
 	if err != nil {
-		pmm.t.Fatal(err)
+		p.t.Fatal(err)
 	}
 	if u.User.Username() == "" {
 		u.User = url.UserPassword("admin", "admin")
@@ -65,12 +76,13 @@ func (pmm *PMM) PMMURL() string {
 	a := u.String()
 	return a
 }
-func (pmm *PMM) ClickhouseURL() string {
-	m := pmm.envMap
+
+func (p *PMM) ClickhouseURL() string {
+	m := p.envMap
 
 	u, err := url.Parse(m[envVarPMMURL])
 	if err != nil {
-		pmm.t.Fatal(err)
+		p.t.Fatal(err)
 	}
 	if u.Scheme == "" {
 		u.Scheme = "http"
@@ -85,7 +97,7 @@ func (pmm *PMM) ClickhouseURL() string {
 }
 
 func getEnvFromDotEnv(filepath string) (map[string]string, error) {
-	envs, err := dotenv.GetEnvFromFile(map[string]string{}, "", []string{filepath})
+	envs, err := dotenv.GetEnvFromFile(make(map[string]string), "", []string{filepath})
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +115,8 @@ func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 const composeProjectPrefix = "pmm-dump-test-"
 
 func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
+	t.Helper()
+
 	if dotEnvFilename == "" {
 		dotEnvFilename = ".env.test"
 	}
@@ -117,10 +131,6 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if !useExistingDeployment {
 		envs[envVarPMMURL] = defaultPMMURL
 	}
-	version := envs[envVarPMMVersion]
-	if version == "" {
-		version = "latest"
-	}
 	if name == "" {
 		name = "test"
 	}
@@ -130,12 +140,12 @@ func NewPMM(t *testing.T, name string, dotEnvFilename string) *PMM {
 	if err := os.MkdirAll(d, os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Create(agentConfigFilepath)
+	f, err := os.Create(agentConfigFilepath) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
-	if err := os.Chmod(agentConfigFilepath, 0666); err != nil {
+	_ = f.Close()
+	if err := os.Chmod(agentConfigFilepath, 0o666); err != nil { //nolint:gosec
 		t.Fatal(err)
 	}
 	if _, ok := envs[envVarPMMAgentConfigPath]; !ok {
@@ -177,10 +187,6 @@ func (p *PMM) Deploy() {
 	}
 	if err := getUntilOk(p.PMMURL()+"/v1/version", p.timeout); err != nil {
 		p.t.Fatal(err, "failed to ping PMM")
-		return
-	}
-	if err := authUntilSuccess(p.PMMURL(), p.timeout); err != nil {
-		p.t.Fatal(err, "failed to auth PMM")
 		return
 	}
 	time.Sleep(15 * time.Second)
@@ -233,19 +239,15 @@ func (p *PMM) Restart() {
 		p.t.Fatal(err, "failed to ping PMM")
 		return
 	}
-	if err := authUntilSuccess(p.PMMURL(), p.timeout); err != nil {
-		p.t.Fatal(err, "failed to auth PMM")
-		return
-	}
 }
 
 func getUntilOk(url string, timeout time.Duration) error {
 	return doUntilSuccess(timeout, func() error {
-		resp, err := http.Get(url)
+		resp, err := http.Get(url) //nolint:gosec,noctx
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil
 		}
@@ -270,26 +272,4 @@ func doUntilSuccess(timeout time.Duration, f func() error) error {
 			return errors.Wrap(err, "timeout")
 		}
 	}
-}
-
-func authUntilSuccess(pmmURL string, timeout time.Duration) error {
-	u, err := url.Parse(pmmURL)
-	if err != nil {
-		return err
-	}
-	grafanaC := grafana.NewClient(&fasthttp.Client{
-		MaxConnsPerHost:           2,
-		MaxIdleConnDuration:       time.Minute,
-		MaxIdemponentCallAttempts: 5,
-		ReadTimeout:               time.Minute,
-		WriteTimeout:              time.Minute,
-		MaxConnWaitTimeout:        time.Second * 30,
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	})
-	return doUntilSuccess(timeout, func() error {
-		pass, _ := u.User.Password()
-		return grafanaC.Auth(pmmURL, u.User.Username(), pass)
-	})
 }

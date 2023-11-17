@@ -1,9 +1,24 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package grafana
 
 import (
 	"fmt"
-	"github.com/VictoriaMetrics/metricsql"
 	"strings"
+
+	"github.com/VictoriaMetrics/metricsql"
 )
 
 func parseQuery(query string, serviceNames []string, templateVars map[string]struct{}, existingSelectors map[string]struct{}) error {
@@ -18,43 +33,45 @@ func parseQuery(query string, serviceNames []string, templateVars map[string]str
 		return err
 	}
 	metricsql.VisitAll(expr, func(expr metricsql.Expr) {
-		if m, ok := expr.(*metricsql.MetricExpr); ok {
-			var filters []string
-			for _, labelFilter := range m.LabelFilterss {
-				for _, f := range labelFilter {
-					var s string
-					if f.Value == "$service_name" {
-						continue
-					} else if _, ok := templateVars[f.Value]; ok {
-						continue
-					} else {
-						s += f.Label
-						switch {
-						case f.IsNegative && f.IsRegexp:
-							s += "!~"
-						case f.IsNegative && !f.IsRegexp:
-							s += "!="
-						case !f.IsNegative && f.IsRegexp:
-							s += "=~"
-						case !f.IsNegative && !f.IsRegexp:
-							s += "="
-						}
-						s += fmt.Sprintf(`"%s"`, f.Value)
-					}
-					filters = append(filters, s)
-				}
-			}
-			if len(serviceNames) == 1 {
-				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+serviceNames[0]+"$"))
-			} else if len(serviceNames) > 1 {
-				filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(serviceNames, "|")+")$"))
-			}
-			if len(filters) == 0 {
-				return
-			}
-			s := fmt.Sprintf("{%s}", strings.Join(filters, ","))
-			existingSelectors[s] = struct{}{}
+		m, ok := expr.(*metricsql.MetricExpr)
+		if !ok {
+			return
 		}
+		var filters []string
+		for _, labelFilter := range m.LabelFilterss {
+			for _, f := range labelFilter {
+				var s string
+				if f.Value == "$service_name" {
+					continue
+				} else if _, ok := templateVars[f.Value]; ok {
+					continue
+				} else {
+					s += f.Label
+					switch {
+					case f.IsNegative && f.IsRegexp:
+						s += "!~"
+					case f.IsNegative && !f.IsRegexp:
+						s += "!="
+					case !f.IsNegative && f.IsRegexp:
+						s += "=~"
+					case !f.IsNegative && !f.IsRegexp:
+						s += "="
+					}
+					s += fmt.Sprintf(`"%s"`, f.Value)
+				}
+				filters = append(filters, s)
+			}
+		}
+		if len(serviceNames) == 1 {
+			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+serviceNames[0]+"$"))
+		} else if len(serviceNames) > 1 {
+			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(serviceNames, "|")+")$"))
+		}
+		if len(filters) == 0 {
+			return
+		}
+		s := fmt.Sprintf("{%s}", strings.Join(filters, ","))
+		existingSelectors[s] = struct{}{}
 	})
 	return nil
 }
@@ -98,7 +115,7 @@ func (p *panel) selectors(serviceNames []string, templateVars map[string]struct{
 
 	for _, target := range p.Targets {
 		if err := parseQuery(target.Expr, serviceNames, templateVars, existingSelectors); err != nil {
-			return fmt.Errorf("failed to parse query \"%s\": %v", target.Expr, err)
+			return fmt.Errorf("failed to parse query \"%s\": %w", target.Expr, err)
 		}
 	}
 
@@ -110,13 +127,13 @@ func (p *panel) selectors(serviceNames []string, templateVars map[string]struct{
 	return nil
 }
 
-func (d *dashboardExprResp) parseSelectors(serviceNames []string) (selectors []string, err error) {
+func (d *dashboardExprResp) parseSelectors(serviceNames []string) ([]string, error) {
 	existingSelectors := make(map[string]struct{})
 	templateVars := make(map[string]struct{})
 	if err := d.Dashboard.selectors(serviceNames, templateVars, existingSelectors); err != nil {
 		return nil, err
 	}
-	selectors = make([]string, 0, len(existingSelectors))
+	selectors := make([]string, 0, len(existingSelectors))
 	for v := range existingSelectors {
 		selectors = append(selectors, v)
 	}

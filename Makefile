@@ -25,11 +25,21 @@ VERSION:=$(shell git describe --tags --abbrev=0)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
-init:
+init:                   ## Install development tools
+	cd tools && go generate -x -tags=tools
 	bash -c "[ ! -f .env ] && cp .env.example .env || true"
 
 build:
 	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)' -X 'main.GitVersion=$(VERSION)'" -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
+
+format:                 ## Format source code
+	bin/gofumpt -l -w .
+	bin/goimports -local github.com/percona/pmm-dump -l -w .
+
+check:                  ## Run checks/linters for the whole project
+	bin/license-eye -c .licenserc.yaml header check
+	bin/go-consistent -pedantic ./...
+	LOG_LEVEL=error bin/golangci-lint run
 
 up: init
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml

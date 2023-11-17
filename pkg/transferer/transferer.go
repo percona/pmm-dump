@@ -1,11 +1,26 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transferer
 
 import (
 	"io"
-	"pmm-dump/pkg/dump"
 	"runtime"
 
 	"github.com/pkg/errors"
+
+	"pmm-dump/pkg/dump"
 )
 
 type Transferer struct {
@@ -40,7 +55,7 @@ type LoadStatusGetter interface {
 
 const maxChunksInMem = 4
 
-func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) {
+func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) { //nolint:ireturn
 	for _, s := range t.sources {
 		if s.Type() == st {
 			return s, true

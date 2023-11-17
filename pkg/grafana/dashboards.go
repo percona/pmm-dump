@@ -1,25 +1,40 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package grafana
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 )
 
-func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c Client) ([]string, error) {
+func GetDashboardSelectors(pmmURL string, dashboards, serviceNames []string, c *Client) ([]string, error) {
 	var selectors []string
 	for _, d := range dashboards {
 		sel, err := getSingleDashboardSelectors(pmmURL, d, serviceNames, c)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve selectors for dashboard \"%s\": %v", d, err)
+			return nil, fmt.Errorf("failed to retrieve selectors for dashboard \"%s\": %w", d, err)
 		}
 		selectors = append(selectors, sel...)
 	}
 	return selectors, nil
 }
 
-func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c Client) ([]string, error) {
+func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []string, c *Client) ([]string, error) {
 	uid, err := findDashboardUID(pmmURL, dashboardName, c)
 	if err != nil {
 		return nil, err
@@ -33,8 +48,8 @@ func getSingleDashboardSelectors(pmmURL, dashboardName string, serviceNames []st
 		return nil, fmt.Errorf("non-ok status: %d", status)
 	}
 
-	exprResp := new(dashboardExprResp)
-	if err = json.Unmarshal(data, exprResp); err != nil {
+	var exprResp dashboardExprResp
+	if err = json.Unmarshal(data, &exprResp); err != nil {
 		return nil, err
 	}
 	selectors, err := exprResp.parseSelectors(serviceNames)
@@ -55,24 +70,24 @@ type templateElement struct {
 }
 
 func (t *templateElement) UnmarshalJSON(data []byte) error {
-	var v map[string]interface{}
+	v := make(map[string]interface{})
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
 	if name, ok := v["name"]; ok {
 		t.Name, _ = name.(string)
 	}
-	switch v["query"].(type) {
+	switch s := v["query"].(type) {
 	case string:
-		t.Query = v["query"].(string)
+		t.Query = s
 	case map[string]interface{}:
-		t.Query, _ = v["query"].(map[string]interface{})["query"].(string)
+		t.Query, _ = s["query"].(string)
 	}
 	return nil
 }
 
 type panel struct {
-	Id      int     `json:"id"`
+	ID      int     `json:"id"`
 	Panels  []panel `json:"panels"`
 	Targets []struct {
 		Expr string `json:"expr"`
@@ -82,7 +97,7 @@ type panel struct {
 	} `json:"templating"`
 }
 
-func findDashboardUID(pmmURL, name string, c Client) (string, error) {
+func findDashboardUID(pmmURL, name string, c *Client) (string, error) {
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
@@ -103,13 +118,13 @@ func findDashboardUID(pmmURL, name string, c Client) (string, error) {
 	if len(resp) == 0 {
 		return "", errors.New("dashboard not found")
 	} else if len(resp) == 1 {
-		return resp[0].Uid, nil
+		return resp[0].UID, nil
 	}
 
 	uid := ""
 	for _, v := range resp {
 		if v.Title == name {
-			uid = v.Uid
+			uid = v.UID
 			break
 		}
 	}
@@ -121,17 +136,17 @@ func findDashboardUID(pmmURL, name string, c Client) (string, error) {
 }
 
 type dashboardSearchResp struct {
-	Id          int      `json:"id"`
-	Uid         string   `json:"uid"`
+	ID          int      `json:"id"`
+	UID         string   `json:"uid"`
 	Title       string   `json:"title"`
-	Uri         string   `json:"uri"`
-	Url         string   `json:"url"`
+	URI         string   `json:"uri"`
+	URL         string   `json:"url"`
 	Slug        string   `json:"slug"`
 	Type        string   `json:"type"`
 	Tags        []string `json:"tags"`
 	IsStarred   bool     `json:"isStarred"`
-	FolderId    int      `json:"folderId"`
-	FolderUid   string   `json:"folderUid"`
+	FolderID    int      `json:"folderId"`
+	FolderUID   string   `json:"folderUid"`
 	FolderTitle string   `json:"folderTitle"`
-	FolderUrl   string   `json:"folderUrl"`
+	FolderURL   string   `json:"folderUrl"`
 }

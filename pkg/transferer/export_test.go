@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transferer
 
 import (
@@ -112,16 +126,16 @@ func TestExport(t *testing.T) {
 				tr := Transferer{
 					sources:      sources,
 					workersCount: opt.workersCount,
-					file:         new(bytes.Buffer),
+					file:         bytes.NewBuffer(nil),
 				}
-				meta := dump.Meta{}
+				var meta dump.Meta
 				var chunks []dump.ChunkMeta
 				if tt.chunkSourceType != dump.UndefinedSource {
 					chunks = prepareFakeChunks(time.Now().Add(-time.Hour), time.Now(), tt.chunkTimeRange, tt.chunkSourceType)
 				} else {
 					vmChunks := prepareFakeChunks(time.Now().Add(-time.Hour), time.Now(), tt.chunkTimeRange, dump.VictoriaMetrics)
 					chChunks := prepareFakeChunks(time.Now().Add(-time.Hour), time.Now(), tt.chunkTimeRange, dump.ClickHouse)
-					chunks = append(vmChunks, chChunks...)
+					chunks = append(vmChunks, chChunks...) //nolint:gocritic
 				}
 				pool, err := dump.NewChunkPool(chunks)
 				if err != nil {
@@ -158,7 +172,8 @@ func (g fakeStatusGetter) GetLatestStatus() (LoadStatus, int) {
 	return g.status, *g.count
 }
 
-func prepareFakeChunks(start, end time.Time, delta time.Duration, sourceType dump.SourceType) (chunks []dump.ChunkMeta) {
+func prepareFakeChunks(start, end time.Time, delta time.Duration, sourceType dump.SourceType) []dump.ChunkMeta {
+	var chunks []dump.ChunkMeta
 	chunkStart := start
 	for {
 		s, e := chunkStart, chunkStart.Add(delta)
@@ -173,5 +188,5 @@ func prepareFakeChunks(start, end time.Time, delta time.Duration, sourceType dum
 			break
 		}
 	}
-	return
+	return chunks
 }
