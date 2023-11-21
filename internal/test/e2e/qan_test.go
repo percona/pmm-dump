@@ -59,14 +59,29 @@ func TestQANWhere(t *testing.T) {
 	columnTypes := cSource.ColumnTypes()
 
 	tests := []struct {
-		name     string
-		query    string
-		equalMap map[string]string
+		name      string
+		instances []string
+		query     string
+		equalMap  map[string]string
 	}{
 		{
 			name:     "no filter",
 			query:    "",
-			equalMap: make(map[string]string),
+			equalMap: map[string]string{},
+		},
+		{
+			name:      "one instance was specified",
+			instances: []string{"mongo"},
+			equalMap: map[string]string{
+				"service_name": "mongo",
+			},
+		},
+		{
+			name:      "two instances were specified",
+			instances: []string{"mongo", "some_other_service"},
+			equalMap: map[string]string{
+				"service_name": "mongo",
+			},
 		},
 		{
 			name:  "filter by service name",
@@ -97,6 +112,10 @@ func TestQANWhere(t *testing.T) {
 				"--dump-qan",
 				"--click-house-url", pmm.ClickhouseURL(),
 				"--where", tt.query,
+			}
+
+			for _, instance := range tt.instances {
+				args = append(args, fmt.Sprintf("--instance=%s", instance))
 			}
 
 			t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
