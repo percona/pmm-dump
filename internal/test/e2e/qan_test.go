@@ -67,7 +67,7 @@ func TestQANWhere(t *testing.T) {
 		{
 			name:     "no filter",
 			query:    "",
-			equalMap: map[string]string{},
+			equalMap: nil,
 		},
 		{
 			name:      "one instance was specified",
