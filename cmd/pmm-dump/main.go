@@ -199,7 +199,7 @@ func main() { //nolint:gocyclo,maintidx
 		if *where == "" && len(*instances) > 0 {
 			for i, serviceName := range *instances {
 				if i != 0 {
-					*where += " AND "
+					*where += " OR "
 				}
 				*where += fmt.Sprintf("service_name='%s'", serviceName)
 			}
