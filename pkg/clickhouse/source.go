@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package clickhouse
 
 import (
@@ -5,14 +19,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
+	"strings"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"io"
+
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
-	"strings"
-	"time"
 )
 
 type Source struct {
@@ -33,11 +49,11 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
+		var exception *clickhouse.Exception
+		if errors.As(err, &exception) {
 			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 	tx, err := db.Begin()
 	if err != nil {
@@ -67,6 +83,10 @@ func columnTypes(db *sql.DB) ([]*sql.ColumnType, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close() //nolint:errcheck
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return rows.ColumnTypes()
 }
 
@@ -84,9 +104,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func(rows *sql.Rows) {
-		_ = rows.Close()
-	}(rows)
+	defer rows.Close() //nolint:errcheck
 
 	columns, err := rows.Columns()
 	if err != nil {
@@ -94,10 +112,11 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	}
 	values := make([]interface{}, len(columns))
 	for i := range columns {
-		values[i] = new(interface{})
+		var ei interface{}
+		values[i] = &ei
 	}
-	buf := new(bytes.Buffer)
-	writer := tsv.NewWriter(buf)
+	var buf bytes.Buffer
+	writer := tsv.NewWriter(&buf)
 	for rows.Next() {
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
@@ -125,7 +144,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 func toStringSlice(iSlice []interface{}) []string {
 	values := make([]string, 0, cap(iSlice))
 	for _, v := range iSlice {
-		value := v.(*interface{})
+		value := v.(*interface{}) //nolint:forcetypeassert
 		if value == nil {
 			values = append(values, "")
 			continue
@@ -141,7 +160,7 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 	for {
 		records, err := reader.Read()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -175,7 +194,7 @@ func (s Source) FinalizeWrites() error {
 }
 
 func prepareWhereClause(whereCondition string, start, end *time.Time) string {
-	where := []string{}
+	var where []string
 	if whereCondition != "" {
 		where = append(where, fmt.Sprintf("(%s)", whereCondition))
 	}

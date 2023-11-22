@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transferer
 
 import (
@@ -21,7 +35,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 
@@ -45,7 +59,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 
 		header, err := tr.Next()
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			log.Debug().Msg("Processed complete dump file")
 			break
 		}

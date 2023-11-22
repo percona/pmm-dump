@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -38,7 +52,7 @@ func newClientHTTP(insecureSkipVerify bool) *fasthttp.Client {
 		WriteTimeout:              time.Minute,
 		MaxConnWaitTimeout:        time.Second * 30,
 		TLSConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify,
+			InsecureSkipVerify: insecureSkipVerify, //nolint:gosec
 		},
 	}
 }
@@ -60,7 +74,7 @@ func getGoroutineID() int {
 	return id
 }
 
-// getPMMVersion returns version, full-version and error
+// getPMMVersion returns version, full-version and error.
 func getPMMVersion(pmmURL string, c *grafana.Client) (string, string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
@@ -73,16 +87,15 @@ func getPMMVersion(pmmURL string, c *grafana.Client) (string, string, error) {
 	}
 
 	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
-
 	if err != nil {
 		return "", "", err
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	resp := new(versionResp)
-	if err = json.Unmarshal(body, resp); err != nil {
-		return "", "", fmt.Errorf("failed to unmarshal response: %s", err)
+	var resp versionResp
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return "", "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
@@ -103,13 +116,13 @@ func getPMMServices(pmmURL string, c *grafana.Client) ([]dump.PMMServerService, 
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	serviceResp := new(servicesResp)
-	if err = json.Unmarshal(body, serviceResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+	var serviceResp servicesResp
+	if err = json.Unmarshal(body, &serviceResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	services := make([]dump.PMMServerService, 0)
-	for _, serviceType := range *serviceResp {
+	for _, serviceType := range serviceResp {
 		for _, service := range serviceType {
 			newService := dump.PMMServerService{
 				Name:   service.Name,
@@ -144,16 +157,15 @@ func getPMMServiceNodeName(pmmURL string, c *grafana.Client, nodeID string) (str
 	statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
 		NodeID string `json:"node_id"`
 	}{nodeID})
-
 	if err != nil {
 		return "", err
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	nodeResp := new(nodeRespStruct)
-	if err = json.Unmarshal(body, nodeResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	var nodeResp nodeRespStruct
+	if err = json.Unmarshal(body, &nodeResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return nodeResp.Generic.Name, nil
@@ -172,14 +184,14 @@ func getPMMServiceAgentsIds(pmmURL string, c *grafana.Client, serviceID string) 
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
 	}
-	agentsResp := new(agentsRespStruct)
-	if err = json.Unmarshal(body, agentsResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %s", err)
+	var agentsResp agentsRespStruct
+	if err = json.Unmarshal(body, &agentsResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	agentsIDs := make([]string, 0)
 
-	for _, agentType := range *agentsResp {
+	for _, agentType := range agentsResp {
 		for _, agent := range agentType {
 			if agent.ServiceID != nil && *agent.ServiceID == serviceID {
 				agentsIDs = append(agentsIDs, *agent.AgentID)
@@ -190,7 +202,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *grafana.Client, serviceID string) 
 	return agentsIDs, nil
 }
 
-// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings.
 func getPMMTimezone(pmmURL string, c *grafana.Client) (string, error) {
 	type tzResp struct {
 		Timezone string `json:"timezone"`
@@ -204,9 +216,9 @@ func getPMMTimezone(pmmURL string, c *grafana.Client) (string, error) {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
 	}
 
-	resp := new(tzResp)
-	if err = json.Unmarshal(body, resp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %s", err)
+	var resp tzResp
+	if err = json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 	return resp.Timezone, nil
 }
@@ -234,11 +246,11 @@ func composeMeta(pmmURL string, c *grafana.Client, exportServices bool, cli *kin
 	}
 	var args []string
 	for _, element := range context.Elements {
-		switch element.Clause.(type) {
+		switch cl := element.Clause.(type) {
 		case *kingpin.CmdClause:
-			args = append(args, element.Clause.(*kingpin.CmdClause).FullCommand())
+			args = append(args, cl.FullCommand())
 		case *kingpin.FlagClause:
-			model := element.Clause.(*kingpin.FlagClause).Model()
+			model := cl.Model()
 			value := model.Value.String()
 			switch model.Name {
 			case "pmm-user", "pmm-pass":
@@ -317,15 +329,15 @@ type LevelWriter struct {
 	Level  zerolog.Level
 }
 
-func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
+func (lw LevelWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 	if level >= lw.Level {
 		return lw.Write(p)
-	} else {
-		return len(p), nil
 	}
+
+	return len(p), nil
 }
 
-func (lw LevelWriter) Write(p []byte) (n int, err error) {
+func (lw LevelWriter) Write(p []byte) (int, error) {
 	return lw.Writer.Write(p)
 }
 
@@ -453,7 +465,7 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 			Str("path", dumpPath).
 			Msg("Opening dump file...")
 
-		file, err = os.Open(dumpPath)
+		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
 		}
@@ -474,10 +486,10 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 		}
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
-		if err := os.MkdirAll(path.Dir(filepath), 0777); err != nil {
+		if err := os.MkdirAll(path.Dir(filepath), 0o777); err != nil { //nolint:gosec
 			return nil, errors.Wrap(err, "failed to create folders for the dump file")
 		}
-		file, err = os.Create(filepath)
+		file, err = os.Create(filepath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create %s", filepath)
 		}

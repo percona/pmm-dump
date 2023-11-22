@@ -3,6 +3,7 @@
 
 main
 /pmm-dump
+/bin/
 
 setup/pmm/
 setup/mongo/db/

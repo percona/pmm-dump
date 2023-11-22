@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transferer
 
 import (
@@ -5,14 +19,15 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
-	"pmm-dump/pkg/dump"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+
+	"pmm-dump/pkg/dump"
 )
 
 func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
@@ -21,18 +36,18 @@ func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
 		file = os.Stdin
 	} else {
 		var err error
-		file, err = os.Open(dumpPath)
+		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open file")
 		}
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
-	defer gzr.Close()
+	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 
@@ -41,7 +56,7 @@ func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
 
 		header, err := tr.Next()
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			log.Debug().Msg("Processed complete dump file - no meta found")
 			return nil, errors.New("no meta file found in dump")
 		}
@@ -72,14 +87,14 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 
 	metaContent, err := json.Marshal(meta)
 	if err != nil {
-		return fmt.Errorf("failed to marshal dump meta: %s", err)
+		return fmt.Errorf("failed to marshal dump meta: %w", err)
 	}
 
 	err = tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeReg,
 		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
-		Mode:     0600,
+		Mode:     0o600,
 		ModTime:  time.Now(),
 	})
 	if err != nil {
@@ -94,18 +109,17 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 }
 
 func readMetafile(r io.Reader) (*dump.Meta, error) {
-	metaBytes, err := ioutil.ReadAll(r)
+	metaBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read bytes")
 	}
 
-	meta := &dump.Meta{}
-
-	if err := json.Unmarshal(metaBytes, meta); err != nil {
+	var meta dump.Meta
+	if err := json.Unmarshal(metaBytes, &meta); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal")
 	}
 
-	return meta, nil
+	return &meta, nil
 }
 
 func readAndCompareDumpMeta(r io.Reader, runtimeMeta dump.Meta) {

@@ -1,3 +1,17 @@
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transferer
 
 import (
@@ -11,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	"pmm-dump/pkg/grafana"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/valyala/fasthttp"
+
+	"pmm-dump/pkg/grafana"
 )
 
 type LoadStatus int
@@ -71,7 +85,7 @@ func NewLoadChecker(ctx context.Context, c *grafana.Client, url string, threshol
 
 	lc.updateStatus()
 
-	if len(thresholds) != 0 { // nothing to check so no status updates
+	if len(thresholds) > 0 { // nothing to check so no status updates
 		lc.runStatusUpdate(ctx)
 	}
 
@@ -188,12 +202,12 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	var resp metricResponse
 
 	if err = json.Unmarshal(body, &resp); err != nil {
-		return 0, fmt.Errorf("error parsing thresholds: %s", err)
+		return 0, fmt.Errorf("error parsing thresholds: %w", err)
 	}
 
 	value, err := resp.getValidValue()
 	if err != nil {
-		return 0, fmt.Errorf("error parsing threshold: %s", err)
+		return 0, fmt.Errorf("error parsing threshold: %w", err)
 	}
 	log.Debug().Msgf("Got %f threshold value", value)
 	return value, nil
@@ -285,9 +299,9 @@ func ParseThresholdList(max, critical string) ([]Threshold, error) {
 		return nil, errors.Wrap(err, "invalid critical load list")
 	}
 
-	var thresholds []Threshold
-
-	for _, k := range AllThresholdKeys() {
+	keys := AllThresholdKeys()
+	thresholds := make([]Threshold, 0, len(keys))
+	for _, k := range keys {
 		maxLoad, maxOk := maxV[k]
 		criticalLoad, criticalOk := criticalV[k]
 
