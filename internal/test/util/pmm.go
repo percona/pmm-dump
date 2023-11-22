@@ -221,7 +221,7 @@ func (p *PMM) removeExistingTestDeployments(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 
 	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
 		All: true,
