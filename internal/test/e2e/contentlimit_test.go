@@ -1,3 +1,5 @@
+//go:build e2e
+
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,7 +44,6 @@ func TestContentLimit(t *testing.T) {
 	if pmm.UseExistingDeployment() {
 		t.Skip("skipping test because existing deployment is used")
 	}
-	pmm.Stop()
 
 	ctx := context.Background()
 
@@ -54,7 +55,7 @@ func TestContentLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 	defer pmm.Stop()
 
 	stdout, stderr, err := util.Exec(ctx, "", "docker", "compose", "exec", "pmm-server", "bash", "-c", "sed -i -e 's/client_max_body_size 10m/client_max_body_size 1m/g' /etc/nginx/conf.d/pmm.conf")

@@ -83,12 +83,18 @@ import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
-init-test: init build
-	./setup/test/init-test-configs.sh test
-
-run-tests: init-test down-tests build
-	./support-files/run-tests	
-
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
 	rm -rf $(TEST_CFG_DIR)/pmm $(TEST_CFG_DIR)/tmp
+
+run-e2e-tests: init-e2e-tests
+	./support-files/run-tests e2e
+
+run-unit-tests:
+	./support-files/run-tests
+
+init-e2e-tests: init build
+	./setup/test/init-test-configs.sh test
+
+run-tests: run-unit-tests run-e2e-tests
+

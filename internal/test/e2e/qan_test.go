@@ -1,3 +1,5 @@
+//go:build e2e
+
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,8 +41,7 @@ import (
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
 	pmm := util.NewPMM(t, "qan-where", ".env.test")
-	pmm.Stop()
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 	defer pmm.Stop()
 
 	var b util.Binary
@@ -226,9 +227,10 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 }
 
 func TestQANEmptyChunks(t *testing.T) {
+	ctx := context.Background()
+
 	pmm := util.NewPMM(t, "qan-empty-chunks", ".env.test")
-	pmm.Stop()
-	pmm.Deploy()
+	pmm.Deploy(ctx)
 	defer pmm.Stop()
 
 	var b util.Binary

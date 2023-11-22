@@ -1,3 +1,5 @@
+//go:build e2e
+
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +17,7 @@
 package e2e
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +28,7 @@ import (
 )
 
 func TestPMMCompatibility(t *testing.T) {
-	t.Helper()
+	ctx := context.Background()
 
 	pmmVersions := getVersions(t)
 	if len(pmmVersions) < 2 {
@@ -40,7 +43,7 @@ func TestPMMCompatibility(t *testing.T) {
 		}
 		oldPMM.SetVersion(pmmVersions[i])
 		oldPMM.Stop()
-		oldPMM.Deploy()
+		oldPMM.Deploy(ctx)
 
 		testDir := t.TempDir()
 		t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
@@ -61,7 +64,7 @@ func TestPMMCompatibility(t *testing.T) {
 		}
 		newPMM := util.NewPMM(t, "compatibility", "")
 		newPMM.SetVersion(pmmVersions[i+1])
-		newPMM.Deploy()
+		newPMM.Deploy(ctx)
 
 		t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
 		stdout, stderr, err = b.Run("import", "-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL())
