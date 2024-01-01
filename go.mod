@@ -10,7 +10,7 @@ require (
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.31.0
-	github.com/shirou/gopsutil/v3 v3.23.10
+	github.com/shirou/gopsutil/v3 v3.23.12
 	github.com/valyala/fasthttp v1.51.0
 	golang.org/x/sync v0.5.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -47,7 +47,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
