@@ -27,12 +27,12 @@ var (
 	_, b, _, _ = runtime.Caller(0)
 
 	RepoPath = filepath.Join(filepath.Dir(b), "..", "..", "..")
-	testDir  = filepath.Join(RepoPath, "test")
+	TestDir  = filepath.Join(RepoPath, "test")
 )
 
-func TestDir(t *testing.T, dirName string) string {
+func CreateTestDir(t *testing.T, dirName string) string {
 	dirName = fmt.Sprintf("%s-%d", dirName, time.Now().Unix())
-	dirPath := filepath.Join(testDir, "tmp", dirName)
+	dirPath := filepath.Join(TestDir, "tmp", dirName)
 	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
 		t.Fatal(err)
 	}

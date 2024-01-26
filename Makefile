@@ -52,7 +52,7 @@ down:
 	rm -rf setup/pmm/agent.yaml
 
 down-tests:
-	docker compose ls -q | grep '^pmm-dump-test-' | while read -r project; do COMPOSE_PROJECT_NAME="$$project" docker compose down --volumes; done
+	./support-files/destroy-test-resources
 
 re: down up
 

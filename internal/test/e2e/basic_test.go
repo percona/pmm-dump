@@ -21,18 +21,29 @@ import (
 	"path/filepath"
 	"testing"
 
+	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func TestExportImport(t *testing.T) {
-	ctx := context.Background()
-	pmm := util.NewPMM(t, "export-import", ".env.test")
-	pmm.Deploy(ctx)
-	defer pmm.Stop()
+	startTest(t)
+	pmm := deployment.NewPMM(t, "export-import", ".env.test")
+	newPMM := deployment.NewPMM(t, "export-import-2", ".env2.test")
 
-	newPMM := util.NewPMM(t, "export-import-2", ".env2.test")
-	newPMM.Deploy(ctx)
-	defer newPMM.Stop()
+	ctx := context.Background()
+	g, gCtx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return pmm.Deploy(gCtx)
+	})
+
+	g.Go(func() error {
+		return newPMM.Deploy(gCtx)
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
 
 	var b util.Binary
 	testDir := t.TempDir()

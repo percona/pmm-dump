@@ -57,7 +57,7 @@ func composeClickHouseURL(u url.URL) string {
 	if i != -1 {
 		u.Host = u.Host[:i]
 	}
-	u.Host += ":9000"
+	u.Host += ":8123"
 	u.RawQuery = "database=pmm"
 	return u.String()
 }

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+filter="label=com.percona.pmm-dump.test"
+
+if [ -n "$(docker ps -a -q -f "$filter")" ]; then
+	docker stop "$(docker ps -a -q -f "$filter")"
+	docker rm "$(docker ps -a -q -f "$filter")"
+fi
+if [ -n "$(docker volume ls -q -f "$filter")" ]; then
+	docker volume rm "$(docker volume ls -q -f "$filter")"
+fi
+if [ -n "$(docker network ls -q -f "$filter")" ]; then
+	docker network rm "$(docker network ls -q -f "$filter")"
+fi

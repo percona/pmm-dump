@@ -33,25 +33,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
+
+	"github.com/pkg/errors"
 )
 
 func TestValidate(t *testing.T) {
+	startTest(t)
+
 	ctx := context.Background()
-	pmm := util.NewPMM(t, "validate", ".env.test")
-	newPMM := util.NewPMM(t, "validate-2", ".env2.test")
+	pmm := deployment.NewPMM(t, "validate", ".env.test")
+	newPMM := deployment.NewPMM(t, "validate-2", ".env2.test")
 
 	var b util.Binary
-	tmpDir := util.TestDir(t, "validate-test")
+	tmpDir := util.CreateTestDir(t, "validate-test")
 	xDumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
 	chunkTimeRange := time.Second * 30
 
-	pmm.Deploy(ctx)
+	if err := pmm.Deploy(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	start := time.Now().UTC()
 	t.Log("Sleeping for 120 seconds")
@@ -76,7 +81,9 @@ func TestValidate(t *testing.T) {
 	t.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
 	time.Sleep(chunkTimeRange)
 
-	newPMM.Deploy(ctx)
+	if err := newPMM.Deploy(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	t.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
@@ -114,9 +121,6 @@ func TestValidate(t *testing.T) {
 		t.Fatalf("too much data loss %f%%", loss*100)
 	}
 	t.Logf("data loss is %f%%", loss*100)
-
-	pmm.Stop()
-	newPMM.Stop()
 }
 
 func validateChunks(t *testing.T, xDump, yDump string) (float64, error) {

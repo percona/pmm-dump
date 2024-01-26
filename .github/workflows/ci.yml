@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   test:
-    if: false # TODO: make tests faster and enable this job
+    if: github.event_name == 'pull_request'
     name: Test
     timeout-minutes: 10
     continue-on-error: false
