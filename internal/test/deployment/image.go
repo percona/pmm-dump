@@ -20,9 +20,7 @@ func PullImage(ctx context.Context, image string) error {
 	}
 	defer dockerCli.Close()
 
-	out, err := dockerCli.ImagePull(ctx, image, types.ImagePullOptions{
-		Platform: "linux/amd64", // TODO: get from env
-	})
+	out, err := dockerCli.ImagePull(ctx, image, types.ImagePullOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to pull image")
 	}

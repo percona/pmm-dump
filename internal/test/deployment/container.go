@@ -15,7 +15,6 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 )
 
@@ -260,18 +259,9 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		},
 	}
 
-	// TODO: get from env
-	platform := &v1.Platform{
-		Architecture: "amd64",
-		OS:           "linux",
-	}
-
-	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, platform, name)
+	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, name)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create container")
-	}
-	if len(resp.Warnings) > 0 {
-		return "", errors.New("got warnings during container creation:" + strings.Join(resp.Warnings, ","))
 	}
 
 	if err := dockerCli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
