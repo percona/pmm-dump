@@ -58,6 +58,14 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to set server published ports")
 	}
 
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
+		return errors.Wrap(err, "failed to update clickhouse config")
+	}
+
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse"); err != nil {
+		return errors.Wrap(err, "failed to restart clickhouse")
+	}
+
 	if err := getUntilOk(pmm.PMMURL()+"/v1/version", time.Second*30); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
