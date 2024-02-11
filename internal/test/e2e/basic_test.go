@@ -28,9 +28,9 @@ import (
 )
 
 func TestExportImport(t *testing.T) {
-	startTest(t)
-	pmm := deployment.NewPMM(t, "export-import", ".env.test")
-	newPMM := deployment.NewPMM(t, "export-import-2", ".env2.test")
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("export-import", ".env.test")
+	newPMM := c.NewPMM("export-import-2", ".env2.test")
 
 	ctx := context.Background()
 	g, gCtx := errgroup.WithContext(ctx)

@@ -40,9 +40,9 @@ import (
 )
 
 func TestQANWhere(t *testing.T) {
-	startTest(t)
 	ctx := context.Background()
-	pmm := deployment.NewPMM(t, "qan-where", ".env.test")
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("qan-where", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -230,14 +230,13 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 }
 
 func TestQANEmptyChunks(t *testing.T) {
-	startTest(t)
 	ctx := context.Background()
 
-	pmm := deployment.NewPMM(t, "qan-empty-chunks", ".env.test")
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("qan-empty-chunks", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
-	defer pmm.Destroy(ctx)
 
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-empty-chunks")

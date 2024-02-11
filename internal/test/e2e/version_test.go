@@ -26,14 +26,11 @@ import (
 	"pmm-dump/internal/test/util"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 )
 
 func TestPMMCompatibility(t *testing.T) {
 	ctx := context.Background()
-
-	startTest(t)
 
 	pmmVersions, err := getVersions()
 	if err != nil {
@@ -43,33 +40,19 @@ func TestPMMCompatibility(t *testing.T) {
 		t.Fatal("not enough versions to test provided in ")
 	}
 
-	pmm := deployment.NewPMM(t, "compatibility", "")
-	if pmm.UseExistingDeployment() {
-		t.Skip("skipping test because existing deployment is used")
-	}
-
-	deployments := make(map[string]*deployment.PMM, len(pmmVersions))
-	g, gCtx := errgroup.WithContext(ctx)
-	for i := range pmmVersions {
-		i := i
-		g.Go(func() error {
-			pmm := deployment.NewPMM(t, "compatibility-"+pmmVersions[i], "")
-			pmm.SetVersion(pmmVersions[i])
-			if err := pmm.Deploy(gCtx); err != nil {
-				return err
-			}
-			deployments[pmmVersions[i]] = pmm
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		t.Fatal(err)
-	}
+	c := deployment.NewController(t)
 
 	var b util.Binary
 	dumpPath := ""
 	for _, version := range pmmVersions {
-		pmm := deployments[version]
+		pmm := c.NewPMM("compatibility-"+version, "")
+		if pmm.UseExistingDeployment() {
+			t.Skip("skipping test because existing deployment is used")
+		}
+		pmm.SetVersion(version)
+		if err := pmm.Deploy(ctx); err != nil {
+			t.Fatal(err)
+		}
 		if dumpPath != "" {
 			t.Log("Importing data from", dumpPath)
 			stdout, stderr, err := b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())

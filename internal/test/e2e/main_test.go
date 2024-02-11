@@ -27,36 +27,11 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sync/semaphore"
 )
-
-const (
-	maxParallelTests = 4
-)
-
-var s *semaphore.Weighted
-
-var failedTests []string
-
-func startTest(t *testing.T) {
-	t.Helper()
-	t.Parallel()
-
-	if err := s.Acquire(context.Background(), 1); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		s.Release(1)
-		if t.Failed() {
-			failedTests = append(failedTests, t.Name())
-		}
-	})
-}
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	s = semaphore.NewWeighted(maxParallelTests)
 	logConsoleWriter := zerolog.ConsoleWriter{
 		Out:        os.Stderr,
 		NoColor:    true,
@@ -86,8 +61,8 @@ func TestMain(m *testing.M) {
 	log.Print("Running tests")
 	exitcode := m.Run()
 
-	if len(failedTests) > 0 {
-		log.Print("Failed tests: " + strings.Join(failedTests, ","))
+	if len(deployment.GetFailedTests()) > 0 {
+		log.Print("Failed tests: " + strings.Join(deployment.GetFailedTests(), ","))
 		os.Exit(1)
 	}
 

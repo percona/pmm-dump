@@ -42,11 +42,11 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	startTest(t)
-
 	ctx := context.Background()
-	pmm := deployment.NewPMM(t, "validate", ".env.test")
-	newPMM := deployment.NewPMM(t, "validate-2", ".env2.test")
+
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("validate", ".env.test")
+	newPMM := c.NewPMM("validate-2", ".env2.test")
 
 	var b util.Binary
 	tmpDir := util.CreateTestDir(t, "validate-test")

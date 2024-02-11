@@ -62,7 +62,7 @@ type PMM struct {
 	mongoTag       string
 }
 
-func NewPMM(t *testing.T, testName, configFile string) *PMM {
+func newPMM(t *testing.T, testName, configFile string) *PMM {
 	if configFile == "" {
 		configFile = ".env.test"
 	}

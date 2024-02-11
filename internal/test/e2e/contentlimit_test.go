@@ -41,8 +41,8 @@ import (
 )
 
 func TestContentLimit(t *testing.T) {
-	startTest(t)
-	pmm := deployment.NewPMM(t, "content-limit", ".env.test")
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("content-limit", ".env.test")
 	if pmm.UseExistingDeployment() {
 		t.Skip("skipping test because existing deployment is used")
 	}
