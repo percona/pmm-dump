@@ -38,7 +38,7 @@ type Controller struct {
 	deployments []*PMM
 }
 
-func init() {
+func init() { //nolint:gochecknoinits
 	maxParallelTests := defaultMaxParallelTests
 	maxParallelTestsStr, ok := os.LookupEnv(envMaxParallel)
 	if ok {

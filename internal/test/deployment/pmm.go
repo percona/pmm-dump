@@ -197,7 +197,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 
 	pmm.Log("Destroying existing deployment")
 	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName))); err != nil {
@@ -283,7 +283,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 
 	if err := dockerCli.ContainerRestart(ctx, pmm.pmmServerContainerID, container.StopOptions{
 		Timeout: nil, // 10 seconds
@@ -350,7 +350,7 @@ func destroy(ctx context.Context, filters filters.Args) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 
 	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
