@@ -31,6 +31,7 @@ var (
 )
 
 func CreateTestDir(t *testing.T, dirName string) string {
+	t.Helper()
 	dirName = fmt.Sprintf("%s-%d", dirName, time.Now().Unix())
 	dirPath := filepath.Join(TestDir, "tmp", dirName)
 	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {

@@ -63,6 +63,7 @@ type PMM struct {
 }
 
 func newPMM(t *testing.T, testName, configFile string) *PMM {
+	t.Helper()
 	if configFile == "" {
 		configFile = ".env.test"
 	}

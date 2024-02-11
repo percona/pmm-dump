@@ -32,7 +32,7 @@ func PullImage(ctx context.Context, image string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 
 	out, err := dockerCli.ImagePull(ctx, image, types.ImagePullOptions{})
 	if err != nil {
@@ -52,7 +52,7 @@ func ImageExists(ctx context.Context, image string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "failed to create docker client")
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 
 	images, err := dockerCli.ImageList(ctx, types.ImageListOptions{})
 	if err != nil {

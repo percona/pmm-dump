@@ -39,11 +39,13 @@ const (
 	defaultClickhouseHTTPPort = "8123"
 
 	defaultMongoPort = "27017"
+
+	volumeSuffix = "-data"
 )
 
 func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	vol, err := dockerCli.VolumeCreate(ctx, volume.CreateOptions{
-		Name: pmm.ServerContainerName() + "-data",
+		Name: pmm.ServerContainerName() + volumeSuffix,
 		Labels: map[string]string{
 			PerconaLabel: pmm.testName,
 		},
@@ -136,7 +138,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 		"PMM_AGENT_SETUP_FORCE=true",
 	}
 	vol, err := dockerCli.VolumeCreate(ctx, volume.CreateOptions{
-		Name: pmm.ClientContainerName() + "-data",
+		Name: pmm.ClientContainerName() + volumeSuffix,
 		Labels: map[string]string{
 			PerconaLabel: pmm.testName,
 		},
@@ -155,7 +157,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
-	doUntilSuccess(30*time.Second, func() error {
+	if err := doUntilSuccess(30*time.Second, func() error {
 		err = pmm.Exec(ctx, pmm.ClientContainerName(), "pmm-admin", "status")
 		if err != nil {
 			if strings.Contains(err.Error(), "is not running") {
@@ -168,7 +170,9 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 			return errors.Wrap(err, "failed to exec")
 		}
 		return nil
-	})
+	}); err != nil {
+		return errors.Wrap(err, "failed to check pmm-admin status")
+	}
 
 	return nil
 }
@@ -183,7 +187,7 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 		"MONGO_INITDB_ROOT_PASSWORD=admin",
 	}
 	vol, err := dockerCli.VolumeCreate(ctx, volume.CreateOptions{
-		Name: pmm.MongoContainerName() + "-data",
+		Name: pmm.MongoContainerName() + volumeSuffix,
 		Labels: map[string]string{
 			PerconaLabel: pmm.testName,
 		},

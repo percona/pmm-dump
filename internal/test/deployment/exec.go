@@ -29,7 +29,7 @@ func (pmm *PMM) Exec(ctx context.Context, container string, cmd ...string) error
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
-	defer dockerCli.Close()
+	defer dockerCli.Close() //nolint:errcheck
 	resp, err := dockerCli.ContainerExecCreate(ctx, container, types.ExecConfig{
 		Tty:          true,
 		AttachStdout: true,

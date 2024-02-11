@@ -30,7 +30,7 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to connect")
 	}
-	defer cl.Disconnect(ctx)
+	defer cl.Disconnect(ctx) //nolint:errcheck
 	if err := cl.Ping(ctx, nil); err != nil {
 		return errors.Wrap(err, "failed to ping")
 	}
@@ -42,7 +42,7 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
