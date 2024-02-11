@@ -264,8 +264,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		"--username", "admin",
 		"--password", "admin",
 		"mongo",
-		pmm.MongoContainerName()+":27017",
-	); err != nil {
+		pmm.MongoContainerName()+":27017"); err != nil {
 		return errors.Wrap(err, "failed to exec")
 	}
 

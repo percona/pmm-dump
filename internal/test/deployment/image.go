@@ -76,7 +76,7 @@ func PullNecessaryImages(ctx context.Context) error {
 		return errors.Wrap(err, "failed to read test dir")
 	}
 
-	configFiles := []string{}
+	configFiles := make([]string, 0)
 	for _, file := range files {
 		if !file.IsDir() && filepath.Ext(file.Name()) == ".test" {
 			configFiles = append(configFiles, file.Name())
