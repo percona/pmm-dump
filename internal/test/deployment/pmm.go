@@ -251,7 +251,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}
 
 	pmm.Log("Waiting for mongo to be ready")
-	err = doUntilSuccess(30*time.Second, func() error {
+	err = doUntilSuccess(60*time.Second, func() error {
 		return pmm.PingMongo(ctx)
 	})
 	if err != nil {
@@ -268,7 +268,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to exec")
 	}
 
-	if err := doUntilSuccess(30*time.Second, func() error {
+	if err := doUntilSuccess(60*time.Second, func() error {
 		return pmm.PingClickhouse(ctx)
 	}); err != nil {
 		return errors.Wrap(err, "failed to ping clickhouse")
