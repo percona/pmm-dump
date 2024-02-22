@@ -43,7 +43,7 @@ const (
 	volumeSuffix = "-data"
 
 	pmmClientMemoryLimit = 128 * 1024 * 1024
-	pmmServerMemoryLimit = 1024 * 1024 * 1024
+	pmmServerMemoryLimit = 2048 * 1024 * 1024
 	mongoMemoryLimit     = 256 * 1024 * 1024
 )
 

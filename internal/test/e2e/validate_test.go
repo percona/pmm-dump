@@ -212,7 +212,7 @@ func vmValuesCount(xChunk []vmMetric) int {
 
 func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, error) {
 	if len(xChunk) != len(yChunk) {
-		return 0, errors.Errorf("len(x)=%d, len(y)=%d", len(xChunk), len(yChunk))
+		pmm.Log(fmt.Sprintf("Size of chunks is different: len(x)=%d, len(y)=%d", len(xChunk), len(yChunk)))
 	}
 
 	xHashMap := make(map[string]vmMetric)
@@ -249,7 +249,15 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 		delete(yHashMap, k)
 	}
 
-	return loss, nil
+	missingMetrics := []vmMetric{}
+	for _, v := range xHashMap {
+		missingMetrics = append(missingMetrics, v)
+	}
+	for _, v := range yHashMap {
+		missingMetrics = append(missingMetrics, v)
+	}
+
+	return loss + len(missingMetrics), nil
 }
 
 type chunkMap map[string][]byte
