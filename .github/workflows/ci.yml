@@ -47,7 +47,7 @@ jobs:
       - name: Run tests
         run: |
           go clean -testcache
-          make run-tests
+          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-tests
 
 #       TODO: Add codecoverage
 #      - name: Upload coverage results

@@ -9,6 +9,8 @@ build_tag="$1"
 
 trap exit 1 SIGINT
 
+go clean -testcache
+
 run_e2e_tests() {
 	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v
 }

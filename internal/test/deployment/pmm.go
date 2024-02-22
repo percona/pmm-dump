@@ -259,13 +259,15 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}
 
 	pmm.Log("Adding mongo to PMM")
-	if err := pmm.Exec(ctx, pmm.ClientContainerName(),
-		"pmm-admin", "add", "mongodb",
-		"--username", "admin",
-		"--password", "admin",
-		"mongo",
-		pmm.MongoContainerName()+":27017"); err != nil {
-		return errors.Wrap(err, "failed to exec")
+	if err := doUntilSuccess(60*time.Second, func() error {
+		return pmm.Exec(ctx, pmm.ClientContainerName(),
+			"pmm-admin", "add", "mongodb",
+			"--username", "admin",
+			"--password", "admin",
+			"mongo",
+			pmm.MongoContainerName()+":27017")
+	}); err != nil {
+		return errors.Wrap(err, "failed to add mongo to PMM")
 	}
 
 	if err := doUntilSuccess(60*time.Second, func() error {

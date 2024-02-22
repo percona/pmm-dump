@@ -41,6 +41,10 @@ const (
 	defaultMongoPort = "27017"
 
 	volumeSuffix = "-data"
+
+	pmmClientMemoryLimit = 128 * 1024 * 1024
+	pmmServerMemoryLimit = 1024 * 1024 * 1024
+	mongoMemoryLimit     = 256 * 1024 * 1024
 )
 
 func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, networkID string) error {
@@ -64,7 +68,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	ports := []string{defaultHTTPPort, defaultHTTPSPort, defaultClickhousePort, defaultClickhouseHTTPPort}
 
-	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil)
+	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
@@ -78,11 +82,13 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
-	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse"); err != nil {
+	if err := doUntilSuccess(60*time.Second, func() error {
+		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
+	}); err != nil {
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
-	if err := getUntilOk(pmm.PMMURL()+"/v1/version", time.Second*30); err != nil {
+	if err := getUntilOk(pmm.PMMURL()+"/v1/version", time.Second*120); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 
@@ -153,7 +159,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 			Target: "/srv",
 		},
 	}
-	_, err = pmm.createContainer(ctx, dockerCli, pmm.ClientContainerName(), pmm.ClientImage(), nil, envs, mounts, networkID, nil)
+	_, err = pmm.createContainer(ctx, dockerCli, pmm.ClientContainerName(), pmm.ClientImage(), nil, envs, mounts, networkID, nil, pmmClientMemoryLimit)
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
@@ -216,7 +222,7 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 
 	cmd := []string{"--config", "/etc/mongod.conf"}
 
-	id, err := pmm.createContainer(ctx, dockerCli, pmm.MongoContainerName(), pmm.MongoImage(), ports, envs, mounts, networkID, cmd)
+	id, err := pmm.createContainer(ctx, dockerCli, pmm.MongoContainerName(), pmm.MongoImage(), ports, envs, mounts, networkID, cmd, mongoMemoryLimit)
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
@@ -250,6 +256,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	mounts []mount.Mount,
 	networkid string,
 	cmd []string,
+	memoryLimit int64,
 ) (string, error) {
 	containerConfig := &container.Config{
 		Cmd:   cmd,
@@ -266,6 +273,9 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		NetworkMode:     container.NetworkMode(pmm.NetworkName()),
 		Mounts:          mounts,
 		PublishAllPorts: true,
+		Resources: container.Resources{
+			Memory: memoryLimit,
+		},
 	}
 
 	for _, port := range ports {
