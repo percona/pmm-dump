@@ -19,7 +19,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

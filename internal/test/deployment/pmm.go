@@ -137,10 +137,9 @@ func (p *PMM) ClickhouseURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	if u.Scheme == "" {
-		u.Scheme = "http"
-	}
-	u.RawQuery = "database=pmm"
+	u.User = nil
+	u.Scheme = "clickhouse"
+	u.Path = "pmm"
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
