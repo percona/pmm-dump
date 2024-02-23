@@ -168,7 +168,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 		if err != nil {
 			if strings.Contains(err.Error(), "is not running") {
 				time.Sleep(5 * time.Second)
-				err := dockerCli.ContainerStart(ctx, pmm.ClientContainerName(), types.ContainerStartOptions{})
+				err := dockerCli.ContainerStart(ctx, pmm.ClientContainerName(), container.StartOptions{})
 				if err != nil {
 					pmm.Log("failed to start container", err)
 				}
@@ -300,7 +300,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		return "", errors.Wrap(err, "failed to create container")
 	}
 
-	if err := dockerCli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
 	return resp.ID, nil

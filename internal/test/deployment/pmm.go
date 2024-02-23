@@ -352,7 +352,7 @@ func destroy(ctx context.Context, filters filters.Args) error {
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
-	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
+	containers, err := dockerCli.ContainerList(ctx, container.ListOptions{
 		All:     true,
 		Filters: filters,
 	})
@@ -365,7 +365,7 @@ func destroy(ctx context.Context, filters filters.Args) error {
 		if err := dockerCli.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &zero}); err != nil {
 			return errors.Wrap(err, "failed to stop container")
 		}
-		if err := dockerCli.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{
+		if err := dockerCli.ContainerRemove(ctx, c.ID, container.RemoveOptions{
 			Force:         true,
 			RemoveVolumes: true,
 		}); err != nil {
