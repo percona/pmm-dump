@@ -43,8 +43,8 @@ const (
 	volumeSuffix = "-data"
 
 	pmmClientMemoryLimit = 128 * 1024 * 1024
-	pmmServerMemoryLimit = 2048 * 1024 * 1024
-	mongoMemoryLimit     = 256 * 1024 * 1024
+	pmmServerMemoryLimit = 1024 * 1024 * 1024
+	mongoMemoryLimit     = 512 * 1024 * 1024
 )
 
 func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, networkID string) error {
