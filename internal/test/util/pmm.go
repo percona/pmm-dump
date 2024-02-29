@@ -27,6 +27,7 @@ import (
 
 	"github.com/compose-spec/compose-go/dotenv"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 )
@@ -223,7 +224,7 @@ func (p *PMM) removeExistingTestDeployments(ctx context.Context) error {
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
-	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
+	containers, err := dockerCli.ContainerList(ctx, container.ListOptions{
 		All: true,
 	})
 	if err != nil {
