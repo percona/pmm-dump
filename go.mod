@@ -9,7 +9,7 @@ require (
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.31.0
+	github.com/rs/zerolog v1.32.0
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/valyala/fasthttp v1.51.0
 	golang.org/x/sync v0.6.0
