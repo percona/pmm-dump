@@ -262,9 +262,9 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 }
 
 func (s *Source) sendChunk(content []byte) error {
-	url := fmt.Sprintf("%s/api/v1/import", s.cfg.ConnectionURL)
+	url := s.cfg.ConnectionURL + "/api/v1/import"
 	if s.cfg.NativeData {
-		url = fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
+		url = s.cfg.ConnectionURL + "/api/v1/import/native"
 	}
 
 	req := fasthttp.AcquireRequest()
@@ -304,7 +304,7 @@ func ErrIsRequestEntityTooLarge(err error) bool {
 }
 
 func (s Source) FinalizeWrites() error {
-	url := fmt.Sprintf("%s/internal/resetRollupResultCache", s.cfg.ConnectionURL)
+	url := s.cfg.ConnectionURL + "/internal/resetRollupResultCache"
 
 	log.Debug().
 		Str("url", url).

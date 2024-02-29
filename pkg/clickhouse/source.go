@@ -98,7 +98,7 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
-	query += fmt.Sprintf(" %s", prepareWhereClause(s.cfg.Where, m.Start, m.End))
+	query += " " + prepareWhereClause(s.cfg.Where, m.Start, m.End)
 	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -221,7 +221,7 @@ func (s Source) Count(where string, startTime, endTime time.Time) (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
 	if where != "" {
-		query += fmt.Sprintf(" %s", prepareWhereClause(where, &startTime, &endTime))
+		query += " " + prepareWhereClause(where, &startTime, &endTime)
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
