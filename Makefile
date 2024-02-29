@@ -46,8 +46,8 @@ up: init
 	docker compose up -d
 	sleep 15 # waiting for pmm server to be ready :(
 	docker compose exec pmm-client pmm-agent setup || true
-	docker exec pmm-server sed -i 's#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g' /etc/clickhouse-server/config.xml
-	docker exec pmm-server supervisorctl restart clickhouse
+	docker compose exec pmm-server sed -i 's#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g' /etc/clickhouse-server/config.xml
+	docker compose exec pmm-server supervisorctl restart clickhouse
 
 down:
 	docker compose down --volumes
