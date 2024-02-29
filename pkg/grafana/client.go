@@ -153,11 +153,11 @@ func (c *Client) GetWithTimeout(url string, timeout time.Duration) (int, []byte,
 func (c *Client) setAuthHeaders(req *fasthttp.Request) {
 	if c.user != "" {
 		h := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.user, c.password)))
-		req.Header.Set("Authorization", fmt.Sprintf("Basic %s", h))
+		req.Header.Set("Authorization", "Basic "+h)
 	}
 
 	if c.token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 
 	if c.authCookie != "" {
