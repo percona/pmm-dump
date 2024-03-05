@@ -10,7 +10,7 @@ require (
 	github.com/docker/docker v25.0.3+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.32.0
-	github.com/shirou/gopsutil/v3 v3.24.1
+	github.com/shirou/gopsutil/v3 v3.24.2
 	github.com/valyala/fasthttp v1.52.0
 	golang.org/x/sync v0.6.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -47,7 +47,7 @@ require (
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
-	github.com/yusufpapurcu/wmi v1.2.3 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0 // indirect
