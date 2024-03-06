@@ -42,6 +42,27 @@ func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 		return nil, errors.Wrap(err, "failed to get env from file")
 	}
 
+	requiredEnvs := []string{
+		envVarPMMVersion,
+		envVarPMMServerImage,
+		envVarPMMClientImage,
+		envVarMongoImage,
+		envVarMongoTag,
+	}
+	for _, re := range requiredEnvs {
+		if _, ok := envs[re]; !ok {
+			envs[re] = setDefaultEnv(re)
+		}
+	}
+
+	useExistingDeployment := false
+	if v, ok := envs[envVarUseExistingPMM]; ok && (v == "true" || v == "1") {
+		useExistingDeployment = true
+	}
+	if !useExistingDeployment {
+		envs[envVarPMMURL] = setDefaultEnv(envVarPMMURL)
+	}
+
 	return envs, nil
 }
 

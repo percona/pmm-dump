@@ -37,29 +37,28 @@ const (
 )
 
 type PMM struct {
+	t        *testing.T
 	testName string
 
-	dontCleanup bool
-
-	// These fields will be populated during container creation
-	httpPort           string
-	httpsPort          string
-	clickhousePort     string
-	clickhouseHTTPPort string
-	mongoPort          string
-
-	pmmServerContainerID string
-	mongoContainerID     string
-
-	t                     *testing.T
 	useExistingDeployment bool
 	pmmURL                string
+
+	dontCleanup bool
 
 	pmmVersion     string
 	pmmServerImage string
 	pmmClientImage string
 	mongoImage     string
 	mongoTag       string
+
+	// These fields will be populated during container creation
+	httpPort             string
+	httpsPort            string
+	clickhousePort       string
+	clickhouseHTTPPort   string
+	mongoPort            string
+	pmmServerContainerID string
+	mongoContainerID     string
 }
 
 func newPMM(t *testing.T, testName, configFile string) *PMM {
@@ -76,22 +75,6 @@ func newPMM(t *testing.T, testName, configFile string) *PMM {
 	if v, ok := envs[envVarUseExistingPMM]; ok && (v == "true" || v == "1") {
 		useExistingDeployment = true
 	}
-	if !useExistingDeployment {
-		envs[envVarPMMURL] = setDefaultEnv(envVarPMMURL)
-	}
-
-	requiredEnvs := []string{
-		envVarPMMVersion,
-		envVarPMMServerImage,
-		envVarPMMClientImage,
-		envVarMongoImage,
-		envVarMongoTag,
-	}
-	for _, re := range requiredEnvs {
-		if _, ok := envs[re]; !ok {
-			envs[re] = setDefaultEnv(re)
-		}
-	}
 
 	pmm := &PMM{
 		testName: testName,
@@ -102,6 +85,8 @@ func newPMM(t *testing.T, testName, configFile string) *PMM {
 		pmmClientImage: envs[envVarPMMClientImage],
 		mongoImage:     envs[envVarMongoImage],
 		mongoTag:       envs[envVarMongoTag],
+
+		useExistingDeployment: useExistingDeployment,
 
 		pmmURL: envs[envVarPMMURL],
 	}
