@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 

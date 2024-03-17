@@ -12,17 +12,26 @@
 It's recommended to launch e2e tests by using `make run-e2e-tests` command.
 
 Executing the command will perform the following actions:
-1. Create Docker Compose configuration files, specifically `./test/.env.test` and `./test/.env2.test`.
+1. Create configuration files, specifically `./test/.env.test` and `./test/.env2.test`.
 2. Build the `pmm-dump` binary.
 3. Launch the e2e tests.
+
+### Adjusting the Number of Concurrent Tests
+End-to-end tests are executed concurrently. The maximum number of tests that can run simultaneously is determined by the `PMM_DUMP_MAX_PARALLEL_TESTS` environment variable. By default, this is set to 4. To modify this value, assign your desired number to this environment variable as shown below:
+```shell
+export PMM_DUMP_MAX_PARALLEL_TESTS="2"
+
+make run-e2e-tests
+```
+This example sets the maximum number of concurrent tests to 2. Adjust the value as needed for your testing environment.
 
 ## Manual method
 
 ### Prerequisites
 
 1. Ensure that Go is installed on your system.
-2. Docker Compose v2 must also be installed
-3. Perform an initial setup by executing the `./test/init-test-configs.sh` script. This script creates Docker Compose configuration files: `./test/.env.test` and `./test/.env2.test`.
+2. Docker must also be installed.
+3. Perform an initial setup by executing the `./test/init-test-configs.sh` script. This script creates configuration files: `./test/.env.test` and `./test/.env2.test`.
 4. Build a `pmm-dump` binary using the `make build` command.
 
 
@@ -35,29 +44,35 @@ go test -v -tags e2e -run ^TestExportImport$
 
 ### Executing multiple tests
 
-To execute multiple e2e tests, provide the `-p 1` flag to prevent tests from running in parallel.
+To execute multiple e2e tests, use the following command:
 ```shell
-go test -v -p 1 -tags e2e ./...
+go test -v -tags e2e ./...
 ```
 
 ## Troubleshooting
 
 For troubleshooting, some e2e tests store dump files in the `./test/pmm/tmp` directory. These files can be used to investigate any issues that may arise during testing.
 
+## Execution Flow
+Upon initiation of the end-to-end (e2e) tests, the following sequence of actions will occur:
+1. Any pre-existing e2e test deployments will be removed
+2. The testing framework will automatically pull the required Docker images
+3. The e2e tests will be launched. If they pass, we'll delete the test deployments. But if a test fails, we'll keep those deployments
+
 # Writing e2e tests
 
 ## Structure of e2e test
-1. Tag your test file with `//go:build e2e`. This allows users to run basic tests using the `go test ./...` command without the need for Docker Compose or additional configuration files.
+1. Tag your test file with `//go:build e2e`. This allows users to run basic tests using the `go test ./...` command without the need for Docker or additional configuration files.
 2. Creating a PMM test deployment:
-	- Use the `util.NewPMM(t *testing.T, name string, dotEnvFilename string)` function to create a `util.PMM` object. The `name` parameter should be the test name. It is used in the `COMPOSE_PROJECT_NAME` environment variable during creation of the test deployment, which is necessary for differentiating test deployments from others. The `dotEnvFilename` should be either `.env.test` or `.env2.test`, as these files are created by the `./test/init-test-configs.sh` script.
-	- Deploy the PMM using the `(*util.PMM) Deploy(ctx context.Context)` method.
-	- Ensure to stop the PMM test deployments after the test finishes by calling `(*util.PMM) Stop`. In most tests, this should be used with `defer`.
+	- Create a deployment controller using `deployment.NewController(t *testing.T)` function.
+	- Use the `(*deployment.Controller) NewPMM(name, configFile string) *deployment.PMM` method to create a `deployment.PMM` object. The `name` parameter should be the test name. It is necessary for differentiating test deployments from others. The `dotEnvFilename` should be either `.env.test` or `.env2.test`, as these files are created by the `./test/init-test-configs.sh` script.
+	- Deploy the PMM using the `(*deployment.PMM) Deploy(ctx context.Context)` method.
 
 	Example:
     ```go
-    pmm := util.NewPMM(t, "test-name", ".env.test")
-    pmm.Deploy(ctx)
-    defer pmm.Stop()
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("test-name", ".env.test")
+	pmm.Deploy(ctx)
     ```
 3. Launching the binary:
    - Create an `util.Binary` structure.
@@ -74,9 +89,9 @@ package e2e
 
 func TestExample(t *testing.T) {
     ctx := context.Background()
-	pmm := util.NewPMM(t, "test-name", ".env.test")
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("test-name", ".env.test")
 	pmm.Deploy(ctx)
-	defer pmm.Stop()
 
 	b := new(util.Binary)
 	testDir := t.TempDir()

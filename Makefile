@@ -46,13 +46,15 @@ up: init
 	docker compose up -d
 	sleep 15 # waiting for pmm server to be ready :(
 	docker compose exec pmm-client pmm-agent setup || true
+	docker compose exec pmm-server sed -i 's#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g' /etc/clickhouse-server/config.xml
+	docker compose exec pmm-server supervisorctl restart clickhouse
 
 down:
 	docker compose down --volumes
 	rm -rf setup/pmm/agent.yaml
 
 down-tests:
-	docker compose ls -q | grep '^pmm-dump-test-' | while read -r project; do COMPOSE_PROJECT_NAME="$$project" docker compose down --volumes; done
+	./support-files/destroy-test-resources
 
 re: down up
 

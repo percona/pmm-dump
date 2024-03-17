@@ -30,28 +30,35 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
+	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
+
+	"github.com/pkg/errors"
 )
 
 func TestValidate(t *testing.T) {
 	ctx := context.Background()
-	pmm := util.NewPMM(t, "validate", ".env.test")
-	newPMM := util.NewPMM(t, "validate-2", ".env2.test")
+
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("validate", ".env.test")
+	newPMM := c.NewPMM("validate-2", ".env2.test")
 
 	var b util.Binary
-	tmpDir := util.TestDir(t, "validate-test")
+	tmpDir := util.CreateTestDir(t, "validate-test")
 	xDumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
 	chunkTimeRange := time.Second * 30
 
-	pmm.Deploy(ctx)
+	if err := pmm.Deploy(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	start := time.Now().UTC()
 	t.Log("Sleeping for 120 seconds")
@@ -76,7 +83,9 @@ func TestValidate(t *testing.T) {
 	t.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
 	time.Sleep(chunkTimeRange)
 
-	newPMM.Deploy(ctx)
+	if err := newPMM.Deploy(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	t.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
@@ -106,40 +115,56 @@ func TestValidate(t *testing.T) {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
 
-	loss, err := validateChunks(t, xDumpPath, yDumpPath)
+	loss, missingChunks, err := validateChunks(t, pmm, xDumpPath, yDumpPath)
 	if err != nil {
 		t.Fatal("failed to validate chunks", err)
 	}
 	if loss > 0.001 {
 		t.Fatalf("too much data loss %f%%", loss*100)
 	}
-	t.Logf("data loss is %f%%", loss*100)
+	if missingChunks > 5 {
+		t.Fatalf("too many missing chunks: %d", missingChunks)
+	}
 
-	pmm.Stop()
-	newPMM.Stop()
+	pmm.Log(fmt.Sprintf("Data loss in similar chunks is %f%%", loss*100))
+	pmm.Log(fmt.Sprintf("Amount of missing chunks is %d", missingChunks))
 }
 
-func validateChunks(t *testing.T, xDump, yDump string) (float64, error) {
+func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (float64, int, error) {
 	t.Helper()
 
 	xChunkMap, err := readChunks(xDump)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to read dump %s", xDump)
+		return 0, 0, errors.Wrapf(err, "failed to read dump %s", xDump)
 	}
 	yChunkMap, err := readChunks(yDump)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to read dump %s", yDump)
+		return 0, 0, errors.Wrapf(err, "failed to read dump %s", yDump)
 	}
 
+	xMissingChunks := make([]string, 0)
+	yMissingChunks := make([]string, 0)
 	if len(xChunkMap) != len(yChunkMap) {
-		return 0, errors.Wrapf(err, "number of chunks is different in %s = %d and %s = %d", xDump, len(xChunkMap), yDump, len(yChunkMap))
+		pmm.Log(fmt.Sprintf("number of chunks is different in %s = %d and %s = %d", xDump, len(xChunkMap), yDump, len(yChunkMap)))
+		for xFilename := range xChunkMap {
+			if _, ok := yChunkMap[xFilename]; !ok {
+				xMissingChunks = append(xMissingChunks, xFilename)
+				delete(xChunkMap, xFilename)
+			}
+		}
+		for yFilename := range yChunkMap {
+			if _, ok := xChunkMap[yFilename]; !ok {
+				yMissingChunks = append(yMissingChunks, yFilename)
+				delete(yChunkMap, yFilename)
+			}
+		}
 	}
 	var totalValues, totalMissingValues int
 
 	for xFilename, xChunkData := range xChunkMap {
 		yChunkData, ok := yChunkMap[xFilename]
 		if !ok {
-			return 0, errors.Errorf("chunk %s is missing in %s", xFilename, yDump)
+			return 0, 0, errors.Errorf("chunk %s is missing in %s", xFilename, yDump)
 		}
 		dir, _ := path.Split(xFilename)
 		st := dump.ParseSourceType(dir[:len(dir)-1])
@@ -147,11 +172,11 @@ func validateChunks(t *testing.T, xDump, yDump string) (float64, error) {
 		case dump.VictoriaMetrics:
 			xChunk, err := vmParseChunk(xChunkData)
 			if err != nil {
-				return 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
+				return 0, 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
 			}
 			yChunk, err := vmParseChunk(yChunkData)
 			if err != nil {
-				return 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
+				return 0, 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
 			}
 
 			xValues := vmValuesCount(xChunk)
@@ -162,21 +187,67 @@ func validateChunks(t *testing.T, xDump, yDump string) (float64, error) {
 				totalValues += yValues
 			}
 
-			missingValues, err := vmCompareChunkData(t, xChunk, yChunk)
+			missingValues, err := vmCompareChunkData(pmm, xChunk, yChunk)
 			if err != nil {
-				return 0, errors.Wrapf(err, "failed to compare chunk %s", xFilename)
+				return 0, 0, errors.Wrapf(err, "failed to compare chunk %s", xFilename)
 			}
 
 			totalMissingValues += missingValues
 		case dump.ClickHouse:
+			chCompareChunks(t, pmm, xFilename, xDump, yDump, xChunkData, yChunkData)
+
 			if !reflect.DeepEqual(xChunkData, yChunkData) {
-				return 0, errors.Errorf("chunk %s is different", xFilename)
+				return 0, 0, errors.Errorf("chunk %s is different", xFilename)
 			}
 		default:
-			return 0, errors.Errorf("unknown source type %s", st)
+			return 0, 0, errors.Errorf("unknown source type %s", st)
 		}
 	}
-	return float64(totalMissingValues) / float64(totalValues), nil
+	return float64(totalMissingValues) / float64(totalValues), len(xMissingChunks) + len(yMissingChunks), nil
+}
+
+func chCompareChunks(t *testing.T, pmm *deployment.PMM, filename string, xDump, yDump string, xChunkData, yChunkData []byte) {
+	t.Helper()
+
+	getHashMap := func(data []byte) map[string][]string {
+		r := tsv.NewReader(bytes.NewBuffer(data), nil)
+		records, err := r.ReadAll()
+		if err != nil {
+			t.Fatal(err)
+		}
+		recordsMap := make(map[string][]string)
+		for _, r := range records {
+			data, err := json.Marshal(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			hash := fmt.Sprintf("%x", sha256.Sum256(data))
+			recordsMap[hash] = r
+		}
+		return recordsMap
+	}
+
+	xRecordsMap := getHashMap(xChunkData)
+	yRecordsMap := getHashMap(yChunkData)
+
+	for k := range xRecordsMap {
+		_, ok := yRecordsMap[k]
+		if !ok {
+			continue
+		}
+
+		delete(xRecordsMap, k)
+		delete(yRecordsMap, k)
+	}
+	if len(xRecordsMap) > 0 || len(yRecordsMap) > 0 {
+		for _, r := range xRecordsMap {
+			pmm.Log(fmt.Sprintf("Missing record in %s of %s dump: [%s]", filename, yDump, strings.Join(r, ";")))
+		}
+		for _, r := range yRecordsMap {
+			pmm.Log(fmt.Sprintf("Missing record in %s of %s dump: [%s]", filename, xDump, strings.Join(r, ";")))
+		}
+		t.Fatal(errors.Errorf("chunk %s is different", filename))
+	}
 }
 
 func vmValuesCount(xChunk []vmMetric) int {
@@ -187,11 +258,9 @@ func vmValuesCount(xChunk []vmMetric) int {
 	return total
 }
 
-func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
-	t.Helper()
-
+func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, error) {
 	if len(xChunk) != len(yChunk) {
-		return 0, errors.Errorf("len(x)=%d, len(y)=%d", len(xChunk), len(yChunk))
+		pmm.Log(fmt.Sprintf("Size of chunks is different: len(x)=%d, len(y)=%d", len(xChunk), len(yChunk)))
 	}
 
 	xHashMap := make(map[string]vmMetric)
@@ -218,7 +287,7 @@ func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
 			continue
 		}
 
-		currentLoss := xMetric.CompareTimestampValues(t, yMetric)
+		currentLoss := xMetric.CompareTimestampValues(pmm, yMetric)
 		if currentLoss > 0 {
 			loss += currentLoss
 			continue
@@ -228,7 +297,15 @@ func vmCompareChunkData(t *testing.T, xChunk, yChunk []vmMetric) (int, error) {
 		delete(yHashMap, k)
 	}
 
-	return loss, nil
+	missingMetrics := []vmMetric{}
+	for _, v := range xHashMap {
+		missingMetrics = append(missingMetrics, v)
+	}
+	for _, v := range yHashMap {
+		missingMetrics = append(missingMetrics, v)
+	}
+
+	return loss + len(missingMetrics), nil
 }
 
 type chunkMap map[string][]byte
@@ -330,9 +407,7 @@ func (vm vmMetric) MetricHash() string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (vm vmMetric) CompareTimestampValues(t *testing.T, with vmMetric) int {
-	t.Helper()
-
+func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) int {
 	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]
@@ -345,15 +420,11 @@ func (vm vmMetric) CompareTimestampValues(t *testing.T, with vmMetric) int {
 	for timestamp, xValue := range xMap {
 		yValue, ok := yMap[timestamp]
 		if !ok {
-			if t != nil {
-				t.Logf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp)
-			}
+			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
 			continue
 		}
 		if xValue != yValue {
-			if t != nil {
-				t.Logf("Values for timestamp %d in metric %s are not the same: %v and %v", timestamp, vm.MetricString(), xValue, yValue)
-			}
+			pmm.Log(fmt.Sprintf("Values for timestamp %d in metric %s are not the same: %v and %v", timestamp, vm.MetricString(), xValue, yValue))
 			continue
 		}
 		delete(xMap, timestamp)
@@ -363,9 +434,7 @@ func (vm vmMetric) CompareTimestampValues(t *testing.T, with vmMetric) int {
 	for timestamp, yValue := range yMap {
 		_, ok := xMap[timestamp]
 		if !ok {
-			if t != nil {
-				t.Logf("Value and timestamp not found for metric %s in first dump: wanted %v for %d", vm.MetricString(), yValue, timestamp)
-			}
+			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in first dump: wanted %v for %d", vm.MetricString(), yValue, timestamp))
 			continue
 		}
 	}

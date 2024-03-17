@@ -32,15 +32,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
+
+	"github.com/pkg/errors"
 )
 
 func TestContentLimit(t *testing.T) {
-	pmm := util.NewPMM(t, "content-limit", ".env.test")
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("content-limit", ".env.test")
 	if pmm.UseExistingDeployment() {
 		t.Skip("skipping test because existing deployment is used")
 	}
@@ -48,24 +50,25 @@ func TestContentLimit(t *testing.T) {
 	ctx := context.Background()
 
 	var b util.Binary
-	tmpDir := util.TestDir(t, "content-limit-test")
+	tmpDir := util.CreateTestDir(t, "content-limit-test")
 	dumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	err := generateFakeDump(dumpPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pmm.Deploy(ctx)
-	defer pmm.Stop()
-
-	stdout, stderr, err := util.Exec(ctx, "", "docker", "compose", "exec", "pmm-server", "bash", "-c", "sed -i -e 's/client_max_body_size 10m/client_max_body_size 1m/g' /etc/nginx/conf.d/pmm.conf")
-	if err != nil {
-		t.Fatal("failed to change nginx settings", err, stdout, stderr)
+	if err := pmm.Deploy(ctx); err != nil {
+		t.Fatal(err)
 	}
 
-	pmm.Restart()
+	err = pmm.Exec(ctx, pmm.ServerContainerName(), "bash", "-c", "sed -i -e 's/client_max_body_size 10m/client_max_body_size 1m/g' /etc/nginx/conf.d/pmm.conf")
+	if err != nil {
+		t.Fatal("failed to change nginx settings", err)
+	}
 
-	stdout, stderr, err = b.Run(
+	pmm.Restart(ctx)
+
+	stdout, stderr, err := b.Run(
 		"import",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL())

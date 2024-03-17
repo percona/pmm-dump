@@ -53,11 +53,13 @@ func composeVictoriaMetricsURL(u url.URL) string {
 }
 
 func composeClickHouseURL(u url.URL) string {
+	u.Scheme = "clickhouse"
 	i := strings.LastIndex(u.Host, ":")
 	if i != -1 {
 		u.Host = u.Host[:i]
 	}
+	u.User = nil
 	u.Host += ":9000"
-	u.RawQuery = "database=pmm"
+	u.Path = "pmm"
 	return u.String()
 }
