@@ -30,11 +30,13 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
+	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
 
@@ -192,6 +194,8 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 
 			totalMissingValues += missingValues
 		case dump.ClickHouse:
+			chCompareChunks(t, pmm, xFilename, xDump, yDump, xChunkData, yChunkData)
+
 			if !reflect.DeepEqual(xChunkData, yChunkData) {
 				return 0, 0, errors.Errorf("chunk %s is different", xFilename)
 			}
@@ -200,6 +204,50 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 		}
 	}
 	return float64(totalMissingValues) / float64(totalValues), len(xMissingChunks) + len(yMissingChunks), nil
+}
+
+func chCompareChunks(t *testing.T, pmm *deployment.PMM, filename string, xDump, yDump string, xChunkData, yChunkData []byte) {
+	t.Helper()
+
+	getHashMap := func(data []byte) map[string][]string {
+		r := tsv.NewReader(bytes.NewBuffer(data), nil)
+		records, err := r.ReadAll()
+		if err != nil {
+			t.Fatal(err)
+		}
+		recordsMap := make(map[string][]string)
+		for _, r := range records {
+			data, err := json.Marshal(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			hash := fmt.Sprintf("%x", sha256.Sum256(data))
+			recordsMap[hash] = r
+		}
+		return recordsMap
+	}
+
+	xRecordsMap := getHashMap(xChunkData)
+	yRecordsMap := getHashMap(yChunkData)
+
+	for k := range xRecordsMap {
+		_, ok := yRecordsMap[k]
+		if !ok {
+			continue
+		}
+
+		delete(xRecordsMap, k)
+		delete(yRecordsMap, k)
+	}
+	if len(xRecordsMap) > 0 || len(yRecordsMap) > 0 {
+		for _, r := range xRecordsMap {
+			pmm.Log(fmt.Sprintf("Missing record in %s of %s dump: [%s]", filename, yDump, strings.Join(r, ";")))
+		}
+		for _, r := range yRecordsMap {
+			pmm.Log(fmt.Sprintf("Missing record in %s of %s dump: [%s]", filename, xDump, strings.Join(r, ";")))
+		}
+		t.Fatal(errors.Errorf("chunk %s is different", filename))
+	}
 }
 
 func vmValuesCount(xChunk []vmMetric) int {
