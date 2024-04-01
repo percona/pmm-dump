@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/ClickHouse/clickhouse-go v1.5.4
-	github.com/VictoriaMetrics/metricsql v0.75.0
+	github.com/VictoriaMetrics/metricsql v0.75.1
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/docker v26.0.0+incompatible
@@ -18,7 +18,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/VictoriaMetrics/metrics v1.33.0 // indirect
+	github.com/VictoriaMetrics/metrics v1.33.1 // indirect
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
