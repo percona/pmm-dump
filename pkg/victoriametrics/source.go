@@ -132,22 +132,6 @@ const (
 	errRequestEntityTooLarge = `received "413 Request Entity Too Large" error from PMM`
 )
 
-// TODO: this function is not used, can it be removed?
-func decompressContent(content []byte) ([]byte, error) { //nolint:deadcode,unused
-	r, err := gzip.NewReader(bytes.NewReader(content))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create gzip reader")
-	}
-	defer r.Close() //nolint:errcheck
-
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read gzip data")
-	}
-
-	return data, nil
-}
-
 func decompressChunk(content []byte) ([]Metric, error) {
 	r, err := gzip.NewReader(bytes.NewReader(content))
 	if err != nil {
