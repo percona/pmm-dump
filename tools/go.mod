@@ -3,7 +3,7 @@ module github.com/percona-platform/template/tools
 go 1.21
 
 require (
-	github.com/apache/skywalking-eyes v0.5.0
+	github.com/apache/skywalking-eyes v0.6.0
 	github.com/golangci/golangci-lint v1.57.2
 	github.com/quasilyte/go-consistent v0.6.0
 	github.com/reviewdog/reviewdog v0.15.0
