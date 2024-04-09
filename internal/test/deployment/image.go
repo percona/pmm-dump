@@ -22,19 +22,19 @@ import (
 
 	"pmm-dump/internal/test/util"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 )
 
-func PullImage(ctx context.Context, image string) error {
+func PullImage(ctx context.Context, imageName string) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
-	out, err := dockerCli.ImagePull(ctx, image, types.ImagePullOptions{})
+	out, err := dockerCli.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to pull image")
 	}
@@ -47,21 +47,21 @@ func PullImage(ctx context.Context, image string) error {
 	return nil
 }
 
-func ImageExists(ctx context.Context, image string) (bool, error) {
+func ImageExists(ctx context.Context, imageName string) (bool, error) {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return false, errors.Wrap(err, "failed to create docker client")
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
-	images, err := dockerCli.ImageList(ctx, types.ImageListOptions{})
+	images, err := dockerCli.ImageList(ctx, image.ListOptions{})
 	if err != nil {
 		return false, errors.Wrap(err, "failed to list images")
 	}
 
 	for _, img := range images {
 		for _, tag := range img.RepoTags {
-			if tag == image {
+			if tag == imageName {
 				return true, nil
 			}
 		}
