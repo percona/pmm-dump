@@ -193,6 +193,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	for _, image := range []string{pmm.ServerImage(), pmm.ClientImage(), pmm.MongoImage()} {
 		exists, err := ImageExists(ctx, image)
 		if err != nil {
+			checkImagesMu.Unlock()
 			return errors.Wrap(err, "failed to check image")
 		}
 		if exists {
@@ -201,6 +202,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		}
 		pmm.Log("Pulling image", image)
 		if err := PullImage(ctx, image); err != nil {
+			checkImagesMu.Unlock()
 			return errors.Wrap(err, "failed to pull image")
 		}
 	}
@@ -235,7 +237,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}
 
 	pmm.Log("Waiting for mongo to be ready")
-	err = doUntilSuccess(60*time.Second, func() error {
+	err = doUntilSuccess(ctx, 60*time.Second, func() error {
 		return pmm.PingMongo(ctx)
 	})
 	if err != nil {
@@ -243,7 +245,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}
 
 	pmm.Log("Adding mongo to PMM")
-	if err := doUntilSuccess(60*time.Second, func() error {
+	if err := doUntilSuccess(ctx, 60*time.Second, func() error {
 		return pmm.Exec(ctx, pmm.ClientContainerName(),
 			"pmm-admin", "add", "mongodb",
 			"--username", "admin",
@@ -254,7 +256,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to add mongo to PMM")
 	}
 
-	if err := doUntilSuccess(60*time.Second, func() error {
+	if err := doUntilSuccess(ctx, 60*time.Second, func() error {
 		return pmm.PingClickhouse(ctx)
 	}); err != nil {
 		return errors.Wrap(err, "failed to ping clickhouse")
@@ -279,7 +281,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 		return errors.Wrap(err, "failed to set server published ports")
 	}
 
-	if err := getUntilOk(pmm.PMMURL()+"/v1/version", time.Second*30); err != nil {
+	if err := getUntilOk(ctx, pmm.PMMURL()+"/v1/version", time.Second*30); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 	return nil
@@ -293,8 +295,8 @@ func (pmm *PMM) Destroy(ctx context.Context) {
 	}
 }
 
-func getUntilOk(url string, timeout time.Duration) error {
-	return doUntilSuccess(timeout, func() error {
+func getUntilOk(ctx context.Context, url string, timeout time.Duration) error {
+	return doUntilSuccess(ctx, timeout, func() error {
 		resp, err := http.Get(url) //nolint:gosec,noctx
 		if err != nil {
 			return err
@@ -307,11 +309,12 @@ func getUntilOk(url string, timeout time.Duration) error {
 	})
 }
 
-func doUntilSuccess(timeout time.Duration, f func() error) error {
+func doUntilSuccess(ctx context.Context, timeout time.Duration, f func() error) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	timeoutTimer := time.NewTimer(timeout)
-	defer timeoutTimer.Stop()
 	var err error
 	for {
 		select {
@@ -320,7 +323,7 @@ func doUntilSuccess(timeout time.Duration, f func() error) error {
 			if err == nil {
 				return nil
 			}
-		case <-timeoutTimer.C:
+		case <-ctx.Done():
 			return errors.Wrap(err, "timeout")
 		}
 	}

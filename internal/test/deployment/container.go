@@ -82,13 +82,13 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
-	if err := doUntilSuccess(60*time.Second, func() error {
+	if err := doUntilSuccess(ctx, 60*time.Second, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
-	if err := getUntilOk(pmm.PMMURL()+"/v1/version", time.Second*120); err != nil {
+	if err := getUntilOk(ctx, pmm.PMMURL()+"/v1/version", time.Second*120); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 
@@ -163,7 +163,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
-	if err := doUntilSuccess(30*time.Second, func() error {
+	if err := doUntilSuccess(ctx, 30*time.Second, func() error {
 		err = pmm.Exec(ctx, pmm.ClientContainerName(), "pmm-admin", "status")
 		if err != nil {
 			if strings.Contains(err.Error(), "is not running") {
