@@ -55,7 +55,7 @@ type LoadStatusGetter interface {
 
 const maxChunksInMem = 4
 
-func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) { //nolint:ireturn
+func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) { //nolint:ireturn,nolintlint
 	for _, s := range t.sources {
 		if s.Type() == st {
 			return s, true

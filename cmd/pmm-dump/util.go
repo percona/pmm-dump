@@ -86,7 +86,7 @@ func getPMMVersion(pmmURL string, c *grafana.Client) (string, string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Get(fmt.Sprintf("%s/v1/version", pmmURL))
+	statusCode, body, err := c.Get(pmmURL + "/v1/version")
 	if err != nil {
 		return "", "", err
 	}
@@ -109,7 +109,7 @@ func getPMMServices(pmmURL string, c *grafana.Client) ([]dump.PMMServerService, 
 
 	// Services
 
-	statusCode, body, err := c.Post(fmt.Sprintf("%s/v1/inventory/Services/List", pmmURL))
+	statusCode, body, err := c.Post(pmmURL + "/v1/inventory/Services/List")
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func getPMMServiceNodeName(pmmURL string, c *grafana.Client, nodeID string) (str
 		} `json:"generic"`
 	}
 
-	statusCode, body, err := c.PostJSON(fmt.Sprintf("%s/v1/inventory/Nodes/Get", pmmURL), struct {
+	statusCode, body, err := c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 		NodeID string `json:"node_id"`
 	}{nodeID})
 	if err != nil {
@@ -177,7 +177,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *grafana.Client, serviceID string) 
 		AgentID   *string `json:"agent_id"`
 	}
 
-	statusCode, body, err := c.Post(fmt.Sprintf("%s/v1/inventory/Agents/List", pmmURL))
+	statusCode, body, err := c.Post(pmmURL + "/v1/inventory/Agents/List")
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func getPMMTimezone(pmmURL string, c *grafana.Client) (string, error) {
 		Timezone string `json:"timezone"`
 	}
 
-	statusCode, body, err := c.Get(fmt.Sprintf("%s/graph/api/org/preferences", pmmURL))
+	statusCode, body, err := c.Get(pmmURL + "/graph/api/org/preferences")
 	if err != nil {
 		return "", err
 	}
@@ -342,7 +342,7 @@ func (lw LevelWriter) Write(p []byte) (int, error) {
 }
 
 func checkVersionSupport(c *grafana.Client, pmmURL, victoriaMetricsURL string) {
-	checkUrls := []string{fmt.Sprintf("%s/api/v1/export", victoriaMetricsURL)}
+	checkUrls := []string{victoriaMetricsURL + "/api/v1/export"}
 
 	for _, v := range checkUrls {
 		code, _, err := c.Get(v)

@@ -132,22 +132,6 @@ const (
 	errRequestEntityTooLarge = `received "413 Request Entity Too Large" error from PMM`
 )
 
-// TODO: this function is not used, can it be removed?
-func decompressContent(content []byte) ([]byte, error) { //nolint:deadcode,unused
-	r, err := gzip.NewReader(bytes.NewReader(content))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create gzip reader")
-	}
-	defer r.Close() //nolint:errcheck
-
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read gzip data")
-	}
-
-	return data, nil
-}
-
 func decompressChunk(content []byte) ([]Metric, error) {
 	r, err := gzip.NewReader(bytes.NewReader(content))
 	if err != nil {
@@ -262,9 +246,9 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 }
 
 func (s *Source) sendChunk(content []byte) error {
-	url := fmt.Sprintf("%s/api/v1/import", s.cfg.ConnectionURL)
+	url := s.cfg.ConnectionURL + "/api/v1/import"
 	if s.cfg.NativeData {
-		url = fmt.Sprintf("%s/api/v1/import/native", s.cfg.ConnectionURL)
+		url = s.cfg.ConnectionURL + "/api/v1/import/native"
 	}
 
 	req := fasthttp.AcquireRequest()
@@ -304,7 +288,7 @@ func ErrIsRequestEntityTooLarge(err error) bool {
 }
 
 func (s Source) FinalizeWrites() error {
-	url := fmt.Sprintf("%s/internal/resetRollupResultCache", s.cfg.ConnectionURL)
+	url := s.cfg.ConnectionURL + "/internal/resetRollupResultCache"
 
 	log.Debug().
 		Str("url", url).
