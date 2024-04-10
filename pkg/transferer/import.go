@@ -161,7 +161,14 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 
 			s, ok := t.sourceByType(c.Source)
 			if !ok {
-				log.Warn().Msgf("Found dump data for %v, but it's not specified - skipped", c.Source)
+				switch c.Source {
+				case dump.ClickHouse:
+					log.Warn().Msg("Found dump data for QAN, but `--dump-qan` option is not specified - skipped")
+				case dump.VictoriaMetrics:
+					log.Warn().Msg("Found dump data for VictoriaMetrics, but `--dump-vm` option is not specified - skipped")
+				default:
+					log.Warn().Msgf("Found dump data for %v, but it's not specified - skipped", c.Source)
+				}
 				continue
 			}
 
