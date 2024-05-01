@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"pmm-dump/internal/test/util"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -30,6 +28,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
+
+	"pmm-dump/internal/test/util"
 )
 
 const (
@@ -82,13 +82,17 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
-	if err := doUntilSuccess(ctx, 60*time.Second, func() error {
+	tCtx, cancel := context.WithTimeout(ctx, time.Second*60)
+	defer cancel()
+	if err := doUntilSuccess(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
-	if err := getUntilOk(ctx, pmm.PMMURL()+"/v1/version", time.Second*120); err != nil {
+	tCtx, cancel = context.WithTimeout(ctx, time.Second*120)
+	defer cancel()
+	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 
@@ -163,7 +167,10 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
-	if err := doUntilSuccess(ctx, 30*time.Second, func() error {
+
+	tCtx, cancel := context.WithTimeout(ctx, time.Second*60)
+	defer cancel()
+	if err := doUntilSuccess(tCtx, func() error {
 		err = pmm.Exec(ctx, pmm.ClientContainerName(), "pmm-admin", "status")
 		if err != nil {
 			if strings.Contains(err.Error(), "is not running") {
