@@ -45,7 +45,7 @@ func (pmm *PMM) Exec(ctx context.Context, container string, cmd ...string) error
 	}
 	defer attach.Close()
 
-	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 180*time.Second) //nolint:mnd
 	defer cancel()
 	inspect, err := dockerCli.ContainerExecInspect(ctx, resp.ID)
 	if err != nil {

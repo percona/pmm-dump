@@ -47,6 +47,11 @@ const (
 	mongoMemoryLimit     = 512 * 1024 * 1024
 )
 
+const (
+	execTimeout = time.Second * 60
+	getTimeout  = time.Second * 120
+)
+
 func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	vol, err := dockerCli.VolumeCreate(ctx, volume.CreateOptions{
 		Name: pmm.ServerContainerName() + volumeSuffix,
@@ -82,7 +87,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
-	tCtx, cancel := context.WithTimeout(ctx, time.Second*60)
+	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := doUntilSuccess(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
@@ -90,7 +95,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
-	tCtx, cancel = context.WithTimeout(ctx, time.Second*120)
+	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")
@@ -168,13 +173,13 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to create container")
 	}
 
-	tCtx, cancel := context.WithTimeout(ctx, time.Second*60)
+	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := doUntilSuccess(tCtx, func() error {
 		err = pmm.Exec(ctx, pmm.ClientContainerName(), "pmm-admin", "status")
 		if err != nil {
 			if strings.Contains(err.Error(), "is not running") {
-				time.Sleep(5 * time.Second)
+				time.Sleep(5 * time.Second) //nolint:mnd
 				err := dockerCli.ContainerStart(ctx, pmm.ClientContainerName(), container.StartOptions{})
 				if err != nil {
 					pmm.Log("failed to start container", err)

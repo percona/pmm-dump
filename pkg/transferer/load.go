@@ -153,7 +153,7 @@ func (c *LoadChecker) checkMetricsLoad() (LoadStatus, error) {
 			var vm *mem.VirtualMemoryStat
 			vm, err = mem.VirtualMemory()
 			if err == nil {
-				value = float64(rms.Alloc) * 100 / float64(vm.Total)
+				value = float64(rms.Alloc) * 100 / float64(vm.Total) //nolint:mnd
 			}
 		default:
 			value, err = c.getMetricCurrentValue(t)
@@ -274,7 +274,7 @@ func (r *metricResponse) getValidValue() (float64, error) {
 	if len(r.Data.Result) == 0 {
 		return 0, errors.New("empty result")
 	}
-	if len(r.Data.Result[0].Value) != 2 {
+	if len(r.Data.Result[0].Value) != 2 { //nolint:mnd
 		return 0, errors.New("unexpected number of values")
 	}
 	str, ok := r.Data.Result[0].Value[1].(string)
@@ -335,7 +335,7 @@ func parseThresholdValues(v string) (map[string]float64, error) {
 		}
 
 		values := strings.Split(p, separator)
-		if len(values) != 2 {
+		if len(values) != 2 { //nolint:mnd
 			return nil, errors.New("invalid syntax: must be K=V or K:V")
 		}
 

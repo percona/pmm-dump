@@ -178,7 +178,7 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			Typeflag: tar.TypeReg,
 			Name:     path.Join(s.Type().String(), c.Filename),
 			Size:     chunkSize,
-			Mode:     0o600,
+			Mode:     filePermission,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -200,7 +200,7 @@ func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 		Typeflag: tar.TypeReg,
 		Name:     dump.LogFilename,
 		Size:     int64(len(byteLog)),
-		Mode:     0o600,
+		Mode:     filePermission,
 		ModTime:  time.Now(),
 	})
 	if err != nil {

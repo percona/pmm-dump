@@ -45,12 +45,12 @@ const minPMMServerVersion = "2.12.0"
 
 func newClientHTTP(insecureSkipVerify bool) *fasthttp.Client {
 	return &fasthttp.Client{
-		MaxConnsPerHost:           2,
+		MaxConnsPerHost:           2, //nolint:mnd
 		MaxIdleConnDuration:       time.Minute,
-		MaxIdemponentCallAttempts: 5,
+		MaxIdemponentCallAttempts: 5, //nolint:mnd
 		ReadTimeout:               time.Minute,
 		WriteTimeout:              time.Minute,
-		MaxConnWaitTimeout:        time.Second * 30,
+		MaxConnWaitTimeout:        time.Second * 30, //nolint:mnd
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: insecureSkipVerify, //nolint:gosec
 		},
@@ -473,6 +473,8 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
+const dirPermission = 0o777
+
 func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 	var file *os.File
 	if piped {
@@ -486,7 +488,7 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 		}
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
-		if err := os.MkdirAll(path.Dir(filepath), 0o777); err != nil { //nolint:gosec
+		if err := os.MkdirAll(path.Dir(filepath), dirPermission); err != nil {
 			return nil, errors.Wrap(err, "failed to create folders for the dump file")
 		}
 		file, err = os.Create(filepath) //nolint:gosec

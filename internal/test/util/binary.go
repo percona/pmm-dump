@@ -24,13 +24,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+const defaultTimeout = time.Minute * 5
+
 type Binary struct {
 	timeout time.Duration
 }
 
 func (b *Binary) Run(args ...string) (string, string, error) {
 	if b.timeout == 0 {
-		b.timeout = time.Minute * 5
+		b.timeout = defaultTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
 	defer cancel()

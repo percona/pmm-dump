@@ -177,7 +177,9 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 func prepareInsertStatement(tx *sql.Tx, columnsCount int) (*sql.Stmt, error) {
 	var query strings.Builder
 
-	query.Grow(28 + columnsCount*2)
+	queryStart := "INSERT INTO metrics VALUES ("
+
+	query.Grow(len(queryStart) + columnsCount*2)
 	query.WriteString("INSERT INTO metrics VALUES (")
 	for i := 0; i < columnsCount-1; i++ {
 		query.WriteString("?,")
