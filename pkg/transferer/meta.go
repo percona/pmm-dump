@@ -94,7 +94,7 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 		Typeflag: tar.TypeReg,
 		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
-		Mode:     0o600,
+		Mode:     filePermission,
 		ModTime:  time.Now(),
 	})
 	if err != nil {

@@ -294,7 +294,7 @@ func (s Source) FinalizeWrites() error {
 		Str("url", url).
 		Msg("Sending reset cache request to Victoria Metrics endpoint")
 
-	status, body, err := s.c.GetWithTimeout(url, time.Second*30)
+	status, body, err := s.c.GetWithTimeout(url, requestTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
 	}

@@ -32,12 +32,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
-
-	"github.com/pkg/errors"
 )
 
 func TestContentLimit(t *testing.T) {
@@ -120,7 +120,7 @@ func generateFakeDump(filepath string) error {
 		Typeflag: tar.TypeReg,
 		Name:     dump.MetaFilename,
 		Size:     int64(len(metaContent)),
-		Mode:     0o600,
+		Mode:     filePermission,
 		ModTime:  time.Now(),
 	})
 	if err != nil {
@@ -143,7 +143,7 @@ func generateFakeDump(filepath string) error {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("vm", fmt.Sprintf("chunk-%d.bin", i)),
 			Size:     chunkSize,
-			Mode:     0o600,
+			Mode:     filePermission,
 			ModTime:  time.Now(),
 			Uid:      1,
 		})

@@ -32,6 +32,8 @@ import (
 	"pmm-dump/pkg/victoriametrics"
 )
 
+const defaultTimeframe = time.Hour * 4
+
 var (
 	GitBranch  string
 	GitCommit  string
@@ -227,7 +229,7 @@ func main() { //nolint:gocyclo,maintidx
 				log.Fatal().Msgf("Error parsing start date-time: %v", err)
 			}
 		} else {
-			startTime = endTime.Add(-1 * time.Hour * 4)
+			startTime = endTime.Add(-1 * defaultTimeframe)
 		}
 
 		if startTime.After(endTime) {

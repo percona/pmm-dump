@@ -238,7 +238,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 
 	pmm.Log("Waiting for mongo to be ready")
 
-	tCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	err = doUntilSuccess(tCtx, func() error {
 		return pmm.PingMongo(ctx)
@@ -248,7 +248,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}
 
 	pmm.Log("Adding mongo to PMM")
-	tCtx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := doUntilSuccess(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ClientContainerName(),
@@ -261,7 +261,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to add mongo to PMM")
 	}
 
-	tCtx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := doUntilSuccess(tCtx, func() error {
 		return pmm.PingClickhouse(ctx)
@@ -288,7 +288,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 		return errors.Wrap(err, "failed to set server published ports")
 	}
 
-	tCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil {
 		return errors.Wrap(err, "failed to ping PMM")

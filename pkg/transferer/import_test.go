@@ -186,7 +186,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("unknownsource", "chunk.bin"),
 			Size:     int64(content.Len()),
-			Mode:     0o600,
+			Mode:     filePermission,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -216,7 +216,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     "invalidfile.bin",
 			Size:     int64(content.Len()),
-			Mode:     0o600,
+			Mode:     filePermission,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
@@ -248,7 +248,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("vm", fmt.Sprintf("chunk-%d.bin", i)),
 			Size:     chunkSize,
-			Mode:     0o600,
+			Mode:     filePermission,
 			ModTime:  time.Now(),
 			Uid:      1,
 		})
@@ -263,7 +263,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			Typeflag: tar.TypeReg,
 			Name:     path.Join("ch", fmt.Sprintf("chunk-%d.bin", i)),
 			Size:     chunkSize,
-			Mode:     0o600,
+			Mode:     filePermission,
 			ModTime:  time.Now(),
 		})
 		if err != nil {

@@ -23,6 +23,11 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
+const (
+	filePermission = 0o600
+	maxChunksInMem = 4
+)
+
 type Transferer struct {
 	sources      []dump.Source
 	workersCount int
@@ -52,8 +57,6 @@ type ChunkPool interface {
 type LoadStatusGetter interface {
 	GetLatestStatus() (LoadStatus, int)
 }
-
-const maxChunksInMem = 4
 
 func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) { //nolint:ireturn,nolintlint
 	for _, s := range t.sources {
