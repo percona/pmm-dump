@@ -30,22 +30,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
+
+	"github.com/pkg/errors"
 )
 
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
-	pmm := util.NewPMM(t, "qan-where", ".env.test")
-	pmm.Deploy(ctx)
-	defer pmm.Stop()
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("qan-where", ".env.test")
+	if err := pmm.Deploy(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	var b util.Binary
-	testDir := util.TestDir(t, "qan-where")
+	testDir := util.CreateTestDir(t, "qan-where")
 
 	t.Log("Waiting for QAN data for 2 minutes")
 	time.Sleep(time.Minute * 2)
@@ -229,12 +232,14 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 func TestQANEmptyChunks(t *testing.T) {
 	ctx := context.Background()
 
-	pmm := util.NewPMM(t, "qan-empty-chunks", ".env.test")
-	pmm.Deploy(ctx)
-	defer pmm.Stop()
+	c := deployment.NewController(t)
+	pmm := c.NewPMM("qan-empty-chunks", ".env.test")
+	if err := pmm.Deploy(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	var b util.Binary
-	testDir := util.TestDir(t, "qan-empty-chunks")
+	testDir := util.CreateTestDir(t, "qan-empty-chunks")
 
 	startTime := time.Now()
 	t.Log("Waiting for QAN data for 3 minutes")

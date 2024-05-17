@@ -41,7 +41,7 @@ services:
       - PMM_AGENT_SERVER_INSECURE_TLS=true
       - PMM_AGENT_SETUP=false
   mongodb:
-    image: mongo
+    image: "${MONGO_IMAGE}:${MONGO_TAG}"
     container_name: "${PMM_MONGO_NAME}"
     environment:
       MONGO_INITDB_DATABASE: admin

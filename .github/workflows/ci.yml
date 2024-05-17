@@ -16,9 +16,9 @@ permissions:
 
 jobs:
   test:
-    if: false # TODO: make tests faster and enable this job
+    if: github.event_name == 'pull_request'
     name: Test
-    timeout-minutes: 10
+    timeout-minutes: 15
     continue-on-error: false
     runs-on: ubuntu-20.04
 
@@ -47,7 +47,7 @@ jobs:
       - name: Run tests
         run: |
           go clean -testcache
-          make run-tests
+          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-tests
 
 #       TODO: Add codecoverage
 #      - name: Upload coverage results
