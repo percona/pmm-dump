@@ -77,7 +77,7 @@ func InterpolateQuery(query string, from time.Time, to time.Time, vars []Templat
 		closingIdx += currIdx
 
 		spl := strings.Split(query[currIdx:closingIdx], ":")
-		if len(spl) != 2 {
+		if len(spl) != 2 { //nolint:mnd
 			return "", errors.New("failed to interpolate query")
 		}
 

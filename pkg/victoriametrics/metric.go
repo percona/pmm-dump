@@ -64,7 +64,7 @@ func (r *MetricResponse) GetValidValue() (string, error) {
 	if len(r.Data.Result) == 0 {
 		return "", nil
 	}
-	if len(r.Data.Result[0].Value) != 2 {
+	if len(r.Data.Result[0].Value) != 2 { //nolint:mnd
 		return "", errors.New("unexpected number of values")
 	}
 	str, ok := r.Data.Result[0].Value[1].(string)

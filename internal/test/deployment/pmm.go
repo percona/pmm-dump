@@ -152,7 +152,7 @@ func (pmm *PMM) Deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to deploy")
 	}
 	if !pmm.dontCleanup {
-		pmm.t.Cleanup(func() {
+		pmm.t.Cleanup(func() { //nolint:contextcheck
 			pmm.Destroy(context.Background())
 		})
 	}

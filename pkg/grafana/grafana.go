@@ -79,7 +79,7 @@ func getDashboard(c *client.Client, pmmURL, dashboardName string) (types.Dashboa
 		Dashboard types.DashboardPanel `json:"dashboard"`
 	}{}
 
-	if err = json.Unmarshal(data, &resp); err != nil {
+	if err = json.Unmarshal(data, &resp); err != nil { //nolint:musttag
 		return types.DashboardPanel{}, err
 	}
 	return resp.Dashboard, nil
