@@ -27,7 +27,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
+	grafana "pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
 	"pmm-dump/pkg/victoriametrics"
 )
@@ -137,17 +138,41 @@ func main() { //nolint:gocyclo,maintidx
 
 	switch cmd {
 	case exportCmd.FullCommand():
+		var startTime, endTime time.Time
+
+		if *end != "" {
+			endTime, err = time.ParseInLocation(time.RFC3339, *end, time.UTC)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing end date-time: %v", err)
+			}
+		} else {
+			endTime = time.Now().UTC()
+		}
+
+		if *start != "" {
+			startTime, err = time.ParseInLocation(time.RFC3339, *start, time.UTC)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing start date-time: %v", err)
+			}
+		} else {
+			startTime = endTime.Add(-1 * defaultTimeframe)
+		}
+
+		if startTime.After(endTime) {
+			log.Fatal().Msg("Invalid time range: start > end")
+		}
+
 		httpC := newClientHTTP(*allowInsecureCerts)
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
-		authParams := grafana.AuthParams{
+		authParams := client.AuthParams{
 			User:       *pmmUser,
 			Password:   *pmmPassword,
 			APIToken:   *pmmToken,
 			AuthCookie: *pmmCookie,
 		}
-		grafanaC, err := grafana.NewClient(httpC, authParams)
+		grafanaC, err := client.NewClient(httpC, authParams)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
 		}
@@ -182,7 +207,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
 
-		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, grafanaC)
+		selectors, err := grafana.GetSelectorsFromDashboards(grafanaC, *pmmURL, *dashboards, *instances, startTime, endTime)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
 		}
@@ -210,30 +235,6 @@ func main() { //nolint:gocyclo,maintidx
 		chSource, ok := prepareClickHouseSource(ctx, *dumpQAN, pmmConfig.ClickHouseURL, *where)
 		if ok {
 			sources = append(sources, chSource)
-		}
-
-		var startTime, endTime time.Time
-
-		if *end != "" {
-			endTime, err = time.ParseInLocation(time.RFC3339, *end, time.UTC)
-			if err != nil {
-				log.Fatal().Msgf("Error parsing end date-time: %v", err)
-			}
-		} else {
-			endTime = time.Now().UTC()
-		}
-
-		if *start != "" {
-			startTime, err = time.ParseInLocation(time.RFC3339, *start, time.UTC)
-			if err != nil {
-				log.Fatal().Msgf("Error parsing start date-time: %v", err)
-			}
-		} else {
-			startTime = endTime.Add(-1 * defaultTimeframe)
-		}
-
-		if startTime.After(endTime) {
-			log.Fatal().Msg("Invalid time range: start > end")
 		}
 
 		file, err := createFile(*dumpPath, *stdout)
@@ -288,13 +289,13 @@ func main() { //nolint:gocyclo,maintidx
 		httpC := newClientHTTP(*allowInsecureCerts)
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
-		authParams := grafana.AuthParams{
+		authParams := client.AuthParams{
 			User:       *pmmUser,
 			Password:   *pmmPassword,
 			APIToken:   *pmmToken,
 			AuthCookie: *pmmCookie,
 		}
-		grafanaC, err := grafana.NewClient(httpC, authParams)
+		grafanaC, err := client.NewClient(httpC, authParams)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
 		}

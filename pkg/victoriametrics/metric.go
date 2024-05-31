@@ -43,3 +43,33 @@ func ParseMetrics(r io.Reader) ([]Metric, error) {
 	}
 	return result, nil
 }
+
+type MetricResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		ResultType string `json:"resultType"`
+		Result     []struct {
+			Metric struct {
+				Instance string `json:"instance"`
+			} `json:"metric"`
+			Value []interface{} `json:"value"`
+		} `json:"result"`
+	} `json:"data"`
+}
+
+func (r *MetricResponse) GetValidValue() (string, error) {
+	if r.Status != "success" {
+		return "", errors.New("status is not success")
+	}
+	if len(r.Data.Result) == 0 {
+		return "", nil
+	}
+	if len(r.Data.Result[0].Value) != 2 {
+		return "", errors.New("unexpected number of values")
+	}
+	str, ok := r.Data.Result[0].Value[1].(string)
+	if !ok {
+		return "", errors.New("value is not string")
+	}
+	return str, nil
+}

@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"pmm-dump/internal/test/util"
-	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
 )
 
 func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
@@ -75,7 +75,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 					switch r.URL.Path {
 					case "/graph/login":
 						http.SetCookie(w, &http.Cookie{
-							Name:  grafana.AuthCookieName,
+							Name:  client.AuthCookieName,
 							Value: "some-cookie",
 						})
 						w.WriteHeader(http.StatusOK)

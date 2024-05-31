@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"pmm-dump/internal/test/deployment"
-	"pmm-dump/internal/test/util"
-
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+
+	"pmm-dump/internal/test/deployment"
+	"pmm-dump/internal/test/util"
 )
 
 func TestPMMCompatibility(t *testing.T) {

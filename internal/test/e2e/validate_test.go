@@ -34,13 +34,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
-
-	"github.com/pkg/errors"
 )
 
 func TestValidate(t *testing.T) {
@@ -297,7 +297,7 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 		delete(yHashMap, k)
 	}
 
-	missingMetrics := []vmMetric{}
+	missingMetrics := make([]vmMetric, 0)
 	for _, v := range xHashMap {
 		missingMetrics = append(missingMetrics, v)
 	}

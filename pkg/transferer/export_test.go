@@ -141,7 +141,7 @@ func TestExport(t *testing.T) {
 				if err != nil {
 					t.Fatal(err, "failed to create new chunk pool")
 				}
-				err = tr.Export(ctx, fakeStatusGetter{status: tt.loadStatus.status, waitCount: tt.loadStatus.waitCount, statusAfterWait: tt.loadStatus.statusAfterWait, count: new(int)}, meta, pool, &bytes.Buffer{})
+				err = tr.Export(ctx, fakeStatusGetter{status: tt.loadStatus.status, waitCount: tt.loadStatus.waitCount, statusAfterWait: tt.loadStatus.statusAfterWait, count: new(int)}, meta, pool, new(bytes.Buffer))
 				if err != nil {
 					if tt.shouldErr {
 						return

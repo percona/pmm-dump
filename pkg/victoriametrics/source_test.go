@@ -28,7 +28,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 
-	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
 )
 
 func TestWriteChunk(t *testing.T) {
@@ -96,7 +96,7 @@ func TestWriteChunk(t *testing.T) {
 			))
 			defer server.Close()
 
-			grafanaC, err := grafana.NewClient(httpC, grafana.AuthParams{
+			grafanaC, err := client.NewClient(httpC, client.AuthParams{
 				User:     "admin",
 				Password: "admin",
 			})

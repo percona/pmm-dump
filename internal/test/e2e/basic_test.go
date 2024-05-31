@@ -21,10 +21,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
+
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
-
-	"golang.org/x/sync/errgroup"
 )
 
 func TestExportImport(t *testing.T) {

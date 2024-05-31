@@ -30,7 +30,8 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/valyala/fasthttp"
 
-	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 type LoadStatus int
@@ -64,7 +65,7 @@ const (
 )
 
 type LoadChecker struct {
-	c             *grafana.Client
+	c             *client.Client
 	connectionURL string
 
 	thresholds []Threshold
@@ -75,7 +76,7 @@ type LoadChecker struct {
 	latestStatusCount int
 }
 
-func NewLoadChecker(ctx context.Context, c *grafana.Client, url string, thresholds []Threshold) *LoadChecker {
+func NewLoadChecker(ctx context.Context, c *client.Client, url string, thresholds []Threshold) *LoadChecker {
 	lc := &LoadChecker{
 		c:             c,
 		connectionURL: url,
@@ -199,18 +200,25 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 	}
 	log.Debug().Msg("Got HTTP status OK from load checker endpoint")
 
-	var resp metricResponse
+	var resp victoriametrics.MetricResponse
 
 	if err = json.Unmarshal(body, &resp); err != nil {
 		return 0, fmt.Errorf("error parsing thresholds: %w", err)
 	}
 
-	value, err := resp.getValidValue()
+	value, err := resp.GetValidValue()
 	if err != nil {
 		return 0, fmt.Errorf("error parsing threshold: %w", err)
 	}
-	log.Debug().Msgf("Got %f threshold value", value)
-	return value, nil
+	if value == "" {
+		return 0, errors.New("error parsing threshold: empty value")
+	}
+	fVal, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing value error: %s", err.Error())
+	}
+	log.Debug().Msgf("Got %s threshold value", value)
+	return fVal, nil
 }
 
 type ThresholdKey = string
@@ -252,40 +260,6 @@ type Threshold struct {
 	Query        string
 	MaxLoad      float64
 	CriticalLoad float64
-}
-
-type metricResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric struct {
-				Instance string `json:"instance"`
-			} `json:"metric"`
-			Value []interface{} `json:"value"`
-		} `json:"result"`
-	} `json:"data"`
-}
-
-func (r *metricResponse) getValidValue() (float64, error) {
-	if r.Status != "success" {
-		return 0, errors.New("status is not success")
-	}
-	if len(r.Data.Result) == 0 {
-		return 0, errors.New("empty result")
-	}
-	if len(r.Data.Result[0].Value) != 2 { //nolint:mnd
-		return 0, errors.New("unexpected number of values")
-	}
-	str, ok := r.Data.Result[0].Value[1].(string)
-	if !ok {
-		return 0, errors.New("value is not string")
-	}
-	val, err := strconv.ParseFloat(str, 64)
-	if err != nil {
-		return 0, fmt.Errorf("parsing value error: %s", err.Error())
-	}
-	return val, nil
 }
 
 func ParseThresholdList(max, critical string) ([]Threshold, error) {

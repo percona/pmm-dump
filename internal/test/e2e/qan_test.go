@@ -30,13 +30,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
-
-	"github.com/pkg/errors"
 )
 
 func TestQANWhere(t *testing.T) {
@@ -119,7 +119,7 @@ func TestQANWhere(t *testing.T) {
 			}
 
 			for _, instance := range tt.instances {
-				args = append(args, fmt.Sprintf("--instance=%s", instance))
+				args = append(args, "--instance="+instance)
 			}
 
 			t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
