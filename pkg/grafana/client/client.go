@@ -112,6 +112,7 @@ func (c *Client) PostJSON(url string, reqBody interface{}) (int, []byte, error) 
 	req.Header.SetMethod(fasthttp.MethodPost)
 
 	req.Header.SetContentType("application/json")
+
 	reqArgs, err := json.Marshal(reqBody)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "failed to marshal json body")

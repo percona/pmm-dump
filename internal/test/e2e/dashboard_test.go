@@ -1,5 +1,3 @@
-//go:build e2e
-
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -40,6 +39,7 @@ func TestDashboard(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	importCustomDashboards(t, pmm.PMMURL())
 	names := getAllDashbaordNames(t, pmm.PMMURL())
 
 	for _, name := range names {
@@ -60,9 +60,39 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func getAllDashbaordNames(t *testing.T, pmmURL string) []string {
-	t.Helper()
+func importCustomDashboards(t *testing.T, pmmURL string) {
+	grafanaClient := newClient(t)
 
+	entries, err := os.ReadDir(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "dashboards"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, v := range entries {
+		data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "dashboards", v.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		dashboard := make(map[string]any)
+		if err := json.Unmarshal(data, &dashboard); err != nil {
+			t.Fatal(err)
+		}
+		importReq := map[string]any{
+			"dashboard": dashboard,
+			"folderId":  0,
+			"inputs":    []any{},
+		}
+		status, data, err := grafanaClient.PostJSON(pmmURL+"/graph/api/dashboards/import", importReq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status != fasthttp.StatusOK {
+			t.Fatalf("non-ok status: %d: %s", status, string(data))
+		}
+	}
+}
+
+func newClient(t *testing.T) *client.Client {
 	httpC := &fasthttp.Client{
 		MaxConnsPerHost:           2,
 		MaxIdleConnDuration:       time.Minute,
@@ -82,6 +112,13 @@ func getAllDashbaordNames(t *testing.T, pmmURL string) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return grafanaClient
+}
+
+func getAllDashbaordNames(t *testing.T, pmmURL string) []string {
+	t.Helper()
+
+	grafanaClient := newClient(t)
 
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)

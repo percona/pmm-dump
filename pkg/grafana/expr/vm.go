@@ -196,6 +196,15 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			Model:  v,
 			Values: vals,
 		}, nil
+	case dashboard.VariableTypeConstant:
+		val, err := templating.GetQueryFromModel(v)
+		if err != nil {
+			return templating.TemplatingVariable{}, errors.Wrap(err, "get query from model")
+		}
+		return templating.TemplatingVariable{
+			Model:  v,
+			Values: []string{val},
+		}, nil
 	case dashboard.VariableTypeAdhoc:
 		return templating.TemplatingVariable{}, errShouldIgnoreQuery
 	case dashboard.VariableTypeDatasource:
@@ -227,7 +236,7 @@ func (p *VMExprParser) parseTemplatingVars(list []types.VariableModel) error {
 				p.ignoredVars[templVar.Name] = struct{}{}
 				continue
 			}
-			return errors.Wrap(err, "to prometheus var")
+			return errors.Wrap(err, "parse templating var")
 		}
 		p.varOrder = append(p.varOrder, pv.Name())
 		p.vars[pv.Name()] = pv

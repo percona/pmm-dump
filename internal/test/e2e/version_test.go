@@ -82,7 +82,7 @@ func getVersions() ([]string, error) {
 	type versionsConfig struct {
 		Versions []string `yaml:"versions"`
 	}
-	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "versions.yaml"))
+	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "versions.yaml"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read versions.yaml")
 	}
