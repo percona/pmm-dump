@@ -48,7 +48,6 @@ func (p *VMExprParser) allVariables() []templating.TemplatingVariable {
 			Model: types.VariableModel{
 				Name: name,
 			},
-			Values: []string{},
 		})
 	}
 	return s
