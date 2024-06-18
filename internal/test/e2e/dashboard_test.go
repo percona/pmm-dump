@@ -63,6 +63,8 @@ func TestDashboard(t *testing.T) {
 }
 
 func importCustomDashboards(t *testing.T, pmmURL string) {
+	t.Helper()
+
 	grafanaClient := newClient(t)
 
 	entries, err := os.ReadDir(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "dashboards"))
@@ -95,6 +97,8 @@ func importCustomDashboards(t *testing.T, pmmURL string) {
 }
 
 func newClient(t *testing.T) *client.Client {
+	t.Helper()
+
 	httpC := &fasthttp.Client{
 		MaxConnsPerHost:           2,
 		MaxIdleConnDuration:       time.Minute,
