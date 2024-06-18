@@ -40,7 +40,7 @@ func (p *VMExprParser) parseTemplatingQuery(v types.VariableModel) (templating.T
 	case strings.HasPrefix(query, "metrics("):
 		return templating.TemplatingVariable{}, errShouldIgnoreQuery
 	case strings.HasPrefix(query, "query_result("):
-		query, err = templating.InterpolateQuery(query, p.from, p.to, p.variables())
+		query, err = templating.InterpolateQuery(query, p.from, p.to, p.allVariables())
 		if err != nil {
 			return templating.TemplatingVariable{}, errors.Wrap(err, "interpolate query")
 		}
@@ -79,7 +79,7 @@ func (p *VMExprParser) parseTemplatingQuery(v types.VariableModel) (templating.T
 				return templating.TemplatingVariable{}, err
 			}
 		} else {
-			values, err = labelValues(p.c, p.pmmURL, label, metric, p.from, p.to, p.variables())
+			values, err = labelValues(p.c, p.pmmURL, label, metric, p.from, p.to, p.allVariables())
 			if err != nil {
 				return templating.TemplatingVariable{}, err
 			}

@@ -47,6 +47,9 @@ func FormatVar(format template.VariableFormat, input []string) (string, error) {
 }
 
 func InterpolateQuery(query string, from time.Time, to time.Time, vars []TemplatingVariable) (string, error) {
+	if query == "" {
+		return "", nil
+	}
 	query, err := macros.ApplyMacros(query, backend.TimeRange{
 		From: from,
 		To:   to,

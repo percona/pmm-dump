@@ -38,10 +38,18 @@ type VMExprParser struct {
 	vars     map[string]templating.TemplatingVariable
 }
 
-func (p *VMExprParser) variables() []templating.TemplatingVariable {
+func (p *VMExprParser) allVariables() []templating.TemplatingVariable {
 	s := make([]templating.TemplatingVariable, 0, len(p.vars))
 	for _, k := range p.varOrder {
 		s = append(s, p.vars[k])
+	}
+	for name := range p.ignoredVars {
+		s = append(s, templating.TemplatingVariable{
+			Model: types.VariableModel{
+				Name: name,
+			},
+			Values: []string{},
+		})
 	}
 	return s
 }
@@ -132,7 +140,7 @@ func (p *VMExprParser) GetSelectors(dashboard types.DashboardPanel) ([]string, e
 		}
 
 		query := target.Expr
-		query, err := templating.InterpolateQuery(query, p.from, p.to, p.variables())
+		query, err := templating.InterpolateQuery(query, p.from, p.to, p.allVariables())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to interpolate query")
 		}
@@ -169,12 +177,12 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 	switch v.Type {
 	case dashboard.VariableTypeQuery:
 		if v.Datasource != nil {
-			uid, err := templating.InterpolateQuery(v.Datasource.UID, p.from, p.to, p.variables())
+			uid, err := templating.InterpolateQuery(v.Datasource.UID, p.from, p.to, p.allVariables())
 			if err != nil {
 				return templating.TemplatingVariable{}, errors.Wrap(err, "interpolate query")
 			}
 
-			if v.Datasource.Name != VMDatasourceName && uid != VMDatasourceName {
+			if v.Datasource.Name != VMDatasourceName && uid != VMDatasourceName && v.Datasource.Type != "prometheus" {
 				return templating.TemplatingVariable{}, errShouldIgnoreQuery
 			}
 		}
