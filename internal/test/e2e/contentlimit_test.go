@@ -92,6 +92,10 @@ func TestContentLimit(t *testing.T) {
 	}
 }
 
+const (
+	filePermission = 0o600
+)
+
 func generateFakeDump(filepath string) error {
 	file, err := os.Create(filepath) //nolint:gosec
 	if err != nil {
