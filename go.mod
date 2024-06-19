@@ -10,7 +10,7 @@ require (
 	github.com/docker/docker v26.1.3+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.32.0
+	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.52.0
 	go.mongodb.org/mongo-driver v1.14.0
