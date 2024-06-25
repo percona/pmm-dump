@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
@@ -209,7 +209,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	checkImagesMu.Unlock()
 
 	pmm.Log("Creating network")
-	netresp, err := dockerCli.NetworkCreate(ctx, pmm.NetworkName(), types.NetworkCreate{
+	netresp, err := dockerCli.NetworkCreate(ctx, pmm.NetworkName(), network.CreateOptions{
 		Labels: map[string]string{
 			PerconaLabel: pmm.testName,
 		},
@@ -375,7 +375,7 @@ func (pmm *PMM) destroy(ctx context.Context, filters filters.Args) error {
 		}
 	}
 
-	networks, err := dockerCli.NetworkList(ctx, types.NetworkListOptions{
+	networks, err := dockerCli.NetworkList(ctx, network.ListOptions{
 		Filters: filters,
 	})
 	if err != nil {

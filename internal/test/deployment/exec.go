@@ -19,18 +19,18 @@ import (
 	"io"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 )
 
-func (pmm *PMM) Exec(ctx context.Context, container string, cmd ...string) error {
+func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
 	}
 	defer dockerCli.Close() //nolint:errcheck
-	resp, err := dockerCli.ContainerExecCreate(ctx, container, types.ExecConfig{
+	resp, err := dockerCli.ContainerExecCreate(ctx, containerName, container.ExecOptions{
 		Tty:          true,
 		AttachStdout: true,
 		AttachStderr: true,
@@ -39,7 +39,7 @@ func (pmm *PMM) Exec(ctx context.Context, container string, cmd ...string) error
 	if err != nil {
 		return errors.Wrap(err, "failed to create exec")
 	}
-	attach, err := dockerCli.ContainerExecAttach(ctx, resp.ID, types.ExecStartCheck{})
+	attach, err := dockerCli.ContainerExecAttach(ctx, resp.ID, container.ExecAttachOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to attach exec")
 	}
