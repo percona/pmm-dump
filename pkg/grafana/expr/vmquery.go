@@ -42,20 +42,21 @@ func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 				var s string
 				if _, ok := p.ignoredVars[f.Value]; ok {
 					continue
-				} else {
-					s += f.Label
-					switch {
-					case f.IsNegative && f.IsRegexp:
-						s += "!~"
-					case f.IsNegative && !f.IsRegexp:
-						s += "!="
-					case !f.IsNegative && f.IsRegexp:
-						s += "=~"
-					case !f.IsNegative && !f.IsRegexp:
-						s += "="
-					}
-					s += fmt.Sprintf(`"%s"`, f.Value)
 				}
+				
+				s += f.Label
+				switch {
+				case f.IsNegative && f.IsRegexp:
+					s += "!~"
+				case f.IsNegative && !f.IsRegexp:
+					s += "!="
+				case !f.IsNegative && f.IsRegexp:
+					s += "=~"
+				case !f.IsNegative && !f.IsRegexp:
+					s += "="
+				}
+				s += fmt.Sprintf(`"%s"`, f.Value)
+				
 				filters = append(filters, s)
 			}
 		}
