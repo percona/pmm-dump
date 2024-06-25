@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grafana
+package client
 
 import (
 	"encoding/base64"
@@ -112,6 +112,7 @@ func (c *Client) PostJSON(url string, reqBody interface{}) (int, []byte, error) 
 	req.Header.SetMethod(fasthttp.MethodPost)
 
 	req.Header.SetContentType("application/json")
+
 	reqArgs, err := json.Marshal(reqBody)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "failed to marshal json body")

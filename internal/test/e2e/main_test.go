@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"pmm-dump/internal/test/deployment"
-
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"pmm-dump/internal/test/deployment"
 )
 
 func TestMain(m *testing.M) {
@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		PartsExclude: []string{
 			zerolog.LevelFieldName,
 		},
-		FieldsExclude: []string{},
+		FieldsExclude: make([]string, 0),
 	}
 
 	log.Logger = log.Output(logConsoleWriter)

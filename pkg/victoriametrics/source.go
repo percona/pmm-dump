@@ -29,15 +29,15 @@ import (
 	"github.com/valyala/fasthttp"
 
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
 )
 
 type Source struct {
-	c   *grafana.Client
+	c   *client.Client
 	cfg Config
 }
 
-func NewSource(c *grafana.Client, cfg Config) *Source {
+func NewSource(c *client.Client, cfg Config) *Source {
 	if len(cfg.TimeSeriesSelectors) == 0 {
 		cfg.TimeSeriesSelectors = []string{`{__name__=~".*"}`}
 	}

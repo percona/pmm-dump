@@ -21,10 +21,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
+
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
-
-	"golang.org/x/sync/errgroup"
 )
 
 func TestExportImport(t *testing.T) {
@@ -66,7 +66,7 @@ func TestExportImport(t *testing.T) {
 
 func TestShowMeta(t *testing.T) {
 	var b util.Binary
-	stdout, stderr, err := b.Run("show-meta", "-d", filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "onlymeta.tar.gz"))
+	stdout, stderr, err := b.Run("show-meta", "-d", filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "onlymeta.tar.gz"))
 	if err != nil {
 		t.Fatal(err, stdout, stderr)
 	}

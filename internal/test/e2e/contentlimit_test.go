@@ -66,7 +66,9 @@ func TestContentLimit(t *testing.T) {
 		t.Fatal("failed to change nginx settings", err)
 	}
 
-	pmm.Restart(ctx)
+	if err := pmm.Restart(ctx); err != nil {
+		t.Fatal("failed to restart pmm", err)
+	}
 
 	stdout, stderr, err := b.Run(
 		"import",

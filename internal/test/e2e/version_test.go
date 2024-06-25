@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"pmm-dump/internal/test/deployment"
-	"pmm-dump/internal/test/util"
-
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+
+	"pmm-dump/internal/test/deployment"
+	"pmm-dump/internal/test/util"
 )
 
 func TestPMMCompatibility(t *testing.T) {
@@ -82,7 +82,7 @@ func getVersions() ([]string, error) {
 	type versionsConfig struct {
 		Versions []string `yaml:"versions"`
 	}
-	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "versions.yaml"))
+	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "versions.yaml"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read versions.yaml")
 	}
