@@ -84,7 +84,7 @@ func importCustomDashboards(t *testing.T, pmmURL string) {
 		importReq := map[string]any{
 			"dashboard": dashboard,
 			"folderId":  0,
-			"inputs":    []any{},
+			"inputs":    make([]any, 0),
 		}
 		status, data, err := grafanaClient.PostJSON(pmmURL+"/graph/api/dashboards/import", importReq)
 		if err != nil {

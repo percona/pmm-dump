@@ -43,7 +43,7 @@ func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 				if _, ok := p.ignoredVars[f.Value]; ok {
 					continue
 				}
-				
+
 				s += f.Label
 				switch {
 				case f.IsNegative && f.IsRegexp:
@@ -56,7 +56,7 @@ func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 					s += "="
 				}
 				s += fmt.Sprintf(`"%s"`, f.Value)
-				
+
 				filters = append(filters, s)
 			}
 		}

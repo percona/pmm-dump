@@ -30,6 +30,7 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -184,7 +185,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	defer dockerCli.Close() //nolint:errcheck
 
 	pmm.Log("Destroying existing deployment")
-	if err := pmm.destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName))); err != nil {
+	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName)), pmm); err != nil {
 		return errors.Wrap(err, "failed to destroy existing deployment")
 	}
 
@@ -298,7 +299,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 func (pmm *PMM) Destroy(ctx context.Context) {
 	pmm.Log("Destroying deployment")
-	if err := pmm.destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName))); err != nil {
+	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName)), pmm); err != nil {
 		pmm.Log(err)
 		pmm.t.FailNow()
 	}
@@ -335,7 +336,21 @@ func doUntilSuccess(ctx context.Context, f func() error) error {
 	}
 }
 
-func (pmm *PMM) destroy(ctx context.Context, filters filters.Args) error {
+func DestroyAll(ctx context.Context) error {
+	return destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel)), new(defaultLogger))
+}
+
+type logger interface {
+	Log(args ...any)
+}
+
+type defaultLogger struct{}
+
+func (l *defaultLogger) Log(args ...any) {
+	log.Logger.Println(args...)
+}
+
+func destroy(ctx context.Context, filters filters.Args, log logger) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
@@ -353,13 +368,13 @@ func (pmm *PMM) destroy(ctx context.Context, filters filters.Args) error {
 	zero := 0
 	for _, c := range containers {
 		if err := dockerCli.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &zero}); err != nil {
-			pmm.Log(err, "failed to stop container")
+			log.Log(err, "failed to stop container")
 		}
 		if err := dockerCli.ContainerRemove(ctx, c.ID, container.RemoveOptions{
 			Force:         true,
 			RemoveVolumes: true,
 		}); err != nil {
-			pmm.Log(err, "failed to remove container")
+			log.Log(err, "failed to remove container")
 		}
 	}
 
@@ -371,7 +386,7 @@ func (pmm *PMM) destroy(ctx context.Context, filters filters.Args) error {
 	}
 	for _, vol := range volumes.Volumes {
 		if err := dockerCli.VolumeRemove(ctx, vol.Name, true); err != nil {
-			pmm.Log(err, "failed to remove volume")
+			log.Log(err, "failed to remove volume")
 		}
 	}
 
@@ -384,7 +399,7 @@ func (pmm *PMM) destroy(ctx context.Context, filters filters.Args) error {
 
 	for _, n := range networks {
 		if err := dockerCli.NetworkRemove(ctx, n.ID); err != nil {
-			pmm.Log(err, "failed to remove network")
+			log.Log(err, "failed to remove network")
 		}
 	}
 
