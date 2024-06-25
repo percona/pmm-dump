@@ -7,7 +7,7 @@ require (
 	github.com/VictoriaMetrics/metricsql v0.75.1
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
-	github.com/docker/docker v26.1.3+incompatible
+	github.com/docker/docker v27.0.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
