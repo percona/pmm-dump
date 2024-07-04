@@ -223,6 +223,18 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.New("got warnings during network creation:" + netresp.Warning)
 	}
 
+	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
+	defer cancel()
+	if err := doUntilSuccess(tCtx, func() error {
+		_, err := dockerCli.NetworkInspect(ctx, netresp.ID, network.InspectOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed to inspect network %s", netresp.ID)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	pmm.Log("Creating PMM server")
 	if err := pmm.CreatePMMServer(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create pmm server")
@@ -240,7 +252,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 
 	pmm.Log("Waiting for mongo to be ready")
 
-	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	err = doUntilSuccess(tCtx, func() error {
 		return pmm.PingMongo(ctx)
