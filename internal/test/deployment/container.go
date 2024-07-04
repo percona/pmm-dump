@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"context"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -97,7 +98,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil {
+	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 
