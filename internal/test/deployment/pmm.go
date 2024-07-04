@@ -425,12 +425,12 @@ func destroy(ctx context.Context, filters filters.Args, log logger) error {
 
 func (p *PMM) NewClient() (*grafanaClient.Client, error) {
 	httpC := &fasthttp.Client{
-		MaxConnsPerHost:           2,
+		MaxConnsPerHost:           2, //nolint:mnd
 		MaxIdleConnDuration:       time.Minute,
-		MaxIdemponentCallAttempts: 5,
+		MaxIdemponentCallAttempts: 5, //nolint:mnd
 		ReadTimeout:               time.Minute,
 		WriteTimeout:              time.Minute,
-		MaxConnWaitTimeout:        time.Second * 30,
+		MaxConnWaitTimeout:        time.Second * 30, //nolint:mnd
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true, //nolint:gosec
 		},
