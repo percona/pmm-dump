@@ -31,6 +31,8 @@ import (
 	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/util"
+	pkgUtil "pmm-dump/pkg/util"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 const (
@@ -45,11 +47,11 @@ const (
 
 	pmmClientMemoryLimit = 128 * 1024 * 1024
 	pmmServerMemoryLimit = 1024 * 1024 * 1024
-	mongoMemoryLimit     = 512 * 1024 * 1024
+	mongoMemoryLimit     = 1024 * 1024 * 1024
 )
 
 const (
-	execTimeout = time.Second * 60
+	execTimeout = time.Second * 120
 	getTimeout  = time.Second * 120
 )
 
@@ -100,6 +102,23 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	defer cancel()
 	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping PMM")
+	}
+
+	gc, err := pmm.NewClient()
+	if err != nil {
+		return errors.Wrap(err, "new client")
+	}
+
+	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	if err != nil {
+		return errors.Wrap(err, "get pmm config")
+	}
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
+	defer cancel()
+	if err := doUntilSuccess(tCtx, func() error {
+		return victoriametrics.ExportTestRequest(gc, pmmConfig.VictoriaMetricsURL)
+	}); err != nil {
+		return errors.Wrap(err, "failed to check victoriametrics")
 	}
 
 	return nil

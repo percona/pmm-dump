@@ -30,6 +30,7 @@ import (
 	grafana "pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
+	"pmm-dump/pkg/util"
 	"pmm-dump/pkg/victoriametrics"
 )
 
@@ -200,7 +201,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
@@ -259,6 +260,9 @@ func main() { //nolint:gocyclo,maintidx
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
 			}
+			if len(chChunks) == 0 && !*dumpCore {
+				log.Fatal().Msg("QAN doesn't have any data")
+			}
 			chunks = append(chunks, chChunks...)
 		}
 
@@ -305,7 +309,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}

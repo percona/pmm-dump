@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package util
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ type PMMConfig struct {
 	VictoriaMetricsURL string
 }
 
-func getPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
+func GetPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
 	pmmURL, err := url.Parse(pmmLink)
 	if err != nil {
 		return PMMConfig{}, fmt.Errorf("failed to parse pmm-url: %w", err)

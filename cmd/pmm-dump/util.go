@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -342,19 +341,11 @@ func (lw LevelWriter) Write(p []byte) (int, error) {
 }
 
 func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
-	checkUrls := []string{victoriaMetricsURL + "/api/v1/export"}
-
-	for _, v := range checkUrls {
-		code, _, err := c.Get(v)
-		if err == nil {
-			if code == http.StatusNotFound {
-				log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
-				log.Debug().Msgf("404 error by %s", v)
-				break
-			}
-		} else {
+	if err := victoriametrics.ExportTestRequest(c, victoriaMetricsURL); err != nil {
+		if !errors.Is(err, victoriametrics.ErrNotFound) {
 			log.Fatal().Err(err).Msg("Failed to make test requests")
 		}
+		log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
 	}
 
 	pmmVer, _, err := getPMMVersion(pmmURL, c)

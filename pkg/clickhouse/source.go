@@ -245,9 +245,6 @@ func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
 	}
-	if totalRows == 0 {
-		return nil, errors.New("clickhouse doesn't have any data")
-	}
 
 	rowsCounter := totalRows
 	chunksLen := rowsCounter/chunkRowsLen + 1

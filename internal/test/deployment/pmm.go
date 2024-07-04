@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +33,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/valyala/fasthttp"
+
+	grafanaClient "pmm-dump/pkg/grafana/client"
 )
 
 const (
@@ -417,4 +421,27 @@ func destroy(ctx context.Context, filters filters.Args, log logger) error {
 	}
 
 	return nil
+}
+
+func (p *PMM) NewClient() (*grafanaClient.Client, error) {
+	httpC := &fasthttp.Client{
+		MaxConnsPerHost:           2,
+		MaxIdleConnDuration:       time.Minute,
+		MaxIdemponentCallAttempts: 5,
+		ReadTimeout:               time.Minute,
+		WriteTimeout:              time.Minute,
+		MaxConnWaitTimeout:        time.Second * 30,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec
+		},
+	}
+	authParams := grafanaClient.AuthParams{
+		User:     "admin",
+		Password: "admin",
+	}
+	grafanaClient, err := grafanaClient.NewClient(httpC, authParams)
+	if err != nil {
+		return nil, errors.Wrap(err, "new client")
+	}
+	return grafanaClient, nil
 }

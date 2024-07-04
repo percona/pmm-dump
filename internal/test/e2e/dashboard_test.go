@@ -1,5 +1,3 @@
-//go:build e2e
-
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,18 +16,15 @@ package e2e
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/valyala/fasthttp"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
-	"pmm-dump/pkg/grafana/client"
 )
 
 func TestDashboard(t *testing.T) {
@@ -41,8 +36,8 @@ func TestDashboard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	importCustomDashboards(t, pmm.PMMURL())
-	names := getAllDashbaordNames(t, pmm.PMMURL())
+	importCustomDashboards(t, pmm)
+	names := getAllDashbaordNames(t, pmm)
 
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
@@ -62,10 +57,13 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func importCustomDashboards(t *testing.T, pmmURL string) {
+func importCustomDashboards(t *testing.T, pmm *deployment.PMM) {
 	t.Helper()
 
-	grafanaClient := newClient(t)
+	grafanaClient, err := pmm.NewClient()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	entries, err := os.ReadDir(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "dashboards"))
 	if err != nil {
@@ -86,7 +84,7 @@ func importCustomDashboards(t *testing.T, pmmURL string) {
 			"folderId":  0,
 			"inputs":    make([]any, 0),
 		}
-		status, data, err := grafanaClient.PostJSON(pmmURL+"/graph/api/dashboards/import", importReq)
+		status, data, err := grafanaClient.PostJSON(pmm.PMMURL()+"/graph/api/dashboards/import", importReq)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,41 +94,19 @@ func importCustomDashboards(t *testing.T, pmmURL string) {
 	}
 }
 
-func newClient(t *testing.T) *client.Client {
+func getAllDashbaordNames(t *testing.T, pmm *deployment.PMM) []string {
 	t.Helper()
 
-	httpC := &fasthttp.Client{
-		MaxConnsPerHost:           2,
-		MaxIdleConnDuration:       time.Minute,
-		MaxIdemponentCallAttempts: 5,
-		ReadTimeout:               time.Minute,
-		WriteTimeout:              time.Minute,
-		MaxConnWaitTimeout:        time.Second * 30,
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true, //nolint:gosec
-		},
-	}
-	authParams := client.AuthParams{
-		User:     "admin",
-		Password: "admin",
-	}
-	grafanaClient, err := client.NewClient(httpC, authParams)
+	grafanaClient, err := pmm.NewClient()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return grafanaClient
-}
-
-func getAllDashbaordNames(t *testing.T, pmmURL string) []string {
-	t.Helper()
-
-	grafanaClient := newClient(t)
 
 	q := fasthttp.AcquireArgs()
 	defer fasthttp.ReleaseArgs(q)
 
 	q.Add("query", "")
-	status, data, err := grafanaClient.Get(pmmURL + "/graph/api/search?" + q.String())
+	status, data, err := grafanaClient.Get(pmm.PMMURL() + "/graph/api/search?" + q.String())
 	if err != nil {
 		t.Fatal(err)
 	}
