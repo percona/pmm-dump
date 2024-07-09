@@ -5,11 +5,11 @@ go 1.21.0
 toolchain go1.22.2
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.25.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.26.0
 	github.com/VictoriaMetrics/metricsql v0.75.1
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
-	github.com/docker/docker v27.0.0+incompatible
+	github.com/docker/docker v27.0.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
 	github.com/grafana/grafana-plugin-sdk-go v0.216.0
@@ -17,7 +17,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.55.0
-	go.mongodb.org/mongo-driver v1.15.1
+	go.mongodb.org/mongo-driver v1.16.0
 	golang.org/x/sync v0.7.0
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -85,7 +85,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
-	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
+	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
