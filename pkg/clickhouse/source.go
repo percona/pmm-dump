@@ -219,11 +219,11 @@ func prepareWhereClause(whereCondition string, start, end *time.Time) string {
 	return query
 }
 
-func (s Source) Count(where string, startTime, endTime time.Time) (int, error) {
+func (s Source) Count(where string, startTime, endTime *time.Time) (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
 	if where != "" {
-		query += " " + prepareWhereClause(where, &startTime, &endTime)
+		query += " " + prepareWhereClause(where, startTime, endTime)
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
@@ -241,7 +241,7 @@ func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) 
 		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
 
-	totalRows, err := s.Count(s.cfg.Where, startTime, endTime)
+	totalRows, err := s.Count(s.cfg.Where, &startTime, &endTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
 	}

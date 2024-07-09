@@ -54,7 +54,7 @@ func TestPMMCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		if dumpPath != "" {
-			t.Log("Importing data from", dumpPath)
+			pmm.Log("Importing data from", dumpPath)
 			stdout, stderr, err := b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())
 			if err != nil {
 				t.Fatal("failed to import", err, stdout, stderr)
@@ -63,13 +63,13 @@ func TestPMMCompatibility(t *testing.T) {
 
 		testDir := t.TempDir()
 		dumpPath = filepath.Join(testDir, "dump.tar.gz")
-		t.Log("Exporting data to", dumpPath)
+		pmm.Log("Exporting data to", dumpPath)
 		stdout, stderr, err := b.Run("export", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "--ignore-load")
 		if err != nil {
 			t.Fatal("failed to export", err, stdout, stderr)
 		}
 
-		t.Log("Importing data from", dumpPath)
+		pmm.Log("Importing data from", dumpPath)
 		stdout, stderr, err = b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())
 		if err != nil {
 			t.Fatal("failed to import", err, stdout, stderr)

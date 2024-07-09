@@ -50,14 +50,14 @@ func TestExportImport(t *testing.T) {
 
 	args := []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL()}
 
-	t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
+	pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
 
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL()}
-	t.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
+	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
 	stdout, stderr, err = b.Run(append([]string{"import"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)

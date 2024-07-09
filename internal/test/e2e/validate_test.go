@@ -61,11 +61,11 @@ func TestValidate(t *testing.T) {
 	}
 
 	start := time.Now().UTC()
-	t.Log("Sleeping for 120 seconds")
+	pmm.Log("Sleeping for 120 seconds")
 	time.Sleep(time.Second * 120)
 	end := time.Now().UTC()
 
-	t.Log("Exporting data to", xDumpPath, start, end)
+	pmm.Log("Exporting data to", xDumpPath, start, end)
 	stdout, stderr, err := b.Run(
 		"export",
 		"--ignore-load",
@@ -80,14 +80,14 @@ func TestValidate(t *testing.T) {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
 
-	t.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
+	pmm.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
 	time.Sleep(chunkTimeRange)
 
 	if err := newPMM.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("Importing data from", xDumpPath)
+	pmm.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
 		"import",
 		"-d", xDumpPath,
@@ -98,10 +98,10 @@ func TestValidate(t *testing.T) {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
 
-	t.Log("Sleeping for 10 seconds")
+	pmm.Log("Sleeping for 10 seconds")
 	time.Sleep(time.Second * 10)
 
-	t.Log("Exporting data to", yDumpPath)
+	pmm.Log("Exporting data to", yDumpPath)
 	stdout, stderr, err = b.Run(
 		"export",
 		"--ignore-load",

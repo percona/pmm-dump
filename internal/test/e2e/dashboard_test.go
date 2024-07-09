@@ -50,7 +50,7 @@ func TestDashboard(t *testing.T) {
 			dashboardDumpPath := filepath.Join(testDir, "dump.tar.gz")
 			args := []string{"-d", dashboardDumpPath, "--pmm-url", pmm.PMMURL(), "--pmm-user", "admin", "--pmm-pass", "admin", "--dashboard", name}
 
-			t.Log("Exporting data with `--dashboard` flag to", dashboardDumpPath)
+			pmm.Log("Exporting data with `--dashboard` flag to", dashboardDumpPath)
 			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 			if err != nil {
 				t.Fatal("failed to export", err, stdout, stderr)
