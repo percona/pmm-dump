@@ -91,6 +91,8 @@ func (pmm *PMM) setMongoContainerID(id string) {
 }
 
 func (pmm *PMM) Copy(t *testing.T) *PMM {
+	t.Helper()
+
 	newPMM := *pmm
 	newPMM.t = t
 	return &newPMM
