@@ -33,7 +33,7 @@ func TestDashboard(t *testing.T) {
 	ctx := context.Background()
 
 	c := deployment.NewController(t)
-	pmm := c.NewPMM("content-limit", ".env.test")
+	pmm := c.NewPMM("dashboard", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}

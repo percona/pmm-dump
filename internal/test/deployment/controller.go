@@ -18,6 +18,7 @@ import (
 	"context"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -30,6 +31,8 @@ const (
 )
 
 var testLimitSemaphore *semaphore.Weighted
+
+var registeredDeployments = new(sync.Map)
 
 var failedTests []string
 
@@ -74,6 +77,9 @@ func NewController(t *testing.T) *Controller {
 }
 
 func (c *Controller) NewPMM(name, configFile string) *PMM {
+	if _, loaded := registeredDeployments.LoadOrStore(name, true); loaded {
+		panic(name + " pmm deployment name is possibly used in multiple tests. Please use different name")
+	}
 	pmm := newPMM(c.t, name, configFile)
 	c.deployments = append(c.deployments, pmm)
 	return pmm
