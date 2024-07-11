@@ -88,7 +88,7 @@ func importCustomDashboards(t *testing.T, pmm *deployment.PMM) {
 		}
 		status, data, err := grafanaClient.PostJSON(pmm.PMMURL()+"/graph/api/dashboards/import", importReq)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("failed to import dashboard", err)
 		}
 		if status != fasthttp.StatusOK {
 			t.Fatalf("non-ok status: %d: %s", status, string(data))

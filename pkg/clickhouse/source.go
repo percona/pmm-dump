@@ -42,7 +42,7 @@ type Source struct {
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "sql open")
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -53,21 +53,21 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 		if errors.As(err, &exception) {
 			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
-		return nil, err
+		return nil, errors.Wrap(err, "ping")
 	}
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "begin")
 	}
 
 	ct, err := columnTypes(db)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "column types")
 	}
 
 	stmt, err := prepareInsertStatement(tx, len(ct))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "prepare insert statement")
 	}
 	return &Source{
 		cfg:  cfg,

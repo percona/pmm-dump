@@ -59,23 +59,53 @@ type PMM struct {
 	mongoTag       string
 
 	// These fields will be populated during container creation
-	httpPort             string
-	httpsPort            string
-	clickhousePort       string
-	clickhouseHTTPPort   string
-	mongoPort            string
-	pmmServerContainerID string
-	mongoContainerID     string
+	httpPort             *string
+	httpsPort            *string
+	clickhousePort       *string
+	clickhouseHTTPPort   *string
+	mongoPort            *string
+	pmmServerContainerID *string
+	mongoContainerID     *string
+
+	deployed   *bool
+	deployedMu *sync.Mutex
 }
 
-func newPMM(t *testing.T, testName, configFile string) *PMM {
-	t.Helper()
+func (pmm *PMM) setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort string) {
+	*pmm.httpPort = httpPort
+	*pmm.httpsPort = httpsPort
+	*pmm.clickhousePort = clickhousePort
+	*pmm.clickhouseHTTPPort = clickhouseHTTPPort
+}
+
+func (pmm *PMM) setMongoPort(mongoPort string) {
+	*pmm.mongoPort = mongoPort
+}
+
+func (pmm *PMM) setPMMServerContainerID(id string) {
+	*pmm.pmmServerContainerID = id
+}
+
+func (pmm *PMM) setMongoContainerID(id string) {
+	*pmm.mongoContainerID = id
+}
+
+func (pmm *PMM) Copy(t *testing.T) *PMM {
+	newPMM := *pmm
+	newPMM.t = t
+	return &newPMM
+}
+
+func newPMM(deplName, configFile string) *PMM {
+	if _, loaded := registeredDeployments.LoadOrStore(deplName, true); loaded {
+		panic(deplName + " pmm deployment name is possibly created in multiple tests. Please use different name or use ReusablePMM method")
+	}
 	if configFile == "" {
 		configFile = ".env.test"
 	}
 	envs, err := GetEnvFromFile(configFile)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	useExistingDeployment := false
@@ -84,8 +114,7 @@ func newPMM(t *testing.T, testName, configFile string) *PMM {
 	}
 
 	pmm := &PMM{
-		testName: testName,
-		t:        t,
+		testName: deplName,
 
 		pmmVersion:     envs[envVarPMMVersion],
 		pmmServerImage: envs[envVarPMMServerImage],
@@ -96,6 +125,17 @@ func newPMM(t *testing.T, testName, configFile string) *PMM {
 		useExistingDeployment: useExistingDeployment,
 
 		pmmURL: envs[envVarPMMURL],
+
+		httpPort:             ptr(""),
+		httpsPort:            ptr(""),
+		clickhousePort:       ptr(""),
+		clickhouseHTTPPort:   ptr(""),
+		mongoPort:            ptr(""),
+		pmmServerContainerID: ptr(""),
+		mongoContainerID:     ptr(""),
+
+		deployed:   ptr(false),
+		deployedMu: new(sync.Mutex),
 	}
 
 	return pmm
@@ -115,7 +155,7 @@ func (p *PMM) PMMURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + p.httpPort
+	u.Host += ":" + *p.httpPort
 
 	return u.String()
 }
@@ -135,7 +175,7 @@ func (p *PMM) ClickhouseURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + p.clickhousePort
+	u.Host += ":" + *p.clickhousePort
 
 	return u.String()
 }
@@ -149,15 +189,22 @@ func (p *PMM) MongoURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + p.mongoPort
+	u.Host += ":" + *p.mongoPort
 
 	return u.String()
 }
 
 func (pmm *PMM) Deploy(ctx context.Context) error {
+	pmm.deployedMu.Lock()
+	if pmm.deployed != nil && *pmm.deployed {
+		pmm.deployedMu.Unlock()
+		return nil
+	}
 	if err := pmm.deploy(ctx); err != nil {
 		return errors.Wrap(err, "failed to deploy")
 	}
+	*pmm.deployed = true
+	pmm.deployedMu.Unlock()
 	if !pmm.dontCleanup {
 		pmm.t.Cleanup(func() { //nolint:contextcheck
 			pmm.Destroy(context.Background())
@@ -305,7 +352,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
-	if err := dockerCli.ContainerRestart(ctx, pmm.pmmServerContainerID, container.StopOptions{
+	if err := dockerCli.ContainerRestart(ctx, *pmm.pmmServerContainerID, container.StopOptions{
 		Timeout: nil, // 10 seconds
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart pmm server")
@@ -435,4 +482,8 @@ func (p *PMM) NewClient() (*grafanaClient.Client, error) {
 		return nil, errors.Wrap(err, "new client")
 	}
 	return grafanaClient, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

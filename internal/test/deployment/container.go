@@ -80,7 +80,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
-	pmm.pmmServerContainerID = id
+	pmm.setPMMServerContainerID(id)
 
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set server published ports")
@@ -125,27 +125,28 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 }
 
 func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.Client) error {
-	container, err := dockerCli.ContainerInspect(ctx, pmm.pmmServerContainerID)
+	container, err := dockerCli.ContainerInspect(ctx, *pmm.pmmServerContainerID)
 	if err != nil {
 		return errors.Wrap(err, "failed to inspect container")
 	}
 
-	pmm.httpPort, err = getPublishedPort(container, defaultHTTPPort)
+	httpPort, err := getPublishedPort(container, defaultHTTPPort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published http port")
 	}
-	pmm.httpsPort, err = getPublishedPort(container, defaultHTTPSPort)
+	httpsPort, err := getPublishedPort(container, defaultHTTPSPort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published https port")
 	}
-	pmm.clickhousePort, err = getPublishedPort(container, defaultClickhousePort)
+	clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse port")
 	}
-	pmm.clickhouseHTTPPort, err = getPublishedPort(container, defaultClickhouseHTTPPort)
+	clickhouseHTTPPort, err := getPublishedPort(container, defaultClickhouseHTTPPort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse http port")
 	}
+	pmm.setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort)
 	return nil
 }
 
@@ -258,7 +259,7 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
-	pmm.mongoContainerID = id
+	pmm.setMongoContainerID(id)
 
 	if err := pmm.SetMongoPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set mongo published ports")
@@ -267,15 +268,17 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 }
 
 func (pmm *PMM) SetMongoPublishedPorts(ctx context.Context, dockerCli *client.Client) error {
-	container, err := dockerCli.ContainerInspect(ctx, pmm.mongoContainerID)
+	container, err := dockerCli.ContainerInspect(ctx, *pmm.mongoContainerID)
 	if err != nil {
 		return errors.Wrap(err, "failed to inspect container")
 	}
 
-	pmm.mongoPort, err = getPublishedPort(container, defaultMongoPort)
+	mongoPort, err := getPublishedPort(container, defaultMongoPort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published mongo port")
 	}
+	pmm.setMongoPort(mongoPort)
+
 	return nil
 }
 

@@ -69,7 +69,9 @@ func NewController(t *testing.T) *Controller {
 			failedTests = append(failedTests, t.Name())
 		} else {
 			for _, pmm := range c.deployments {
-				pmm.Destroy(context.Background())
+				if !pmm.dontCleanup {
+					pmm.Destroy(context.Background())
+				}
 			}
 		}
 	})
@@ -77,12 +79,24 @@ func NewController(t *testing.T) *Controller {
 }
 
 func (c *Controller) NewPMM(name, configFile string) *PMM {
-	if _, loaded := registeredDeployments.LoadOrStore(name, true); loaded {
-		panic(name + " pmm deployment name is possibly used in multiple tests. Please use different name")
-	}
-	pmm := newPMM(c.t, name, configFile)
+	pmm := newPMM(name, configFile)
+	pmm.t = c.t
 	c.deployments = append(c.deployments, pmm)
 	return pmm
+}
+
+// NewReusablePMM creates a PMM object which is not cleaned up on the finish of the test.
+// It allows to reuse PMM deployment in multiple test.
+// Should be used with (*Controller) ReusablePMM.
+func NewReusablePMM(name, configFile string) *PMM {
+	pmm := newPMM(name, configFile)
+	pmm.DontCleanup()
+	return pmm
+}
+
+// ReusablePMM creates a copy of reusablePMM object with adjusted fields to be used in test.
+func (c *Controller) ReusablePMM(reusablePMM *PMM) *PMM {
+	return reusablePMM.Copy(c.t)
 }
 
 func GetFailedTests() []string {
