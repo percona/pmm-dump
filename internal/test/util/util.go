@@ -30,8 +30,14 @@ var (
 	TestDir  = filepath.Join(RepoPath, "test")
 )
 
+// CreateTestDir creates a directory for a test in "./test/tmp/<dirName>/".
+// It should be used in tests where it's necessary to save dumps at the end of the test for debugging purposes.
+// If the "CI" env variable is set to true, this function will return t.TempDir().
 func CreateTestDir(t *testing.T, dirName string) string {
 	t.Helper()
+	if os.Getenv("CI") == "true" {
+		return t.TempDir()
+	}
 	dirName = fmt.Sprintf("%s-%d", dirName, time.Now().Unix())
 	dirPath := filepath.Join(TestDir, "tmp", dirName)
 	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil { //nolint:gosec
