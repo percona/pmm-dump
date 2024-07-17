@@ -42,7 +42,7 @@ type Source struct {
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "sql open")
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -53,21 +53,21 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 		if errors.As(err, &exception) {
 			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
-		return nil, err
+		return nil, errors.Wrap(err, "ping")
 	}
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "begin")
 	}
 
 	ct, err := columnTypes(db)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "column types")
 	}
 
 	stmt, err := prepareInsertStatement(tx, len(ct))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "prepare insert statement")
 	}
 	return &Source{
 		cfg:  cfg,
@@ -219,11 +219,11 @@ func prepareWhereClause(whereCondition string, start, end *time.Time) string {
 	return query
 }
 
-func (s Source) Count(where string, startTime, endTime time.Time) (int, error) {
+func (s Source) Count(where string, startTime, endTime *time.Time) (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
 	if where != "" {
-		query += " " + prepareWhereClause(where, &startTime, &endTime)
+		query += " " + prepareWhereClause(where, startTime, endTime)
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
@@ -241,7 +241,7 @@ func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) 
 		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
 
-	totalRows, err := s.Count(s.cfg.Where, startTime, endTime)
+	totalRows, err := s.Count(s.cfg.Where, &startTime, &endTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
 	}

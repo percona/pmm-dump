@@ -30,19 +30,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
-
-	"github.com/pkg/errors"
 )
+
+const qanWaitTimeout = time.Minute * 5
+
+const qanTestRetryTimeout = time.Minute * 2
+
+var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
 	c := deployment.NewController(t)
-	pmm := c.NewPMM("qan-where", ".env.test")
+	pmm := c.ReusablePMM(qanPMM)
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -50,14 +56,27 @@ func TestQANWhere(t *testing.T) {
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
 
-	t.Log("Waiting for QAN data for 2 minutes")
-	time.Sleep(time.Minute * 2)
-
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 	})
 	if err != nil {
 		t.Fatal("failed to create clickhouse source", err)
+	}
+
+	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
+	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		rowsCount, err := cSource.Count("", nil, nil)
+		if err != nil {
+			return err
+		}
+		if rowsCount == 0 {
+			return errors.New("no qan data")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err, "failed to get qan data")
 	}
 
 	columnTypes := cSource.ColumnTypes()
@@ -119,27 +138,33 @@ func TestQANWhere(t *testing.T) {
 			}
 
 			for _, instance := range tt.instances {
-				args = append(args, fmt.Sprintf("--instance=%s", instance))
+				args = append(args, "--instance="+instance)
 			}
 
-			t.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
-			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
-			if err != nil {
-				t.Fatal("failed to export", err, stdout, stderr)
-			}
-			chunkMap, err := getQANChunks(dumpPath)
-			if err != nil {
-				t.Fatal("failed to get qan chunks", err)
-			}
-
-			if len(chunkMap) == 0 {
-				t.Fatal("qan chunks not found", err)
-			}
-			for chunkName, chunkData := range chunkMap {
-				err := validateQAN(chunkData, columnTypes, tt.equalMap)
+			tCtx, cancel := context.WithTimeout(ctx, qanTestRetryTimeout)
+			defer cancel()
+			if err := util.RetryOnError(tCtx, func() error {
+				pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
+				stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 				if err != nil {
-					t.Fatal("failed to validate qan chunk", chunkName, err)
+					return errors.Wrapf(err, "failed to export: stdout %s; stderr %s", stdout, stderr)
 				}
+				chunkMap, err := getQANChunks(dumpPath)
+				if err != nil {
+					return errors.Wrap(err, "failed to get qan chunks")
+				}
+				if len(chunkMap) == 0 {
+					return errors.Wrap(err, "qan chunks not found")
+				}
+				for chunkName, chunkData := range chunkMap {
+					err := validateQAN(chunkData, columnTypes, tt.equalMap)
+					if err != nil {
+						return errors.Wrapf(err, "failed to validate qan chunk %s", chunkName)
+					}
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
@@ -233,7 +258,7 @@ func TestQANEmptyChunks(t *testing.T) {
 	ctx := context.Background()
 
 	c := deployment.NewController(t)
-	pmm := c.NewPMM("qan-empty-chunks", ".env.test")
+	pmm := c.ReusablePMM(qanPMM)
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -242,10 +267,47 @@ func TestQANEmptyChunks(t *testing.T) {
 	testDir := util.CreateTestDir(t, "qan-empty-chunks")
 
 	startTime := time.Now()
-	t.Log("Waiting for QAN data for 3 minutes")
-	time.Sleep(time.Minute * 3)
 
-	endTime := time.Now().Add(-time.Minute)
+	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
+		ConnectionURL: pmm.ClickhouseURL(),
+	})
+	if err != nil {
+		t.Fatal("failed to create clickhouse source", err)
+	}
+
+	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
+	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		rowsCount, err := cSource.Count("", nil, nil)
+		if err != nil {
+			return err
+		}
+		if rowsCount == 0 {
+			return errors.New("no qan data")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err, "failed to get qan data")
+	}
+
+	pmm.Log("Waiting for QAN data about instance \"pmm-server-postgresql\" for", qanWaitTimeout, "minutes")
+	tCtx, cancel = context.WithTimeout(ctx, qanWaitTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		tn := time.Now()
+		rowsCount, err := cSource.Count("service_name='pmm-server-postgresql'", &startTime, &tn)
+		if err != nil {
+			return err
+		}
+		if rowsCount == 0 {
+			pmm.Log("QAN doesn't have data about instance \"pmm-server-postgresql\". Waiting...")
+			return errors.New("no qan data")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err, "failed to get qan data")
+	}
 
 	dumpPath := filepath.Join(testDir, "dump.tar.gz")
 	args := []string{
@@ -256,11 +318,11 @@ func TestQANEmptyChunks(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--instance", "pmm-server-postgresql",
 		"--start-ts", startTime.Format(time.RFC3339),
-		"--end-ts", endTime.Format(time.RFC3339),
+		"--end-ts", time.Now().Format(time.RFC3339),
 		"--chunk-rows", "1",
 	}
 
-	t.Log("Exporting data to", dumpPath)
+	pmm.Log("Exporting data to", dumpPath)
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)

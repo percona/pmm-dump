@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"pmm-dump/internal/test/deployment"
-	"pmm-dump/internal/test/util"
-
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+
+	"pmm-dump/internal/test/deployment"
+	"pmm-dump/internal/test/util"
 )
 
 func TestPMMCompatibility(t *testing.T) {
@@ -54,7 +54,7 @@ func TestPMMCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		if dumpPath != "" {
-			t.Log("Importing data from", dumpPath)
+			pmm.Log("Importing data from", dumpPath)
 			stdout, stderr, err := b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())
 			if err != nil {
 				t.Fatal("failed to import", err, stdout, stderr)
@@ -63,13 +63,13 @@ func TestPMMCompatibility(t *testing.T) {
 
 		testDir := t.TempDir()
 		dumpPath = filepath.Join(testDir, "dump.tar.gz")
-		t.Log("Exporting data to", dumpPath)
+		pmm.Log("Exporting data to", dumpPath)
 		stdout, stderr, err := b.Run("export", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "--ignore-load")
 		if err != nil {
 			t.Fatal("failed to export", err, stdout, stderr)
 		}
 
-		t.Log("Importing data from", dumpPath)
+		pmm.Log("Importing data from", dumpPath)
 		stdout, stderr, err = b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())
 		if err != nil {
 			t.Fatal("failed to import", err, stdout, stderr)
@@ -82,7 +82,7 @@ func getVersions() ([]string, error) {
 	type versionsConfig struct {
 		Versions []string `yaml:"versions"`
 	}
-	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "data", "versions.yaml"))
+	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "versions.yaml"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read versions.yaml")
 	}

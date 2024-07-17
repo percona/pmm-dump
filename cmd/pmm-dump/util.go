@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -37,7 +36,7 @@ import (
 
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/victoriametrics"
 )
 
@@ -75,7 +74,7 @@ func getGoroutineID() int {
 }
 
 // getPMMVersion returns version, full-version and error.
-func getPMMVersion(pmmURL string, c *grafana.Client) (string, string, error) {
+func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	type versionResp struct {
 		Version string `json:"version"`
 		Server  struct {
@@ -100,7 +99,7 @@ func getPMMVersion(pmmURL string, c *grafana.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getPMMServices(pmmURL string, c *grafana.Client) ([]dump.PMMServerService, error) {
+func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
 		ID     string `json:"service_id"`
 		Name   string `json:"service_name"`
@@ -147,7 +146,7 @@ func getPMMServices(pmmURL string, c *grafana.Client) ([]dump.PMMServerService, 
 	return services, nil
 }
 
-func getPMMServiceNodeName(pmmURL string, c *grafana.Client, nodeID string) (string, error) {
+func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (string, error) {
 	type nodeRespStruct struct {
 		Generic struct {
 			Name string `json:"node_name"`
@@ -171,7 +170,7 @@ func getPMMServiceNodeName(pmmURL string, c *grafana.Client, nodeID string) (str
 	return nodeResp.Generic.Name, nil
 }
 
-func getPMMServiceAgentsIds(pmmURL string, c *grafana.Client, serviceID string) ([]string, error) {
+func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string) ([]string, error) {
 	type agentsRespStruct map[string][]struct {
 		ServiceID *string `json:"service_id"`
 		AgentID   *string `json:"agent_id"`
@@ -203,7 +202,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *grafana.Client, serviceID string) 
 }
 
 // getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings.
-func getPMMTimezone(pmmURL string, c *grafana.Client) (string, error) {
+func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 	type tzResp struct {
 		Timezone string `json:"timezone"`
 	}
@@ -223,7 +222,7 @@ func getPMMTimezone(pmmURL string, c *grafana.Client) (string, error) {
 	return resp.Timezone, nil
 }
 
-func composeMeta(pmmURL string, c *grafana.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
+func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
 	_, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
@@ -341,20 +340,12 @@ func (lw LevelWriter) Write(p []byte) (int, error) {
 	return lw.Writer.Write(p)
 }
 
-func checkVersionSupport(c *grafana.Client, pmmURL, victoriaMetricsURL string) {
-	checkUrls := []string{victoriaMetricsURL + "/api/v1/export"}
-
-	for _, v := range checkUrls {
-		code, _, err := c.Get(v)
-		if err == nil {
-			if code == http.StatusNotFound {
-				log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
-				log.Debug().Msgf("404 error by %s", v)
-				break
-			}
-		} else {
+func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
+	if err := victoriametrics.ExportTestRequest(c, victoriaMetricsURL); err != nil {
+		if !errors.Is(err, victoriametrics.ErrNotFound) {
 			log.Fatal().Err(err).Msg("Failed to make test requests")
 		}
+		log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
 	}
 
 	pmmVer, _, err := getPMMVersion(pmmURL, c)
@@ -370,7 +361,7 @@ func checkVersionSupport(c *grafana.Client, pmmURL, victoriaMetricsURL string) {
 	}
 }
 
-func prepareVictoriaMetricsSource(grafanaC *grafana.Client, dumpCore bool, url string, selectors []string, nativeData bool, contentLimit uint64) (*victoriametrics.Source, bool) {
+func prepareVictoriaMetricsSource(grafanaC *client.Client, dumpCore bool, url string, selectors []string, nativeData bool, contentLimit uint64) (*victoriametrics.Source, bool) {
 	if !dumpCore {
 		return nil, false
 	}

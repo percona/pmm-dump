@@ -16,7 +16,9 @@ package deployment
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -30,6 +32,11 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/valyala/fasthttp"
+
+	"pmm-dump/internal/test/util"
+	grafanaClient "pmm-dump/pkg/grafana/client"
 )
 
 const (
@@ -52,23 +59,55 @@ type PMM struct {
 	mongoTag       string
 
 	// These fields will be populated during container creation
-	httpPort             string
-	httpsPort            string
-	clickhousePort       string
-	clickhouseHTTPPort   string
-	mongoPort            string
-	pmmServerContainerID string
-	mongoContainerID     string
+	httpPort             *string
+	httpsPort            *string
+	clickhousePort       *string
+	clickhouseHTTPPort   *string
+	mongoPort            *string
+	pmmServerContainerID *string
+	mongoContainerID     *string
+
+	deployed   *bool
+	deployedMu *sync.Mutex
 }
 
-func newPMM(t *testing.T, testName, configFile string) *PMM {
+func (pmm *PMM) setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort string) {
+	*pmm.httpPort = httpPort
+	*pmm.httpsPort = httpsPort
+	*pmm.clickhousePort = clickhousePort
+	*pmm.clickhouseHTTPPort = clickhouseHTTPPort
+}
+
+func (pmm *PMM) setMongoPort(mongoPort string) {
+	*pmm.mongoPort = mongoPort
+}
+
+func (pmm *PMM) setPMMServerContainerID(id string) {
+	*pmm.pmmServerContainerID = id
+}
+
+func (pmm *PMM) setMongoContainerID(id string) {
+	*pmm.mongoContainerID = id
+}
+
+func (pmm *PMM) Copy(t *testing.T) *PMM {
 	t.Helper()
+
+	newPMM := *pmm
+	newPMM.t = t
+	return &newPMM
+}
+
+func newPMM(deplName, configFile string) *PMM {
+	if _, loaded := registeredDeployments.LoadOrStore(deplName, true); loaded {
+		panic(deplName + " pmm deployment name is possibly created in multiple tests. Please use different name or use ReusablePMM method")
+	}
 	if configFile == "" {
 		configFile = ".env.test"
 	}
 	envs, err := GetEnvFromFile(configFile)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	useExistingDeployment := false
@@ -77,8 +116,7 @@ func newPMM(t *testing.T, testName, configFile string) *PMM {
 	}
 
 	pmm := &PMM{
-		testName: testName,
-		t:        t,
+		testName: deplName,
 
 		pmmVersion:     envs[envVarPMMVersion],
 		pmmServerImage: envs[envVarPMMServerImage],
@@ -89,6 +127,17 @@ func newPMM(t *testing.T, testName, configFile string) *PMM {
 		useExistingDeployment: useExistingDeployment,
 
 		pmmURL: envs[envVarPMMURL],
+
+		httpPort:             ptr(""),
+		httpsPort:            ptr(""),
+		clickhousePort:       ptr(""),
+		clickhouseHTTPPort:   ptr(""),
+		mongoPort:            ptr(""),
+		pmmServerContainerID: ptr(""),
+		mongoContainerID:     ptr(""),
+
+		deployed:   ptr(false),
+		deployedMu: new(sync.Mutex),
 	}
 
 	return pmm
@@ -108,7 +157,7 @@ func (p *PMM) PMMURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + p.httpPort
+	u.Host += ":" + *p.httpPort
 
 	return u.String()
 }
@@ -128,7 +177,7 @@ func (p *PMM) ClickhouseURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + p.clickhousePort
+	u.Host += ":" + *p.clickhousePort
 
 	return u.String()
 }
@@ -142,15 +191,22 @@ func (p *PMM) MongoURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + p.mongoPort
+	u.Host += ":" + *p.mongoPort
 
 	return u.String()
 }
 
 func (pmm *PMM) Deploy(ctx context.Context) error {
+	pmm.deployedMu.Lock()
+	if pmm.deployed != nil && *pmm.deployed {
+		pmm.deployedMu.Unlock()
+		return nil
+	}
 	if err := pmm.deploy(ctx); err != nil {
 		return errors.Wrap(err, "failed to deploy")
 	}
+	*pmm.deployed = true
+	pmm.deployedMu.Unlock()
 	if !pmm.dontCleanup {
 		pmm.t.Cleanup(func() { //nolint:contextcheck
 			pmm.Destroy(context.Background())
@@ -170,8 +226,15 @@ func (pmm *PMM) SetVersion(version string) {
 func (pmm *PMM) Log(args ...any) {
 	pmm.t.Helper()
 
-	args = append([]any{fmt.Sprintf("[pmm] %s:", pmm.testName)}, args...)
+	args = append([]any{fmt.Sprintf("%s [%s]:", time.Now().UTC().Format(time.RFC3339), pmm.testName)}, args...)
 	pmm.t.Log(args...)
+}
+
+func (pmm *PMM) Logf(f string, args ...any) {
+	pmm.t.Helper()
+
+	f = fmt.Sprintf("%s [%s]: ", time.Now().UTC().Format(time.RFC3339), pmm.testName) + f
+	pmm.t.Logf(f, args...)
 }
 
 var checkImagesMu sync.Mutex
@@ -184,7 +247,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	defer dockerCli.Close() //nolint:errcheck
 
 	pmm.Log("Destroying existing deployment")
-	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName))); err != nil {
+	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName)), pmm); err != nil {
 		return errors.Wrap(err, "failed to destroy existing deployment")
 	}
 
@@ -221,6 +284,18 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.New("got warnings during network creation:" + netresp.Warning)
 	}
 
+	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		_, err := dockerCli.NetworkInspect(ctx, netresp.ID, network.InspectOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed to inspect network %s", netresp.ID)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	pmm.Log("Creating PMM server")
 	if err := pmm.CreatePMMServer(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create pmm server")
@@ -238,9 +313,9 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 
 	pmm.Log("Waiting for mongo to be ready")
 
-	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	err = doUntilSuccess(tCtx, func() error {
+	err = util.RetryOnError(tCtx, func() error {
 		return pmm.PingMongo(ctx)
 	})
 	if err != nil {
@@ -250,7 +325,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	pmm.Log("Adding mongo to PMM")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := doUntilSuccess(tCtx, func() error {
+	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ClientContainerName(),
 			"pmm-admin", "add", "mongodb",
 			"--username", "admin",
@@ -263,7 +338,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := doUntilSuccess(tCtx, func() error {
+	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.PingClickhouse(ctx)
 	}); err != nil {
 		return errors.Wrap(err, "failed to ping clickhouse")
@@ -279,7 +354,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
-	if err := dockerCli.ContainerRestart(ctx, pmm.pmmServerContainerID, container.StopOptions{
+	if err := dockerCli.ContainerRestart(ctx, *pmm.pmmServerContainerID, container.StopOptions{
 		Timeout: nil, // 10 seconds
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart pmm server")
@@ -290,7 +365,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil {
+	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 	return nil
@@ -298,14 +373,14 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 func (pmm *PMM) Destroy(ctx context.Context) {
 	pmm.Log("Destroying deployment")
-	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName))); err != nil {
+	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName)), pmm); err != nil {
 		pmm.Log(err)
 		pmm.t.FailNow()
 	}
 }
 
 func getUntilOk(ctx context.Context, url string) error {
-	return doUntilSuccess(ctx, func() error {
+	return util.RetryOnError(ctx, func() error {
 		resp, err := http.Get(url) //nolint:gosec,noctx
 		if err != nil {
 			return err
@@ -318,28 +393,21 @@ func getUntilOk(ctx context.Context, url string) error {
 	})
 }
 
-func doUntilSuccess(ctx context.Context, f func() error) error {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	var err error
-	for {
-		select {
-		case <-ticker.C:
-			err = f()
-			if err == nil {
-				return nil
-			}
-		case <-ctx.Done():
-			return errors.Wrap(err, "timeout")
-		}
-	}
-}
-
 func DestroyAll(ctx context.Context) error {
-	return destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel)))
+	return destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel)), new(defaultLogger))
 }
 
-func destroy(ctx context.Context, filters filters.Args) error {
+type logger interface {
+	Log(args ...any)
+}
+
+type defaultLogger struct{}
+
+func (l *defaultLogger) Log(args ...any) {
+	log.Logger.Println(args...)
+}
+
+func destroy(ctx context.Context, filters filters.Args, log logger) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
@@ -357,13 +425,13 @@ func destroy(ctx context.Context, filters filters.Args) error {
 	zero := 0
 	for _, c := range containers {
 		if err := dockerCli.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &zero}); err != nil {
-			return errors.Wrap(err, "failed to stop container")
+			log.Log(err, "failed to stop container")
 		}
 		if err := dockerCli.ContainerRemove(ctx, c.ID, container.RemoveOptions{
 			Force:         true,
 			RemoveVolumes: true,
 		}); err != nil {
-			return errors.Wrap(err, "failed to remove container")
+			log.Log(err, "failed to remove container")
 		}
 	}
 
@@ -375,7 +443,7 @@ func destroy(ctx context.Context, filters filters.Args) error {
 	}
 	for _, vol := range volumes.Volumes {
 		if err := dockerCli.VolumeRemove(ctx, vol.Name, true); err != nil {
-			return errors.Wrap(err, "failed to remove volume")
+			log.Log(err, "failed to remove volume")
 		}
 	}
 
@@ -388,9 +456,36 @@ func destroy(ctx context.Context, filters filters.Args) error {
 
 	for _, n := range networks {
 		if err := dockerCli.NetworkRemove(ctx, n.ID); err != nil {
-			return errors.Wrap(err, "failed to remove network")
+			log.Log(err, "failed to remove network")
 		}
 	}
 
 	return nil
+}
+
+func (p *PMM) NewClient() (*grafanaClient.Client, error) {
+	httpC := &fasthttp.Client{
+		MaxConnsPerHost:           2, //nolint:mnd
+		MaxIdleConnDuration:       time.Minute,
+		MaxIdemponentCallAttempts: 5, //nolint:mnd
+		ReadTimeout:               time.Minute,
+		WriteTimeout:              time.Minute,
+		MaxConnWaitTimeout:        time.Second * 30, //nolint:mnd
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec
+		},
+	}
+	authParams := grafanaClient.AuthParams{
+		User:     "admin",
+		Password: "admin",
+	}
+	grafanaClient, err := grafanaClient.NewClient(httpC, authParams)
+	if err != nil {
+		return nil, errors.Wrap(err, "new client")
+	}
+	return grafanaClient, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

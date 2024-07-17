@@ -66,7 +66,9 @@ func TestContentLimit(t *testing.T) {
 		t.Fatal("failed to change nginx settings", err)
 	}
 
-	pmm.Restart(ctx)
+	if err := pmm.Restart(ctx); err != nil {
+		t.Fatal("failed to restart pmm", err)
+	}
 
 	stdout, stderr, err := b.Run(
 		"import",
@@ -80,7 +82,7 @@ func TestContentLimit(t *testing.T) {
 		t.Fatal("expected `413 Request Entity Too Large` error but import didn't fail")
 	}
 
-	t.Log("Importing with 10KB limit")
+	pmm.Log("Importing with 10KB limit")
 
 	stdout, stderr, err = b.Run(
 		"import",

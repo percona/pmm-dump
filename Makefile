@@ -89,6 +89,8 @@ clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
 	rm -rf $(TEST_CFG_DIR)/pmm $(TEST_CFG_DIR)/tmp
 
+run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
+
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
 

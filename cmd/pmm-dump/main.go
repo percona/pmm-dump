@@ -27,8 +27,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/grafana"
+	grafana "pmm-dump/pkg/grafana"
+	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
+	"pmm-dump/pkg/util"
 	"pmm-dump/pkg/victoriametrics"
 )
 
@@ -137,17 +139,41 @@ func main() { //nolint:gocyclo,maintidx
 
 	switch cmd {
 	case exportCmd.FullCommand():
+		var startTime, endTime time.Time
+
+		if *end != "" {
+			endTime, err = time.ParseInLocation(time.RFC3339, *end, time.UTC)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing end date-time: %v", err)
+			}
+		} else {
+			endTime = time.Now().UTC()
+		}
+
+		if *start != "" {
+			startTime, err = time.ParseInLocation(time.RFC3339, *start, time.UTC)
+			if err != nil {
+				log.Fatal().Msgf("Error parsing start date-time: %v", err)
+			}
+		} else {
+			startTime = endTime.Add(-1 * defaultTimeframe)
+		}
+
+		if startTime.After(endTime) {
+			log.Fatal().Msg("Invalid time range: start > end")
+		}
+
 		httpC := newClientHTTP(*allowInsecureCerts)
 
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
-		authParams := grafana.AuthParams{
+		authParams := client.AuthParams{
 			User:       *pmmUser,
 			Password:   *pmmPassword,
 			APIToken:   *pmmToken,
 			AuthCookie: *pmmCookie,
 		}
-		grafanaC, err := grafana.NewClient(httpC, authParams)
+		grafanaC, err := client.NewClient(httpC, authParams)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
 		}
@@ -175,14 +201,14 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
 		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
 
-		selectors, err := grafana.GetDashboardSelectors(*pmmURL, *dashboards, *instances, grafanaC)
+		selectors, err := grafana.GetSelectorsFromDashboards(grafanaC, *pmmURL, *dashboards, *instances, startTime, endTime)
 		if err != nil {
 			log.Fatal().Msgf("Error retrieving dashboard selectors: %v", err)
 		}
@@ -212,30 +238,6 @@ func main() { //nolint:gocyclo,maintidx
 			sources = append(sources, chSource)
 		}
 
-		var startTime, endTime time.Time
-
-		if *end != "" {
-			endTime, err = time.ParseInLocation(time.RFC3339, *end, time.UTC)
-			if err != nil {
-				log.Fatal().Msgf("Error parsing end date-time: %v", err)
-			}
-		} else {
-			endTime = time.Now().UTC()
-		}
-
-		if *start != "" {
-			startTime, err = time.ParseInLocation(time.RFC3339, *start, time.UTC)
-			if err != nil {
-				log.Fatal().Msgf("Error parsing start date-time: %v", err)
-			}
-		} else {
-			startTime = endTime.Add(-1 * defaultTimeframe)
-		}
-
-		if startTime.After(endTime) {
-			log.Fatal().Msg("Invalid time range: start > end")
-		}
-
 		file, err := createFile(*dumpPath, *stdout)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
@@ -257,6 +259,9 @@ func main() { //nolint:gocyclo,maintidx
 			chChunks, err := chSource.SplitIntoChunks(startTime, endTime, *chunkRows)
 			if err != nil {
 				log.Fatal().Msgf("Failed to create clickhouse chunks: %s", err.Error())
+			}
+			if len(chChunks) == 0 && !*dumpCore {
+				log.Fatal().Msg("QAN doesn't have any data")
 			}
 			chunks = append(chunks, chChunks...)
 		}
@@ -288,13 +293,13 @@ func main() { //nolint:gocyclo,maintidx
 		httpC := newClientHTTP(*allowInsecureCerts)
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
-		authParams := grafana.AuthParams{
+		authParams := client.AuthParams{
 			User:       *pmmUser,
 			Password:   *pmmPassword,
 			APIToken:   *pmmToken,
 			AuthCookie: *pmmCookie,
 		}
-		grafanaC, err := grafana.NewClient(httpC, authParams)
+		grafanaC, err := client.NewClient(httpC, authParams)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create HTTP client: %v", err)
 		}
@@ -304,7 +309,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := getPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
