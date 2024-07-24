@@ -216,7 +216,7 @@ func main() { //nolint:gocyclo,maintidx
 			selectors = append(selectors, *tsSelector)
 		} else if len(selectors) == 0 && len(*instances) > 0 {
 			for _, serviceName := range *instances {
-				selectors = append(selectors, fmt.Sprintf(`{service_name="%s"}`, serviceName))
+				selectors = append(selectors, fmt.Sprintf(`{service_name="%s" or node_name="%s" or instance="%s"}`, serviceName, serviceName, serviceName))
 			}
 		}
 		vmSource, ok := prepareVictoriaMetricsSource(grafanaC, *dumpCore, pmmConfig.VictoriaMetricsURL, selectors, *vmNativeData, *vmContentLimit)
