@@ -361,11 +361,7 @@ func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
 	}
 }
 
-func prepareVictoriaMetricsSource(grafanaC *client.Client, dumpCore bool, url string, selectors []string, nativeData bool, contentLimit uint64) (*victoriametrics.Source, bool) {
-	if !dumpCore {
-		return nil, false
-	}
-
+func prepareVictoriaMetricsSource(grafanaC *client.Client, url string, selectors []string, nativeData bool, contentLimit uint64) *victoriametrics.Source {
 	c := &victoriametrics.Config{
 		ConnectionURL:       url,
 		TimeSeriesSelectors: selectors,
@@ -375,14 +371,10 @@ func prepareVictoriaMetricsSource(grafanaC *client.Client, dumpCore bool, url st
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(grafanaC, *c), true
+	return victoriametrics.NewSource(grafanaC, *c)
 }
 
-func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
-	if !dumpQAN {
-		return nil, false
-	}
-
+func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhouse.Source, error) {
 	c := &clickhouse.Config{
 		ConnectionURL: url,
 		Where:         where,
@@ -390,12 +382,12 @@ func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where strin
 
 	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
 	if err != nil {
-		log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+		return nil, errors.Wrap(err, "failed to create ClickHouse source")
 	}
 
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 
-	return clickhouseSource, true
+	return clickhouseSource, nil
 }
 
 func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
