@@ -319,17 +319,16 @@ func (s Source) HasMetrics(start, end time.Time) (bool, error) {
 		}
 		query += "absent(" + v + ")"
 	}
-	q.Add("start", strconv.FormatInt(start.Unix(), 10))
-	q.Add("end", strconv.FormatInt(end.Unix(), 10))
-	q.Add("step", "5s")
+	q.Add("time", strconv.FormatInt(end.Unix(), 10))
+	q.Add("step", strconv.Itoa(int(end.Sub(start).Seconds())+1)+"s")
 	q.Add("query", query)
 
-	url := fmt.Sprintf("%s/api/v1/query_range?%s", s.cfg.ConnectionURL, q.String())
+	url := fmt.Sprintf("%s/api/v1/query?%s", s.cfg.ConnectionURL, q.String())
 
 	log.Debug().
 		Stringer("timeout", requestTimeout).
 		Str("url", url).
-		Msg("Sending GET query_range request to Victoria Metrics endpoint")
+		Msg("Sending GET query request to Victoria Metrics endpoint")
 
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
