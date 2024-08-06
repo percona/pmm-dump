@@ -233,7 +233,7 @@ func main() { //nolint:gocyclo,maintidx
 			}
 		}
 
-		if *dumpQAN {
+		if *dumpQAN { //nolint:nestif
 			if *where == "" && len(*instances) > 0 {
 				for i, serviceName := range *instances {
 					if i != 0 {
