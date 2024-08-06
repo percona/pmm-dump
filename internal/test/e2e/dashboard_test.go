@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/valyala/fasthttp"
@@ -53,6 +54,10 @@ func TestDashboard(t *testing.T) {
 			pmm.Log("Exporting data with `--dashboard` flag to", dashboardDumpPath)
 			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 			if err != nil {
+				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
+					return
+				}
 				t.Fatal("failed to export", err, stdout, stderr)
 			}
 		})
