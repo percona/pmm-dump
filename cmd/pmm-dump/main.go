@@ -83,7 +83,7 @@ func main() { //nolint:gocyclo,maintidx
 		tsSelector = exportCmd.Flag("ts-selector", "Time series selector to pass to VM").String()
 		where      = exportCmd.Flag("where", "ClickHouse only. WHERE statement").Short('w').String()
 
-		instances  = exportCmd.Flag("instance", "Service name to filter instances. Use multiple times to filter by multiple instances").Strings()
+		instances  = exportCmd.Flag("instance", "Name to filter instances by service names, node names, or instance names. Use multiple times to filter by multiple names").Strings()
 		dashboards = exportCmd.Flag("dashboard", "Dashboard name to filter. Use multiple times to filter by multiple dashboards").Strings()
 
 		chunkTimeRange = exportCmd.Flag("chunk-time-range", "Time range to be fit into a single chunk (core metrics). "+
