@@ -36,8 +36,8 @@ import (
 )
 
 const (
-	defaultHTTPPort           = "80"
-	defaultHTTPSPort          = "443"
+	defaultHTTPPort           = "8080"
+	defaultHTTPSPort          = "8443"
 	defaultClickhousePort     = "9000"
 	defaultClickhouseHTTPPort = "8123"
 

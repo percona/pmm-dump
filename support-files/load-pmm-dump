@@ -17,7 +17,7 @@
 [[ -z ${1} ]] && {
   echo "ERROR: Arguments expected."
   echo " 1st argument: Ticket number"
-  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using percona/pmm-server"
+  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using perconalab/pmm-server"
   exit 1
 }
 
@@ -57,11 +57,6 @@ if [[ -n ${2} ]] && [[ arg_is_pmm_dump_file -eq 1 ]] && which pmm-dump > /dev/nu
   fi
   echo "## Getting PMM version from \`pmm-dump show-meta\` outputs (this can take a while if the dump file is large)..."
   pmm_version=`pmm-dump show-meta --dump-path=${2}|grep "PMM Version"|awk '{print $3}'|cut -d '-' -f1`
-  # Fix for https://jira.percona.com/browse/SE-83
-  if [[ ${pmm_version} == "2.33.0" ]]; then
-    echo "## Detected version 2.33.0. Using 2.32.0 instead, due to SE-83."
-    pmm_version="2.32.0"
-  fi
 elif [[ -n ${2} ]] && [[ arg_is_pmm_version -eq 1 ]]; then
   # If the second argument was a string like N[.N[.N]], we set that as version number.
   pmm_version=${2}
@@ -72,9 +67,9 @@ fi
 
 echo "## Using version: $pmm_version"
 
-docker pull percona/pmm-server:${pmm_version}
+docker pull perconalab/pmm-server:${pmm_version}
 
-docker run --detach --publish 443:8443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+docker run --detach --publish 443:8443 --name pmm-server-${ticket_number} perconalab/pmm-server:${pmm_version}
 
 pmm_port_443=`docker ps --format "{{.Ports}} {{.Names}}"|grep ${ticket_number}|cut -d ':' -f2|cut -d '-' -f1`
 

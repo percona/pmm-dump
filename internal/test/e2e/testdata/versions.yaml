@@ -1,7 +1,3 @@
 # List of versions to be used in `TestPMMCompatibility` test
 versions:
-  - "2.33.0"
-  - "2.34.0"
-  - "2.35.0"
-  - "2.36.0"
-  - "2.37.0"
+  - "3-dev-latest"
