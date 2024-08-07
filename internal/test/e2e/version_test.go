@@ -1,5 +1,3 @@
-//go:build e2e
-
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +35,7 @@ func TestPMMCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(pmmVersions) < 2 {
-		t.Fatal("not enough versions to test provided in ")
+		t.Skip("Not enough versions to test provided in versions.yaml. skip")
 	}
 
 	c := deployment.NewController(t)
