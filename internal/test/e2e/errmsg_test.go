@@ -79,7 +79,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 							Value: "some-cookie",
 						})
 						w.WriteHeader(http.StatusOK)
-					case "/v1/version":
+					case "/v1/server/version":
 						switch {
 						case tt.internalError:
 							w.WriteHeader(http.StatusInternalServerError)

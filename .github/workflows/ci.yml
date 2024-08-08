@@ -31,7 +31,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache-dependency-path: "**/go.sum"
 
       - name: Download Go modules
         run: |
@@ -49,14 +48,14 @@ jobs:
           go clean -testcache
           PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-tests
 
-#       TODO: Add codecoverage
-#      - name: Upload coverage results
-#        uses: codecov/codecov-action@v3
-#        with:
-#          token: ${{ secrets.CODECOV_TOKEN }}
-#          file: crosscover.out
-#          flags: crosscover
-#          fail_ci_if_error: false
+      #   TODO: Add codecoverage
+      # - name: Upload coverage results
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     file: crosscover.out
+      #     flags: crosscover
+      #     fail_ci_if_error: false
 
       - name: Check that there are no source code changes
         run: |
@@ -71,10 +70,8 @@ jobs:
       - name: Run debug commands on failure
         if: ${{ failure() }}
         run: |
-          env
-          go version
-          go env
-          pwd
+          env | sort
+          go env | sort
           git status
 
   check:
@@ -92,7 +89,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache-dependency-path: "**/go.sum"
 
       - name: Download Go modules
         run: |
@@ -137,10 +133,6 @@ jobs:
       - name: Run debug commands on failure
         if: ${{ failure() }}
         run: |
-          env
-          go version
-          go env
-          pwd
+          env | sort
+          go env | sort
           git status
-
-

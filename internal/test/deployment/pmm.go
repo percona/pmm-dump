@@ -365,7 +365,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
+	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 	return nil

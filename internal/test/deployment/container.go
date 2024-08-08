@@ -36,8 +36,8 @@ import (
 )
 
 const (
-	defaultHTTPPort           = "80"
-	defaultHTTPSPort          = "443"
+	defaultHTTPPort           = "8080"
+	defaultHTTPSPort          = "8443"
 	defaultClickhousePort     = "9000"
 	defaultClickhouseHTTPPort = "8123"
 
@@ -100,7 +100,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
+	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping PMM")
 	}
 
@@ -168,7 +168,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 		"PMM_AGENT_CONFIG_FILE=config/pmm-agent.yaml",
 		"PMM_AGENT_SERVER_USERNAME=admin",
 		"PMM_AGENT_SERVER_PASSWORD=admin",
-		"PMM_AGENT_SERVER_ADDRESS=" + pmm.ServerContainerName() + ":443",
+		"PMM_AGENT_SERVER_ADDRESS=" + pmm.ServerContainerName() + ":8443",
 		"PMM_AGENT_SERVER_INSECURE_TLS=1",
 		"PMM_AGENT_SETUP=1",
 		"PMM_AGENT_SETUP_FORCE=true",
