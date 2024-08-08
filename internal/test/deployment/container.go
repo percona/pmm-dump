@@ -168,7 +168,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 		"PMM_AGENT_CONFIG_FILE=config/pmm-agent.yaml",
 		"PMM_AGENT_SERVER_USERNAME=admin",
 		"PMM_AGENT_SERVER_PASSWORD=admin",
-		"PMM_AGENT_SERVER_ADDRESS=" + pmm.ServerContainerName() + ":443",
+		"PMM_AGENT_SERVER_ADDRESS=" + pmm.ServerContainerName() + ":8443",
 		"PMM_AGENT_SERVER_INSECURE_TLS=1",
 		"PMM_AGENT_SETUP=1",
 		"PMM_AGENT_SETUP_FORCE=true",
