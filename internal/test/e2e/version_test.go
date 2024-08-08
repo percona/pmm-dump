@@ -37,7 +37,8 @@ func TestPMMCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(pmmVersions) < 2 {
-		t.Fatal("not enough versions to test provided in ")
+		// TODO: make it fail once we have two versions in v3
+		t.Skip("not enough versions to test provided in versions.yaml")
 	}
 
 	c := deployment.NewController(t)

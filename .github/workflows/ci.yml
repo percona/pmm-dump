@@ -48,14 +48,14 @@ jobs:
           go clean -testcache
           PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-tests
 
-#       TODO: Add codecoverage
-#      - name: Upload coverage results
-#        uses: codecov/codecov-action@v3
-#        with:
-#          token: ${{ secrets.CODECOV_TOKEN }}
-#          file: crosscover.out
-#          flags: crosscover
-#          fail_ci_if_error: false
+      #   TODO: Add codecoverage
+      # - name: Upload coverage results
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     file: crosscover.out
+      #     flags: crosscover
+      #     fail_ci_if_error: false
 
       - name: Check that there are no source code changes
         run: |
