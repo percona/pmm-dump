@@ -31,7 +31,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache-dependency-path: "**/go.sum"
 
       - name: Download Go modules
         run: |
@@ -71,10 +70,8 @@ jobs:
       - name: Run debug commands on failure
         if: ${{ failure() }}
         run: |
-          env
-          go version
-          go env
-          pwd
+          env | sort
+          go env | sort
           git status
 
   check:
@@ -92,7 +89,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache-dependency-path: "**/go.sum"
 
       - name: Download Go modules
         run: |
@@ -137,10 +133,6 @@ jobs:
       - name: Run debug commands on failure
         if: ${{ failure() }}
         run: |
-          env
-          go version
-          go env
-          pwd
+          env | sort
+          go env | sort
           git status
-
-
