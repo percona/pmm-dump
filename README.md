@@ -1,6 +1,6 @@
 # PMM Dump (pmm-import-export-tool)
 
-A tool that allows to transfer metrics and QAN data from one PMM Server instance and import it into another one. It helps Percona Services engineers troubleshoot issues.
+PMM Dump is a tool that allows to transfer metrics and QAN data from one PMM Server instance to another. It helps Percona Services engineers troubleshoot issues.
 
 ## How to build?
 
