@@ -1,10 +1,10 @@
 # PMM Dump (pmm-import-export-tool)
 
-A tool that will fetch data from PMM and import it into local instance. Will help Percona Services engineers to resolve issues when the customer cannot provide access to their PMM instance.
+A tool that allows to transfer metrics and QAN data from one PMM Server instance and import it into another one. It helps Percona Services engineers troubleshoot issues.
 
 ## How to build?
 
-You will need to have Go 1.16+ installed.
+You will need to have Go 1.21+ installed.
 
 In the root directory: `make build`
 
@@ -68,12 +68,12 @@ You could filter by instance using service name or id. For example, we have regi
 ```
 > pmm-admin add mongodb --username=pmm_mongodb --password=password mongo mongodb:27017
 MongoDB Service added.
-Service ID  : /service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11
+Service ID  : 6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11
 Service name: mongo
 ```
 
-So the value of `ts-selector` would be: `{service_name="mongo"}` or `{service_id="/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11"}`.
-The same for `where` QAN filter: `service_name='mongo'` or `service_id='/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11'`.
+So the value of `ts-selector` would be: `{service_name="mongo"}` or `{service_id="6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11"}`.
+The same for `where` QAN filter: `service_name='mongo'` or `service_id='6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11'`.
 Also, you can use `instance` option which filters QAN and core metrics by service name
 
 ```
@@ -132,11 +132,11 @@ Dump file is a `tar` archive compressed via `gzip`. Here is the shape of dump fi
 * `dump.tar.gz/ch/` - contains ClickHouse data chunks split by rows count (in TSV format)
 
 
-## Using Makefile - local dev env
+## Using Makefile for local development environment
 
-There is a Makefile for easier testing locally. It uses docker-compose to set up PMM Server, Client and MongoDB.
+There is a Makefile that contains commands to build and test pmm-dump locally. It uses docker-compose to set up PMM Server, PMM Client and MongoDB.
 
-You will need to have Go 1.16+ and Docker installed.
+You will need to have Go 1.21+ and Docker installed.
 
 | Rule                | Description                  |
 | ------------------- | ---------------------------- |
@@ -152,8 +152,8 @@ You will need to have Go 1.16+ and Docker installed.
 | make run-e2e-tests  | Runs all e2e tests           |
 | make run-unit-tests | Runs all unit tests          |
 
-For more rules, please see `Makefile`
+Read `Makefile` for more.
 
 ## Running End-to-End Tests
 
-For detailed instructions on executing end-to-end tests, please refer to the [Exectuing e2e tests](./internal/test/README.md).
+For detailed instructions on executing end-to-end tests, refer to [Executing e2e tests](./internal/test/README.md).
