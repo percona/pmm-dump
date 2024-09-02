@@ -12,7 +12,7 @@ require (
 	github.com/docker/docker v27.1.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
-	github.com/grafana/grafana-plugin-sdk-go v0.244.0
+	github.com/grafana/grafana-plugin-sdk-go v0.245.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -154,7 +154,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.29.2 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20240220201932-37d671a357a5 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
