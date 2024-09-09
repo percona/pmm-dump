@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.27.1
-	github.com/VictoriaMetrics/metricsql v0.77.0
+	github.com/VictoriaMetrics/metricsql v0.78.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/docker v27.1.2+incompatible
