@@ -1,8 +1,7 @@
-version: '3'
-
 services:
   pmm-server:
     image: ${PMM_SERVER_IMAGE}:${PMM_VERSION}
+    platform: linux/amd64 # temp fix until we have multi-architecture images
     hostname: pmm-server
     container_name: "${PMM_SERVER_NAME}"
     restart: always
@@ -12,14 +11,16 @@ services:
         max-size: "10m"
         max-file: "5"
     ports:
-      - "${PMM_HTTP_PORT}:80"
-      - "${PMM_HTTPS_PORT}:443"
+      - "${PMM_HTTP_PORT}:8080"
+      - "${PMM_HTTPS_PORT}:8443"
       - "${CLICKHOUSE_PORT}:9000"
       - "${CLICKHOUSE_PORT_HTTP}:8123"
     volumes:
       - pmm-server-data:/srv
+
   pmm-client:
     image: ${PMM_CLIENT_IMAGE}:${PMM_VERSION}
+    platform: linux/amd64 # temp fix until we have multi-architecture images
     hostname: pmm-client
     container_name: "${PMM_CLIENT_NAME}"
     restart: always
@@ -37,9 +38,10 @@ services:
       - PMM_AGENT_CONFIG_FILE=/etc/pmm-agent.yaml
       - PMM_AGENT_SERVER_USERNAME=admin
       - PMM_AGENT_SERVER_PASSWORD=admin
-      - PMM_AGENT_SERVER_ADDRESS=pmm-server:443
+      - PMM_AGENT_SERVER_ADDRESS=pmm-server:8443
       - PMM_AGENT_SERVER_INSECURE_TLS=true
       - PMM_AGENT_SETUP=false
+
   mongodb:
     image: "${MONGO_IMAGE}:${MONGO_TAG}"
     container_name: "${PMM_MONGO_NAME}"

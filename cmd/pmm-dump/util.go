@@ -85,7 +85,7 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Get(pmmURL + "/v1/version")
+	statusCode, body, err := c.Get(pmmURL + "/v1/server/version")
 	if err != nil {
 		return "", "", err
 	}
@@ -108,7 +108,7 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 
 	// Services
 
-	statusCode, body, err := c.Post(pmmURL + "/v1/inventory/Services/List")
+	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/services")
 	if err != nil {
 		return nil, err
 	}
@@ -153,9 +153,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (stri
 		} `json:"generic"`
 	}
 
-	statusCode, body, err := c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
-		NodeID string `json:"node_id"`
-	}{nodeID})
+	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
 	if err != nil {
 		return "", err
 	}
@@ -176,7 +174,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string) (
 		AgentID   *string `json:"agent_id"`
 	}
 
-	statusCode, body, err := c.Post(pmmURL + "/v1/inventory/Agents/List")
+	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/agents")
 	if err != nil {
 		return nil, err
 	}
