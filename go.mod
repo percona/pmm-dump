@@ -5,11 +5,11 @@ go 1.21.0
 toolchain go1.22.2
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.27.1
+	github.com/ClickHouse/clickhouse-go/v2 v2.29.0
 	github.com/VictoriaMetrics/metricsql v0.79.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
-	github.com/docker/docker v27.1.2+incompatible
+	github.com/docker/docker v27.3.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
 	github.com/grafana/grafana-plugin-sdk-go v0.244.0
