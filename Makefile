@@ -37,7 +37,7 @@ format:                 ## Format source code
 	bin/goimports -local github.com/percona/pmm-dump -l -w .
 
 check:                  ## Run checks/linters for the whole project
-#	bin/license-eye -c .licenserc.yaml header check
+	bin/license-eye -c .licenserc.yaml header check
 	bin/go-consistent -pedantic ./...
 	LOG_LEVEL=error bin/golangci-lint run
 
