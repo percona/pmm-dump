@@ -11,7 +11,7 @@ require (
 	github.com/reviewdog/reviewdog v0.20.2
 	golang.org/x/tools v0.26.0
 	gopkg.in/reform.v1 v1.5.1
-	mvdan.cc/gofumpt v0.6.0
+	mvdan.cc/gofumpt v0.7.0
 
 )
 
