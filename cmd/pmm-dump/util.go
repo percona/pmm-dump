@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -366,11 +367,15 @@ func prepareVictoriaMetricsSource(grafanaC *client.Client, dumpCore bool, url st
 		return nil, false
 	}
 
+	if contentLimit > math.MaxInt {
+		log.Fatal().Msgf("`--vm-content-limit` can't have a value greater than %d", math.MaxInt)
+	}
+
 	c := &victoriametrics.Config{
 		ConnectionURL:       url,
 		TimeSeriesSelectors: selectors,
 		NativeData:          nativeData,
-		ContentLimit:        contentLimit,
+		ContentLimit:        int(contentLimit),
 	}
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
