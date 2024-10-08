@@ -18,5 +18,5 @@ type Config struct {
 	ConnectionURL       string
 	TimeSeriesSelectors []string
 	NativeData          bool
-	ContentLimit        uint64
+	ContentLimit        int
 }
