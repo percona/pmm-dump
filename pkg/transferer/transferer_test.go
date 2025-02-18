@@ -16,6 +16,7 @@ package transferer
 
 import (
 	"io"
+	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -66,4 +67,5 @@ func (s fakeSource) FinalizeWrites() error {
 func TestMain(m *testing.M) {
 	log.Logger = zerolog.Nop()
 	m.Run()
+	os.Exit(0)
 }

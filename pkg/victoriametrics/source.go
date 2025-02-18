@@ -164,7 +164,7 @@ func compressChunk(chunk []Metric) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s Source) splitChunkContent(chunkContent []byte, limit uint64) ([][]byte, error) {
+func (s Source) splitChunkContent(chunkContent []byte, limit int) ([][]byte, error) {
 	metrics, err := decompressChunk(chunkContent)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse chunk content")
@@ -187,7 +187,7 @@ func (s Source) splitChunkContent(chunkContent []byte, limit uint64) ([][]byte, 
 	return data, nil
 }
 
-func (s Source) splitMetrics(metricChunks [][]Metric, limit uint64) ([][]Metric, error) {
+func (s Source) splitMetrics(metricChunks [][]Metric, limit int) ([][]Metric, error) {
 	newMetricChunks := make([][]Metric, 0, len(metricChunks))
 
 	for _, chunk := range metricChunks {
@@ -208,7 +208,7 @@ func (s Source) splitMetrics(metricChunks [][]Metric, limit uint64) ([][]Metric,
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to compress metrics")
 		}
-		if len(compressedData) > int(limit) {
+		if len(compressedData) > limit {
 			return s.splitMetrics(newMetricChunks, limit)
 		}
 	}
@@ -224,7 +224,7 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 		return errors.Wrap(err, "failed to read chunk content")
 	}
 
-	if s.cfg.ContentLimit > 0 && len(chunkContent) > int(s.cfg.ContentLimit) {
+	if s.cfg.ContentLimit > 0 && len(chunkContent) > s.cfg.ContentLimit {
 		chunks, err := s.splitChunkContent(chunkContent, s.cfg.ContentLimit)
 		if err != nil {
 			return errors.Wrap(err, "failed to split chunk content")

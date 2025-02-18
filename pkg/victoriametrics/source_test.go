@@ -106,7 +106,7 @@ func TestWriteChunk(t *testing.T) {
 			s := NewSource(grafanaC, Config{
 				ConnectionURL: server.URL,
 				NativeData:    tt.nativeData,
-				ContentLimit:  uint64(tt.contentLimit),
+				ContentLimit:  tt.contentLimit,
 			})
 
 			data, err := generateFakeChunk(tt.metricsSize)
