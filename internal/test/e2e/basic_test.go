@@ -49,12 +49,12 @@ func TestExportImport(t *testing.T) {
 	testDir := t.TempDir()
 
 	pmm.Log("Checking filtering with `--instance` flag")
-	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-client"}
+	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-server"}
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	checkDumpFiltering(t, filepath.Join(testDir, "filter-dump.tar.gz"), "pmm-client")
+	checkDumpFiltering(t, filepath.Join(testDir, "filter-dump.tar.gz"), "pmm-server")
 
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL()}
 
