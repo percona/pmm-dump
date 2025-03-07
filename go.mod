@@ -1,8 +1,8 @@
 module pmm-dump
 
-go 1.21.0
+go 1.22
 
-toolchain go1.22.2
+toolchain go1.22.4
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
@@ -74,7 +74,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jszwedko/go-datemath v0.1.1-0.20230526204004-640a500621d6 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magefile/mage v1.15.0 // indirect
