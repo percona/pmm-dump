@@ -36,8 +36,10 @@ import (
 )
 
 const (
-	defaultHTTPPort           = "8080"
-	defaultHTTPSPort          = "8443"
+	defaultHTTPPortv2         = "80"
+	defaultHTTPSPortv2        = "443"
+	defaultHTTPPortv3         = "8080"
+	defaultHTTPSPortv3        = "8443"
 	defaultClickhousePort     = "9000"
 	defaultClickhouseHTTPPort = "8123"
 
@@ -74,8 +76,12 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		},
 	}
 
-	ports := []string{defaultHTTPPort, defaultHTTPSPort, defaultClickhousePort, defaultClickhouseHTTPPort}
-
+	var ports []string
+	if pmm.pmmVersion[0:1] == "2" {
+		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
+	} else if pmm.pmmVersion[0:1] == "3" {
+		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
+	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
@@ -100,8 +106,14 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
-		return errors.Wrap(err, "failed to ping PMM")
+	if pmm.pmmVersion[0:1] == "2" {
+		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "failed to ping PMM")
+		}
+	} else if pmm.pmmVersion[0:1] == "3" {
+		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "failed to ping PMM")
+		}
 	}
 
 	gc, err := pmm.NewClient()
@@ -130,13 +142,26 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 		return errors.Wrap(err, "failed to inspect container")
 	}
 
-	httpPort, err := getPublishedPort(container, defaultHTTPPort)
-	if err != nil {
-		return errors.Wrap(err, "failed to get published http port")
+	var httpPort, httpsPort string
+	if pmm.pmmVersion[0:1] == "2" {
+		httpPort, err = getPublishedPort(container, defaultHTTPPortv2)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published http port")
+		}
+		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv2)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published https port")
+		}
 	}
-	httpsPort, err := getPublishedPort(container, defaultHTTPSPort)
-	if err != nil {
-		return errors.Wrap(err, "failed to get published https port")
+	if pmm.pmmVersion[0:1] == "3" {
+		httpPort, err = getPublishedPort(container, defaultHTTPPortv3)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published http port")
+		}
+		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv3)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published https port")
+		}
 	}
 	clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -85,7 +86,10 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Get(pmmURL + "/v1/server/version")
+	statusCode, body, err := c.Get(pmmURL + "/v1/version")
+	if err != nil {
+		statusCode, body, err = c.Get(pmmURL + "/v1/server/version")
+	}
 	if err != nil {
 		return "", "", err
 	}
@@ -107,8 +111,20 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 	}
 
 	// Services
-
-	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/services")
+	version, _, verserr := getPMMVersion(pmmURL, c)
+	if verserr != nil {
+		return nil, verserr
+	}
+	var (
+		statusCode int
+		body       []byte
+		err        error
+	)
+	if version[0:1] == "2" {
+		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
+	} else if version[0:1] == "3" {
+		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +169,22 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (stri
 		} `json:"generic"`
 	}
 
-	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
+	version, _, verserr := getPMMVersion(pmmURL, c)
+	if verserr != nil {
+		return "", verserr
+	}
+	var (
+		statusCode int
+		body       []byte
+		err        error
+	)
+	if version[0:1] == "2" {
+		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
+			NodeID string `json:"node_id"`
+		}{nodeID})
+	} else if version[0:1] == "3" {
+		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -174,7 +205,20 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string) (
 		AgentID   *string `json:"agent_id"`
 	}
 
-	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/agents")
+	version, _, verserr := getPMMVersion(pmmURL, c)
+	if verserr != nil {
+		return nil, verserr
+	}
+	var (
+		statusCode int
+		body       []byte
+		err        error
+	)
+	if version[0:1] == "2" {
+		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
+	} else if version[0:1] == "3" {
+		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -359,28 +403,24 @@ func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
 	}
 }
 
-func prepareVictoriaMetricsSource(grafanaC *client.Client, dumpCore bool, url string, selectors []string, nativeData bool, contentLimit uint64) (*victoriametrics.Source, bool) {
-	if !dumpCore {
-		return nil, false
+func prepareVictoriaMetricsSource(grafanaC *client.Client, url string, selectors []string, nativeData bool, contentLimit uint64) *victoriametrics.Source {
+	if contentLimit > math.MaxInt {
+		log.Fatal().Msgf("`--vm-content-limit` can't have a value greater than %d", math.MaxInt)
 	}
 
 	c := &victoriametrics.Config{
 		ConnectionURL:       url,
 		TimeSeriesSelectors: selectors,
 		NativeData:          nativeData,
-		ContentLimit:        contentLimit,
+		ContentLimit:        int(contentLimit),
 	}
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(grafanaC, *c), true
+	return victoriametrics.NewSource(grafanaC, *c)
 }
 
-func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
-	if !dumpQAN {
-		return nil, false
-	}
-
+func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhouse.Source, error) {
 	c := &clickhouse.Config{
 		ConnectionURL: url,
 		Where:         where,
@@ -388,12 +428,12 @@ func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where strin
 
 	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
 	if err != nil {
-		log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+		return nil, errors.Wrap(err, "failed to create ClickHouse source")
 	}
 
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 
-	return clickhouseSource, true
+	return clickhouseSource, nil
 }
 
 func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {

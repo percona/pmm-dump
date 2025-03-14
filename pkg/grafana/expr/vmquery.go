@@ -60,16 +60,21 @@ func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 				filters = append(filters, s)
 			}
 		}
-		if len(p.serviceNames) == 1 {
-			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+p.serviceNames[0]+"$"))
-		} else if len(p.serviceNames) > 1 {
-			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(p.serviceNames, "|")+")$"))
-		}
-		if len(filters) == 0 {
+		if len(filters) == 0 && len(p.serviceNames) == 0 {
 			return
 		}
-		s := fmt.Sprintf("{%s}", strings.Join(filters, ","))
-		selectors = append(selectors, s)
+		for _, v := range []string{"service_name", "instance", "node_name"} {
+			var selectorFilters []string
+			selectorFilters = append(selectorFilters, filters...)
+
+			if len(p.serviceNames) == 1 {
+				selectorFilters = append(selectorFilters, fmt.Sprintf("%s=~\"%s\"", v, "^"+p.serviceNames[0]+"$"))
+			} else if len(p.serviceNames) > 1 {
+				selectorFilters = append(selectorFilters, fmt.Sprintf("%s=~\"%s\"", v, "^("+strings.Join(p.serviceNames, "|")+")$"))
+			}
+			s := fmt.Sprintf("{%s}", strings.Join(selectorFilters, ","))
+			selectors = append(selectors, s)
+		}
 	})
 	return selectors, nil
 }

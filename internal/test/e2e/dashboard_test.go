@@ -20,13 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/valyala/fasthttp"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
+	"pmm-dump/pkg/dump"
 )
 
 func TestDashboard(t *testing.T) {
@@ -53,9 +56,56 @@ func TestDashboard(t *testing.T) {
 			pmm.Log("Exporting data with `--dashboard` flag to", dashboardDumpPath)
 			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 			if err != nil {
+				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
+					return
+				}
 				t.Fatal("failed to export", err, stdout, stderr)
 			}
+
+			dashboardDumpPath = filepath.Join(testDir, "dump2.tar.gz")
+			args = []string{"-d", dashboardDumpPath, "--pmm-url", pmm.PMMURL(), "--pmm-user", "admin", "--pmm-pass", "admin", "--dashboard", name, "--instance", "pmm-server"}
+			pmm.Log("Exporting data with `--dashboard` flag and `--instance` to", dashboardDumpPath)
+			stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+			if err != nil {
+				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
+					return
+				}
+				t.Fatal("failed to export", err, stdout, stderr)
+			}
+			checkDumpFiltering(t, dashboardDumpPath, "pmm-server")
 		})
+	}
+}
+
+func checkDumpFiltering(t *testing.T, dumpPath, instanceFilter string) {
+	t.Helper()
+
+	chunkMap, err := readChunks(dumpPath)
+	if err != nil {
+		t.Fatal("failed to read dump", dumpPath)
+	}
+
+	for filename, data := range chunkMap {
+		dir, _ := path.Split(filename)
+		st := dump.ParseSourceType(dir[:len(dir)-1])
+		switch st {
+		case dump.VictoriaMetrics:
+			chunk, err := vmParseChunk(data)
+			if err != nil {
+				t.Fatal("failed to parse chunk", filename, "error", err.Error())
+			}
+
+			for _, metric := range chunk {
+				if metric.Metric["service_name"] != instanceFilter && metric.Metric["instance"] != instanceFilter && metric.Metric["node_name"] != instanceFilter {
+					t.Fatal("metric", metric, "wasn't filtered by --instance option", instanceFilter, "in chunk", filename)
+				}
+			}
+		case dump.ClickHouse:
+		default:
+			t.Fatal("unknown source type", st)
+		}
 	}
 }
 
