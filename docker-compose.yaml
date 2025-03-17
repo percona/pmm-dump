@@ -38,7 +38,7 @@ services:
       - PMM_AGENT_CONFIG_FILE=/etc/pmm-agent.yaml
       - PMM_AGENT_SERVER_USERNAME=admin
       - PMM_AGENT_SERVER_PASSWORD=admin
-      - PMM_AGENT_SERVER_ADDRESS=pmm-server:${DOCKERS_HTTP_PORT}
+      - PMM_AGENT_SERVER_ADDRESS=pmm-server:${DOCKER_HTTPS_PORT}
       - PMM_AGENT_SERVER_INSECURE_TLS=true
       - PMM_AGENT_SETUP=false
 

@@ -12,7 +12,7 @@ trap exit 1 SIGINT
 go clean -testcache
 
 run_e2e_tests() {
-	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v
+	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v 
 }
 
 run_unit_tests() {
@@ -21,7 +21,35 @@ run_unit_tests() {
 }
 
 if [[ -n $build_tag ]]; then
-	run_e2e_tests
+	export TestVersion="2"
+	export PerconaServerUrl="percona/pmm-server"
+	export PerconaClientUrl="percona/pmm-client"
+
+	./support-files/destroy-test-resources
+	rm -f test/.env.test 
+	rm -f test/.env2.test
+	rm -f test/testlogV2.txt
+	rm -f test/testlogV3.txt
+
+	./setup/test/init-test-configs.sh test
+	run_e2e_tests | tee test/testlogV2.txt
+
+	export TestVersion="3"
+	export PerconaServerUrl="perconalab/pmm-server"
+	export PerconaClientUrl="perconalab/pmm-client"
+	
+	rm -f test/.env.test 
+	rm -f test/.env2.test
+	./support-files/destroy-test-resources
+
+	./setup/test/init-test-configs.sh test
+	run_e2e_tests | tee test/testlogV3.txt
+
+	echo "Test result of version 2. For more details go to test/testlogV2.txt:"
+	echo "$(tail -n 5 test/testlogV2.txt)"
+	echo "Test result of version 3. For more details go to test/testlogV3.txt:"
+	echo "$(tail -n 5 test/testlogV3.txt)"
+
 else
 	run_unit_tests
 fi

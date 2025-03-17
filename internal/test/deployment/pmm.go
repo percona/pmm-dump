@@ -219,6 +219,11 @@ func (pmm *PMM) DontCleanup() {
 	pmm.dontCleanup = true
 }
 
+// Returns 2 or 3 depending on version
+func (pmm *PMM) GetVersion() string {
+	return pmm.pmmVersion[0:1]
+}
+
 func (pmm *PMM) SetVersion(version string) {
 	pmm.pmmVersion = version
 }
