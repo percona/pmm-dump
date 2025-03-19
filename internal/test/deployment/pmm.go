@@ -31,6 +31,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -219,9 +220,10 @@ func (pmm *PMM) DontCleanup() {
 	pmm.dontCleanup = true
 }
 
-// Returns 2 or 3 depending on version
-func (pmm *PMM) GetVersion() string {
-	return pmm.pmmVersion[0:1]
+// Returns major version
+func (pmm *PMM) GetVersion() *version.Version {
+	v1, _ := version.NewVersion(pmm.pmmVersion)
+	return v1
 }
 
 func (pmm *PMM) SetVersion(version string) {

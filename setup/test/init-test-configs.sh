@@ -24,9 +24,9 @@ mkdir -p "$test_dir"
 
 # Create the .env.test file
 env_vars=(
-    "PMM_VERSION=${TestVersion} #pmm-server/pmm-client image version"
-    "PMM_SERVER_IMAGE=${PerconaServerUrl}"
-    "PMM_CLIENT_IMAGE=${PerconaClientUrl}"
+    "PMM_VERSION=${PMM_VERSION} #pmm-server/pmm-client image version"
+    "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}"
+    "PMM_CLIENT_IMAGE=${PMM_CLIENT_IMAGE}"
     "MONGO_IMAGE=mongo"
     "MONGO_TAG=latest"
 	"USE_EXISTING_PMM=false # use existing pmm-server container"

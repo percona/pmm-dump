@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -103,7 +104,15 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, error) {
+func getMajorVer(vers string) (*version.Version, error) {
+	v1, err := version.NewVersion(vers)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get major version")
+	}
+	return v1, nil
+}
+
+func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Version) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
 		ID     string `json:"service_id"`
 		Name   string `json:"service_name"`
@@ -111,18 +120,18 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 	}
 
 	// Services
-	version, _, verserr := getPMMVersion(pmmURL, c)
-	if verserr != nil {
-		return nil, verserr
-	}
 	var (
 		statusCode int
 		body       []byte
 		err        error
 	)
-	if version[0:1] == "2" {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create constraints")
+	}
+	if constraints.Check(majorVersion) {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
-	} else if version[0:1] == "3" {
+	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
 	}
 	if err != nil {
@@ -144,13 +153,13 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 				NodeID: service.NodeID,
 			}
 
-			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID)
+			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID, majorVersion)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get pmm service node name")
 			}
 			newService.NodeName = nodeName
 
-			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID)
+			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID, majorVersion)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
 			}
@@ -162,27 +171,26 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 	return services, nil
 }
 
-func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (string, error) {
+func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, majorVersion *version.Version) (string, error) {
 	type nodeRespStruct struct {
 		Generic struct {
 			Name string `json:"node_name"`
 		} `json:"generic"`
-	}
-
-	version, _, verserr := getPMMVersion(pmmURL, c)
-	if verserr != nil {
-		return "", verserr
 	}
 	var (
 		statusCode int
 		body       []byte
 		err        error
 	)
-	if version[0:1] == "2" {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create constraints")
+	}
+	if constraints.Check(majorVersion) {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
-	} else if version[0:1] == "3" {
+	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
 	}
 	if err != nil {
@@ -199,24 +207,23 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (stri
 	return nodeResp.Generic.Name, nil
 }
 
-func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string) ([]string, error) {
+func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, majorVersion *version.Version) ([]string, error) {
 	type agentsRespStruct map[string][]struct {
 		ServiceID *string `json:"service_id"`
 		AgentID   *string `json:"agent_id"`
-	}
-
-	version, _, verserr := getPMMVersion(pmmURL, c)
-	if verserr != nil {
-		return nil, verserr
 	}
 	var (
 		statusCode int
 		body       []byte
 		err        error
 	)
-	if version[0:1] == "2" {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create constraints")
+	}
+	if constraints.Check(majorVersion) {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
-	} else if version[0:1] == "3" {
+	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
 	}
 	if err != nil {
@@ -265,11 +272,14 @@ func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 }
 
 func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
-	_, pmmVer, err := getPMMVersion(pmmURL, c)
+	pmmShortVer, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
 	}
-
+	majorVersion, err := getMajorVer(pmmShortVer)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get major PMM version")
+	}
 	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM timezone")
@@ -303,7 +313,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 
 	pmmServices := []dump.PMMServerService(nil)
 	if exportServices {
-		pmmServices, err = getPMMServices(pmmURL, c)
+		pmmServices, err = getPMMServices(pmmURL, c, majorVersion)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get PMM services")
 		}

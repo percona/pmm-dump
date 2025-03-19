@@ -28,6 +28,7 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/util"
@@ -190,9 +191,13 @@ func getPublishedPort(container types.ContainerJSON, port string) (string, error
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	var port = ""
-	if pmm.GetVersion() == "2" {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		return errors.Wrap(err, "failed to create constraints")
+	}
+	if constraints.Check(pmm.GetVersion()) {
 		port = "443"
-	} else if pmm.GetVersion() == "3" {
+	} else {
 		port = "8443"
 	}
 	envs := []string{

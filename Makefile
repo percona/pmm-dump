@@ -90,6 +90,9 @@ clean:
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
 
+run-e2e-tests-v2: init-e2e-tests
+	./support-files/run-tests v2
+
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
 
