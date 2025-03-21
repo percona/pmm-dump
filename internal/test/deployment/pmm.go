@@ -31,6 +31,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -219,6 +220,16 @@ func (pmm *PMM) DontCleanup() {
 	pmm.dontCleanup = true
 }
 
+// Returns major version.
+func (pmm *PMM) GetVersion() (*version.Version, error) {
+	v1, err := version.NewVersion(pmm.pmmVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse version")
+	} else {
+		return v1, nil
+	}
+}
+
 func (pmm *PMM) SetVersion(version string) {
 	pmm.pmmVersion = version
 }
@@ -365,8 +376,18 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
-		return errors.Wrap(err, "failed to ping PMM")
+	getVers, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getVers {
+		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "failed to ping PMM")
+		}
+	} else {
+		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "failed to ping PMM")
+		}
 	}
 	return nil
 }

@@ -21,13 +21,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/util"
@@ -36,8 +36,10 @@ import (
 )
 
 const (
-	defaultHTTPPort           = "80"
-	defaultHTTPSPort          = "443"
+	defaultHTTPPortv2         = "80"
+	defaultHTTPSPortv2        = "443"
+	defaultHTTPPortv3         = "8080"
+	defaultHTTPSPortv3        = "8443"
 	defaultClickhousePort     = "9000"
 	defaultClickhouseHTTPPort = "8123"
 
@@ -74,8 +76,16 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		},
 	}
 
-	ports := []string{defaultHTTPPort, defaultHTTPSPort, defaultClickhousePort, defaultClickhouseHTTPPort}
-
+	var ports []string
+	getPort, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
+		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
+	} else {
+		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
+	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
@@ -100,8 +110,19 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
-		return errors.Wrap(err, "failed to ping PMM")
+
+	getPort, err = checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
+		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "failed to ping PMM")
+		}
+	} else {
+		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
+			return errors.Wrap(err, "failed to ping PMM")
+		}
 	}
 
 	gc, err := pmm.NewClient()
@@ -130,14 +151,29 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 		return errors.Wrap(err, "failed to inspect container")
 	}
 
-	httpPort, err := getPublishedPort(container, defaultHTTPPort)
+	var httpPort, httpsPort string
+	getPort, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	var portHTTP, portHTTPS string
+	if getPort {
+		portHTTP = defaultHTTPPortv2
+		portHTTPS = defaultHTTPSPortv2
+	} else {
+		portHTTP = defaultHTTPPortv3
+		portHTTPS = defaultHTTPSPortv3
+	}
+
+	httpPort, err = getPublishedPort(container, portHTTP)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published http port")
 	}
-	httpsPort, err := getPublishedPort(container, defaultHTTPSPort)
+	httpsPort, err = getPublishedPort(container, portHTTPS)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published https port")
 	}
+
 	clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse port")
@@ -150,7 +186,7 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	return nil
 }
 
-func getPublishedPort(container types.ContainerJSON, port string) (string, error) {
+func getPublishedPort(container container.InspectResponse, port string) (string, error) {
 	portMap := container.NetworkSettings.Ports
 	natPort, err := nat.NewPort("tcp", port)
 	if err != nil {
@@ -163,12 +199,34 @@ func getPublishedPort(container types.ContainerJSON, port string) (string, error
 	return publishedPorts[0].HostPort, nil
 }
 
+func checkMajorVersion(pmm *PMM) (bool, error) {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		return false, errors.Wrap(err, "failed to create constraints")
+	}
+	resConst, err := pmm.GetVersion()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to check constraints")
+	}
+	return constraints.Check(resConst), nil
+}
+
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
+	var port string
+	getPort, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
+		port = "443"
+	} else {
+		port = "8443"
+	}
 	envs := []string{
 		"PMM_AGENT_CONFIG_FILE=config/pmm-agent.yaml",
 		"PMM_AGENT_SERVER_USERNAME=admin",
 		"PMM_AGENT_SERVER_PASSWORD=admin",
-		"PMM_AGENT_SERVER_ADDRESS=" + pmm.ServerContainerName() + ":443",
+		"PMM_AGENT_SERVER_ADDRESS=" + pmm.ServerContainerName() + ":" + port,
 		"PMM_AGENT_SERVER_INSECURE_TLS=1",
 		"PMM_AGENT_SETUP=1",
 		"PMM_AGENT_SETUP_FORCE=true",

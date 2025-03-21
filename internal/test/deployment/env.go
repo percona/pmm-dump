@@ -71,13 +71,24 @@ func setDefaultEnv(key string) string {
 	case envVarPMMURL:
 		return defaultPMMURL
 	case envVarPMMServerImage:
-		return "percona/pmm-server"
+		if envVarPMMVersion[0:1] == "2" {
+			return "percona/pmm-server"
+		} else {
+			return "perconalab/pmm-server"
+		}
 	case envVarPMMClientImage:
-		return "percona/pmm-client"
+		if envVarPMMVersion[0:1] == "2" {
+			return "percona/pmm-client"
+		} else {
+			return "perconalab/pmm-client"
+		}
 	case envVarMongoImage:
 		return "mongo"
-	case envVarMongoTag, envVarPMMVersion:
+	case envVarMongoTag:
 		return "latest"
+	case envVarPMMVersion:
+		// TODO: update this once PMM v3 goes GA
+		return "3-dev-latest"
 	case envVarUseExistingPMM:
 		return "false"
 	default:
