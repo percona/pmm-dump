@@ -221,9 +221,13 @@ func (pmm *PMM) DontCleanup() {
 }
 
 // Returns major version
-func (pmm *PMM) GetVersion() *version.Version {
-	v1, _ := version.NewVersion(pmm.pmmVersion)
-	return v1
+func (pmm *PMM) GetVersion() (*version.Version, error) {
+	v1, err := version.NewVersion(pmm.pmmVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse version")
+	} else {
+		return v1, nil
+	}
 }
 
 func (pmm *PMM) SetVersion(version string) {

@@ -90,6 +90,8 @@ clean:
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
 
+run-e2e-tests-v2: export PMM_DUMP_MAX_PARALLEL_TESTS=3
+
 run-e2e-tests-v2: init-e2e-tests
 	./support-files/run-tests v2
 
@@ -102,5 +104,5 @@ run-unit-tests:
 init-e2e-tests: init build
 	./setup/test/init-test-configs.sh test
 
-run-tests: run-unit-tests run-e2e-tests
+run-tests: run-unit-tests run-e2e-tests run-e2e-tests-v2
 

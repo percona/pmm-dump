@@ -189,13 +189,25 @@ func getPublishedPort(container types.ContainerJSON, port string) (string, error
 	return publishedPorts[0].HostPort, nil
 }
 
-func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
-	var port = ""
+func checkMajorVersion(pmm *PMM) (bool, error) {
 	constraints, err := version.NewConstraint("< 3.0.0")
 	if err != nil {
-		return errors.Wrap(err, "failed to create constraints")
+		return false, errors.Wrap(err, "failed to create constraints")
 	}
-	if constraints.Check(pmm.GetVersion()) {
+	resConst, err := pmm.GetVersion()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to check constraints")
+	}
+	return constraints.Check(resConst), nil
+}
+
+func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
+	var port = ""
+	getPort, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
 		port = "443"
 	} else {
 		port = "8443"
