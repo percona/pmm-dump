@@ -376,11 +376,15 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if pmm.pmmVersion[0:1] == "2" {
+	getVers, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getVers {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
-	} else if pmm.pmmVersion[0:1] == "3" {
+	} else {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}

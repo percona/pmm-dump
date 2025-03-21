@@ -78,9 +78,13 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	var ports []string
-	if pmm.pmmVersion[0:1] == "2" {
+	getPort, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
-	} else if pmm.pmmVersion[0:1] == "3" {
+	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
 	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil, pmmServerMemoryLimit)
@@ -107,11 +111,16 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if pmm.pmmVersion[0:1] == "2" {
+
+	getPort, err = checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
-	} else if pmm.pmmVersion[0:1] == "3" {
+	} else {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
@@ -144,7 +153,11 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	}
 
 	var httpPort, httpsPort string
-	if pmm.pmmVersion[0:1] == "2" {
+	getPort, err := checkMajorVersion(pmm)
+	if err != nil {
+		return errors.Wrap(err, "failed to check major version")
+	}
+	if getPort {
 		httpPort, err = getPublishedPort(container, defaultHTTPPortv2)
 		if err != nil {
 			return errors.Wrap(err, "failed to get published http port")
@@ -153,8 +166,7 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 		if err != nil {
 			return errors.Wrap(err, "failed to get published https port")
 		}
-	}
-	if pmm.pmmVersion[0:1] == "3" {
+	} else {
 		httpPort, err = getPublishedPort(container, defaultHTTPPortv3)
 		if err != nil {
 			return errors.Wrap(err, "failed to get published http port")

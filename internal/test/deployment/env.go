@@ -73,14 +73,14 @@ func setDefaultEnv(key string) string {
 	case envVarPMMServerImage:
 		if envVarPMMVersion[0:1] == "2" {
 			return "percona/pmm-server"
-		} else if envVarPMMVersion[0:1] == "3" {
+		} else {
 			return "perconalab/pmm-server"
 		}
 		return "percona/pmm-server"
 	case envVarPMMClientImage:
 		if envVarPMMVersion[0:1] == "2" {
 			return "percona/pmm-client"
-		} else if envVarPMMVersion[0:1] == "3" {
+		} else {
 			return "perconalab/pmm-client"
 		}
 		return "percona/pmm-client"
