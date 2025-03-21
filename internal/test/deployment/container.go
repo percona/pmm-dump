@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
@@ -157,25 +156,24 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	if err != nil {
 		return errors.Wrap(err, "failed to check major version")
 	}
+	var portHTTP, portHTTPS string
 	if getPort {
-		httpPort, err = getPublishedPort(container, defaultHTTPPortv2)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published http port")
-		}
-		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv2)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published https port")
-		}
+		portHTTP = defaultHTTPPortv2
+		portHTTPS = defaultHTTPSPortv2
 	} else {
-		httpPort, err = getPublishedPort(container, defaultHTTPPortv3)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published http port")
-		}
-		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv3)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published https port")
-		}
+		portHTTP = defaultHTTPPortv3
+		portHTTPS = defaultHTTPSPortv3
 	}
+
+	httpPort, err = getPublishedPort(container, portHTTP)
+	if err != nil {
+		return errors.Wrap(err, "failed to get published http port")
+	}
+	httpsPort, err = getPublishedPort(container, portHTTPS)
+	if err != nil {
+		return errors.Wrap(err, "failed to get published https port")
+	}
+
 	clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse port")
@@ -188,7 +186,7 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	return nil
 }
 
-func getPublishedPort(container types.ContainerJSON, port string) (string, error) {
+func getPublishedPort(container container.InspectResponse, port string) (string, error) {
 	portMap := container.NetworkSettings.Ports
 	natPort, err := nat.NewPort("tcp", port)
 	if err != nil {
@@ -214,7 +212,7 @@ func checkMajorVersion(pmm *PMM) (bool, error) {
 }
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
-	var port = ""
+	var port string
 	getPort, err := checkMajorVersion(pmm)
 	if err != nil {
 		return errors.Wrap(err, "failed to check major version")

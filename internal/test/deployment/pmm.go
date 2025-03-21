@@ -220,7 +220,7 @@ func (pmm *PMM) DontCleanup() {
 	pmm.dontCleanup = true
 }
 
-// Returns major version
+// Returns major version.
 func (pmm *PMM) GetVersion() (*version.Version, error) {
 	v1, err := version.NewVersion(pmm.pmmVersion)
 	if err != nil {
