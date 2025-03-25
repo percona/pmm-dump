@@ -154,6 +154,7 @@ You will need to have Go 1.21+ and Docker installed.
 | make export-all     | Runs export from local PMM   |
 | make run-tests      | Runs all tests               |
 | make run-e2e-tests  | Runs all e2e tests           |
+| make run-e2e-tests-v2| Runs all e2e tests for version 2|
 | make run-unit-tests | Runs all unit tests          |
 
 Read `Makefile` for more.
