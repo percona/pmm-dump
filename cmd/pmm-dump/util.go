@@ -92,7 +92,7 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 		statusCode, body, err = c.Get(pmmURL + "/v1/server/version")
 	}
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to get version from API: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", "", fmt.Errorf("non-ok status: %d", statusCode)
@@ -112,6 +112,18 @@ func getMajorVer(vers string) (*version.Version, error) {
 	return v1, nil
 }
 
+func checkConstrains(major *version.Version) (bool, error) {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		return false, fmt.Errorf("failed to create constrains: %w", err)
+	}
+	if constraints.Check(major) {
+		return true, err
+	} else {
+		return false, err
+	}
+}
+
 func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Version) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
 		ID     string `json:"service_id"`
@@ -125,17 +137,14 @@ func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Versi
 		body       []byte
 		err        error
 	)
-	constraints, err := version.NewConstraint("< 3.0.0")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create constraints")
-	}
-	if constraints.Check(majorVersion) {
+	check, _ := checkConstrains(majorVersion)
+	if check {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get services: %d", statusCode)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
@@ -182,11 +191,8 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, major
 		body       []byte
 		err        error
 	)
-	constraints, err := version.NewConstraint("< 3.0.0")
-	if err != nil {
-		return "", errors.Wrap(err, "failed to create constraints")
-	}
-	if constraints.Check(majorVersion) {
+	check, _ := checkConstrains(majorVersion)
+	if check {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -194,7 +200,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, major
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
 	}
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get pmm nodes name: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
@@ -217,17 +223,14 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, m
 		body       []byte
 		err        error
 	)
-	constraints, err := version.NewConstraint("< 3.0.0")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create constraints")
-	}
-	if constraints.Check(majorVersion) {
+	check, _ := checkConstrains(majorVersion)
+	if check {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get agents: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
@@ -427,7 +430,7 @@ func prepareVictoriaMetricsSource(grafanaC *client.Client, url string, selectors
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(grafanaC, *c)
+	return victoriametrics.NewSource(grafanaC, c)
 }
 
 func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhouse.Source, error) {

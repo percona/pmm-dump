@@ -103,7 +103,7 @@ func TestWriteChunk(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			s := NewSource(grafanaC, Config{
+			s := NewSource(grafanaC, &Config{
 				ConnectionURL: server.URL,
 				NativeData:    tt.nativeData,
 				ContentLimit:  tt.contentLimit,
@@ -139,7 +139,7 @@ func generateFakeChunk(size int) ([]byte, error) {
 		return nil, errors.Wrap(err, "marshal metrics")
 	}
 	var data []byte
-	for i := 0; i < size; i++ {
+	for range size {
 		data = append(data, metricsData...)
 	}
 	return compressData(data)

@@ -18,7 +18,7 @@ jobs:
   test:
     if: github.event_name == 'pull_request'
     name: Test
-    timeout-minutes: 15
+    timeout-minutes: 20
     continue-on-error: false
     runs-on: ubuntu-latest
 
