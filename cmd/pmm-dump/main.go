@@ -98,6 +98,8 @@ func main() { //nolint:gocyclo,maintidx
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
+		encryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
+
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
@@ -265,13 +267,13 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msgf("Failed to create a dump. No data was found")
 		}
 
-		file, err := createFile(*dumpPath, *stdout)
+		file, err := createFile(*dumpPath, *stdout, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
 		defer file.Close() //nolint:errcheck
 
-		t, err := transferer.New(file, sources, *workersCount)
+		t, err := transferer.New(file, sources, *workersCount, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
@@ -338,7 +340,7 @@ func main() { //nolint:gocyclo,maintidx
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' JSON export format")
 			}
 		} else {
-			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false)
+			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, encryption)
 			if err != nil {
 				log.Warn().Msgf("Can't show meta: %v", err)
 				*vmNativeData = true
@@ -379,13 +381,13 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		file, err := getFile(*dumpPath, piped)
+		file, err := getFile(*dumpPath, piped, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
 		defer file.Close() //nolint:errcheck
 
-		t, err := transferer.New(file, sources, *workersCount)
+		t, err := transferer.New(file, sources, *workersCount, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
@@ -413,7 +415,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped)
+		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)
 		}

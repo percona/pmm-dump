@@ -22,6 +22,7 @@ import (
 	"io"
 	"path"
 
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
@@ -31,11 +32,37 @@ import (
 
 func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	log.Info().Msg("Importing metrics...")
-	gzr, err := gzip.NewReader(t.file)
-	if err != nil {
-		return errors.Wrap(err, "failed to open as gzip")
+	var (
+		password  []byte
+		pgp       *crypto.PGPHandle
+		decHandle crypto.PGPDecryption
+		decReader crypto.Reader
+		gzr       *gzip.Reader
+		err       error
+	)
+	if !*t.encrypted {
+		password = []byte("hunter2")
+		pgp = crypto.PGP()
+		decHandle, err = pgp.Decryption().Password(password).New()
+		if err != nil {
+			return errors.Wrap(err, "failed to create decryption handler")
+		}
+		decReader, err = decHandle.DecryptingReader(t.file, crypto.Bytes)
+		if err != nil {
+			return errors.Wrap(err, "failed to create decryption reader")
+		}
+		gzr, err = gzip.NewReader(decReader)
+		if err != nil {
+			return errors.Wrap(err, "failed to open as gzip")
+		}
+		defer gzr.Close() //nolint:errcheck
+	} else {
+		gzr, err = gzip.NewReader(t.file)
+		if err != nil {
+			return errors.Wrap(err, "failed to open as gzip")
+		}
+		defer gzr.Close() //nolint:errcheck
 	}
-	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 

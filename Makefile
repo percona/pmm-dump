@@ -71,7 +71,11 @@ mongo-insert:
 
 export-all:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
+
+export-all-noenc:
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
 
 export-vm:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
@@ -84,8 +88,13 @@ import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan
 
+import-all-noenc:
+	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
+
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(DUMP_FILENAME).gpg"
 	rm -rf $(TEST_CFG_DIR)/pmm $(TEST_CFG_DIR)/tmp
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3

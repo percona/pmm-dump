@@ -24,30 +24,61 @@ import (
 	"path"
 	"time"
 
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, enc *bool) (*dump.Meta, error) {
 	var file *os.File
+	var encpath string
+	if !*enc {
+		encpath = ".gpg"
+	}
 	if piped {
 		file = os.Stdin
 	} else {
 		var err error
-		file, err = os.Open(dumpPath) //nolint:gosec
+		file, err = os.Open(dumpPath + encpath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open file")
 		}
 	}
 	defer file.Close() //nolint:errcheck
 
-	gzr, err := gzip.NewReader(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+	var (
+		password  []byte
+		pgp       *crypto.PGPHandle
+		decHandle crypto.PGPDecryption
+		decReader crypto.Reader
+		gzr       *gzip.Reader
+		err       error
+	)
+	if !*enc {
+		password = []byte("hunter2")
+		pgp = crypto.PGP()
+		decHandle, err = pgp.Decryption().Password(password).New()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create decryption handler")
+		}
+		decReader, err = decHandle.DecryptingReader(file, crypto.Bytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create decryption reader")
+		}
+		gzr, err = gzip.NewReader(decReader)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open as gzip")
+		}
+		defer gzr.Close() //nolint:errcheck
+	} else {
+		gzr, err = gzip.NewReader(file)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open as gzip")
+		}
+		defer gzr.Close() //nolint:errcheck
 	}
-	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 
