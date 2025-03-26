@@ -178,7 +178,7 @@ func (p *PMM) ClickhouseURL() string {
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + *p.clickhousePort
+	u.Host += ":" + *p.clickhouseHTTPPort
 
 	return u.String()
 }
