@@ -112,16 +112,12 @@ func getMajorVer(vers string) (*version.Version, error) {
 	return v1, nil
 }
 
-func checkConstrains(major *version.Version) (bool, error) {
+func isVer3(major *version.Version) bool {
 	constraints, err := version.NewConstraint("< 3.0.0")
 	if err != nil {
-		return false, fmt.Errorf("failed to create constrains: %w", err)
+		panic(err) // this shouldn't happen
 	}
-	if constraints.Check(major) {
-		return true, err
-	} else {
-		return false, err
-	}
+	return constraints.Check(major)
 }
 
 func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Version) ([]dump.PMMServerService, error) {
