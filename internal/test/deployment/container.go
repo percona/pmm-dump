@@ -144,27 +144,22 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 		return errors.Wrap(err, "failed to inspect container")
 	}
 
-	var httpPort, httpsPort string
+	var httpPort, httpsPort, defaultHTTPPort, defaultHTTPSPort string
 	if checkMajorVersion(pmm) {
-		httpPort, err = getPublishedPort(container, defaultHTTPPortv2)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published http port")
-		}
-		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv2)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published https port")
-		}
+		defaultHTTPPort = defaultHTTPPortv2
+		defaultHTTPSPort = defaultHTTPSPortv2
 	} else {
-		httpPort, err = getPublishedPort(container, defaultHTTPPortv3)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published http port")
-		}
-		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv3)
-		if err != nil {
-			return errors.Wrap(err, "failed to get published https port")
-		}	
+		defaultHTTPPort = defaultHTTPPortv3
+		defaultHTTPSPort = defaultHTTPSPortv3
 	}
-
+	httpPort, err = getPublishedPort(container, defaultHTTPPort)
+	if err != nil {
+		return errors.Wrap(err, "failed to get published http port")
+	}
+	httpsPort, err = getPublishedPort(container, defaultHTTPSPort)
+	if err != nil {
+		return errors.Wrap(err, "failed to get published https port")
+	}
 	clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse port")
@@ -190,7 +185,7 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 	return publishedPorts[0].HostPort, nil
 }
 
-func checkMajorVersion(pmm *PMM) (bool) {
+func checkMajorVersion(pmm *PMM) bool {
 	constraints, err := version.NewConstraint("< 3.0.0")
 	if err != nil {
 		panic(fmt.Sprintf("cannot create constraint: %v", err))
