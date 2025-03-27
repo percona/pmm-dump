@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -77,11 +78,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	var ports []string
-	getPort, err := checkMajorVersion(pmm)
-	if err != nil {
-		return errors.Wrap(err, "failed to check major version")
-	}
-	if getPort {
+	if checkMajorVersion(pmm) {
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
@@ -111,11 +108,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 
-	getPort, err = checkMajorVersion(pmm)
-	if err != nil {
-		return errors.Wrap(err, "failed to check major version")
-	}
-	if getPort {
+	if checkMajorVersion(pmm) {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
@@ -152,26 +145,24 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	}
 
 	var httpPort, httpsPort string
-	getPort, err := checkMajorVersion(pmm)
-	if err != nil {
-		return errors.Wrap(err, "failed to check major version")
-	}
-	var portHTTP, portHTTPS string
-	if getPort {
-		portHTTP = defaultHTTPPortv2
-		portHTTPS = defaultHTTPSPortv2
+	if checkMajorVersion(pmm) {
+		httpPort, err = getPublishedPort(container, defaultHTTPPortv2)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published http port")
+		}
+		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv2)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published https port")
+		}
 	} else {
-		portHTTP = defaultHTTPPortv3
-		portHTTPS = defaultHTTPSPortv3
-	}
-
-	httpPort, err = getPublishedPort(container, portHTTP)
-	if err != nil {
-		return errors.Wrap(err, "failed to get published http port")
-	}
-	httpsPort, err = getPublishedPort(container, portHTTPS)
-	if err != nil {
-		return errors.Wrap(err, "failed to get published https port")
+		httpPort, err = getPublishedPort(container, defaultHTTPPortv3)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published http port")
+		}
+		httpsPort, err = getPublishedPort(container, defaultHTTPSPortv3)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published https port")
+		}	
 	}
 
 	clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
@@ -199,25 +190,21 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 	return publishedPorts[0].HostPort, nil
 }
 
-func checkMajorVersion(pmm *PMM) (bool, error) {
+func checkMajorVersion(pmm *PMM) (bool) {
 	constraints, err := version.NewConstraint("< 3.0.0")
 	if err != nil {
-		return false, errors.Wrap(err, "failed to create constraints")
+		panic(fmt.Sprintf("cannot create constraint: %v", err))
 	}
 	resConst, err := pmm.GetVersion()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to check constraints")
+		panic(fmt.Sprintf("cannot get version: %v", err))
 	}
-	return constraints.Check(resConst), nil
+	return constraints.Check(resConst)
 }
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	var port string
-	getPort, err := checkMajorVersion(pmm)
-	if err != nil {
-		return errors.Wrap(err, "failed to check major version")
-	}
-	if getPort {
+	if checkMajorVersion(pmm) {
 		port = "443"
 	} else {
 		port = "8443"

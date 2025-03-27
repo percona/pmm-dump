@@ -347,6 +347,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to add mongo to PMM")
 	}
 
+	pmm.Log("Ping clickhouse")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := util.RetryOnError(tCtx, func() error {
@@ -376,11 +377,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	getVers, err := checkMajorVersion(pmm)
-	if err != nil {
-		return errors.Wrap(err, "failed to check major version")
-	}
-	if getVers {
+	if checkMajorVersion(pmm) {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
