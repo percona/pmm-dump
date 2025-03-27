@@ -115,7 +115,7 @@ func getMajorVer(vers string) (*version.Version, error) {
 func isVer3(major *version.Version) bool {
 	constraints, err := version.NewConstraint("< 3.0.0")
 	if err != nil {
-		panic(err) // this shouldn't happen
+		panic(fmt.Sprintf("cannot create constraint: %v", err))
 	}
 	return constraints.Check(major)
 }
@@ -133,8 +133,7 @@ func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Versi
 		body       []byte
 		err        error
 	)
-	check, _ := checkConstrains(majorVersion)
-	if check {
+	if isVer3(majorVersion) {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
@@ -187,8 +186,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, major
 		body       []byte
 		err        error
 	)
-	check, _ := checkConstrains(majorVersion)
-	if check {
+	if isVer3(majorVersion) {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -219,8 +217,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, m
 		body       []byte
 		err        error
 	)
-	check, _ := checkConstrains(majorVersion)
-	if check {
+	if isVer3(majorVersion) {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
