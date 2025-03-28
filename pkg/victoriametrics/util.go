@@ -15,10 +15,8 @@
 package victoriametrics
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
@@ -42,13 +40,4 @@ func ExportTestRequest(c *client.Client, victoriaMetricsURL string) error {
 		}
 	}
 	return nil
-}
-
-func CheckStructuredVersion(ver *version.Version, err error) bool {
-	constraints, err := version.NewConstraint("< 3.0.0")
-	if err != nil {
-		panic(fmt.Sprintf("cannot create constraint: %v", err))
-	}
-	resConst := ver
-	return constraints.Check(resConst)
 }
