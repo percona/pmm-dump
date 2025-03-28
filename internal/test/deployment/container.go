@@ -16,7 +16,6 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/util"
@@ -78,7 +76,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	var ports []string
-	if checkMajorVersion(pmm) {
+	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
@@ -108,7 +106,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 
-	if checkMajorVersion(pmm) {
+	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
@@ -145,7 +143,7 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	}
 
 	var httpPort, httpsPort, defaultHTTPPort, defaultHTTPSPort string
-	if checkMajorVersion(pmm) {
+	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
 		defaultHTTPPort = defaultHTTPPortv2
 		defaultHTTPSPort = defaultHTTPSPortv2
 	} else {
@@ -185,21 +183,9 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 	return publishedPorts[0].HostPort, nil
 }
 
-func checkMajorVersion(pmm *PMM) bool {
-	constraints, err := version.NewConstraint("< 3.0.0")
-	if err != nil {
-		panic(fmt.Sprintf("cannot create constraint: %v", err))
-	}
-	resConst, err := pmm.GetVersion()
-	if err != nil {
-		panic(fmt.Sprintf("cannot get version: %v", err))
-	}
-	return constraints.Check(resConst)
-}
-
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	var port string
-	if checkMajorVersion(pmm) {
+	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
 		port = "443"
 	} else {
 		port = "8443"

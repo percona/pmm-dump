@@ -40,6 +40,7 @@ import (
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/victoriametrics"
+	"pmm-dump/pkg/util"
 )
 
 const minPMMServerVersion = "2.12.0"
@@ -104,7 +105,7 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getMajorVer(vers string) (*version.Version, error) {
+func getStructuredVer(vers string) (*version.Version, error) {
 	v1, err := version.NewVersion(vers)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get major version")
@@ -112,15 +113,9 @@ func getMajorVer(vers string) (*version.Version, error) {
 	return v1, nil
 }
 
-func isVer3(major *version.Version) bool {
-	constraints, err := version.NewConstraint("< 3.0.0")
-	if err != nil {
-		panic(fmt.Sprintf("cannot create constraint: %v", err))
-	}
-	return constraints.Check(major)
-}
+	
 
-func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Version) ([]dump.PMMServerService, error) {
+func getPMMServices(pmmURL string, c *client.Client, version *version.Version) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
 		ID     string `json:"service_id"`
 		Name   string `json:"service_name"`
@@ -133,13 +128,13 @@ func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Versi
 		body       []byte
 		err        error
 	)
-	if isVer3(majorVersion) {
+	if util.CheckStructuredVersion(version) {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get services: %d", statusCode)
+		return nil, fmt.Errorf("failed to get services: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
@@ -157,13 +152,13 @@ func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Versi
 				NodeID: service.NodeID,
 			}
 
-			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID, majorVersion)
+			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID, version)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get pmm service node name")
 			}
 			newService.NodeName = nodeName
 
-			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID, majorVersion)
+			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID, version)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
 			}
@@ -175,7 +170,7 @@ func getPMMServices(pmmURL string, c *client.Client, majorVersion *version.Versi
 	return services, nil
 }
 
-func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, majorVersion *version.Version) (string, error) {
+func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, version *version.Version) (string, error) {
 	type nodeRespStruct struct {
 		Generic struct {
 			Name string `json:"node_name"`
@@ -186,7 +181,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, major
 		body       []byte
 		err        error
 	)
-	if isVer3(majorVersion) {
+	if util.CheckStructuredVersion(version) {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -207,7 +202,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, major
 	return nodeResp.Generic.Name, nil
 }
 
-func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, majorVersion *version.Version) ([]string, error) {
+func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, version *version.Version) ([]string, error) {
 	type agentsRespStruct map[string][]struct {
 		ServiceID *string `json:"service_id"`
 		AgentID   *string `json:"agent_id"`
@@ -217,7 +212,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, m
 		body       []byte
 		err        error
 	)
-	if isVer3(majorVersion) {
+	if util.CheckStructuredVersion(version) {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
@@ -272,7 +267,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
 	}
-	majorVersion, err := getMajorVer(pmmShortVer)
+	structuredVer, err := getStructuredVer(pmmShortVer)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get major PMM version")
 	}
@@ -309,7 +304,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 
 	pmmServices := []dump.PMMServerService(nil)
 	if exportServices {
-		pmmServices, err = getPMMServices(pmmURL, c, majorVersion)
+		pmmServices, err = getPMMServices(pmmURL, c, structuredVer)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get PMM services")
 		}
