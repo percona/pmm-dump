@@ -39,8 +39,8 @@ import (
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana/client"
-	"pmm-dump/pkg/victoriametrics"
 	"pmm-dump/pkg/util"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 const minPMMServerVersion = "2.12.0"
@@ -112,8 +112,6 @@ func getStructuredVer(vers string) (*version.Version, error) {
 	}
 	return v1, nil
 }
-
-	
 
 func getPMMServices(pmmURL string, c *client.Client, version *version.Version) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
