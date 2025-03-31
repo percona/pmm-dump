@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/hashicorp/go-version"
 )
 
 type PMMConfig struct {
@@ -62,4 +64,13 @@ func composeClickHouseURL(u url.URL) string {
 	u.Host += ":9000"
 	u.Path = "pmm"
 	return u.String()
+}
+
+func CheckIsVer2(ver *version.Version) bool {
+	constraints, err := version.NewConstraint("< 3.0.0")
+	if err != nil {
+		panic(fmt.Sprintf("cannot create constraint: %v", err))
+	}
+	resConst := ver
+	return constraints.Check(resConst)
 }

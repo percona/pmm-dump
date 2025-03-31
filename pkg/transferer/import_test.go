@@ -226,8 +226,7 @@ func writeFakeFile(t *testing.T, w io.Writer, opts fakeFileOpts) {
 			t.Fatal(err, "failed to write chunk content")
 		}
 	}
-
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		var content bytes.Buffer
 		switch {
 		case opts.withEmptyChunk && i == 5:

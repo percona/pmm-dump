@@ -76,8 +76,10 @@ func setDefaultEnv(key string) string {
 		return "percona/pmm-client"
 	case envVarMongoImage:
 		return "mongo"
-	case envVarMongoTag, envVarPMMVersion:
+	case envVarMongoTag:
 		return "latest"
+	case envVarPMMVersion:
+		return "3"
 	case envVarUseExistingPMM:
 		return "false"
 	default:
