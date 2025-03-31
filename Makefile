@@ -45,7 +45,7 @@ up: init
 	mkdir -p setup/pmm && touch setup/pmm/agent.yaml && chmod 0666 setup/pmm/agent.yaml
 	docker compose up -d
 	sleep 15 # waiting for pmm server to be ready :(
-	docker compose exec pmm-client pmm-agent setup || true
+	docker compose exec pmm-client pmm-agent setup
 	docker compose exec pmm-server sed -i 's#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g' /etc/clickhouse-server/config.xml
 	docker compose exec pmm-server supervisorctl restart clickhouse
 
@@ -90,6 +90,11 @@ clean:
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
 
+run-e2e-tests-v2: export PMM_DUMP_MAX_PARALLEL_TESTS=3
+
+run-e2e-tests-v2: init-e2e-tests
+	./support-files/run-tests v2
+
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
 
@@ -99,5 +104,5 @@ run-unit-tests:
 init-e2e-tests: init build
 	./setup/test/init-test-configs.sh test
 
-run-tests: run-unit-tests run-e2e-tests
+run-tests: run-unit-tests run-e2e-tests run-e2e-tests-v2
 

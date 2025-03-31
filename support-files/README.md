@@ -13,13 +13,13 @@ The main goal of the script is to aide in handling importing data coming from a 
 
 There are three ways to run the script (all of them require at least one parameter -- the ticket number or container name string).
 
-- This will assume latest PMM v2 server version, and will deploy one container: `pmm-server-CS0012345`
+- This will assume latest PMM v3 server version, and will deploy one container: `pmm-server-CS0012345`
 
 `load-pmm-dump CS0012345`
 
 - This will use the second argument as PMM server Docker version tag (all other possible arguments are ignored).
 
-`load-pmm-dump CS0012345 2.26.0`
+`load-pmm-dump CS0012345 3.0.0`
 
 - This will get the PMM server Docker version tag from the .tar.gz/.tgz file metadata, and it will use it for the container. Additionally, it will try to automatically import the data with `pmm-dump import` (optionally, other files can be added as third and following arguments).
 
@@ -42,7 +42,7 @@ date -d @1657948064
 
 ## Increase 'Data Retention' in the advanced settings if the samples are older than the default 30 days.
 ## For example, to increase to 60 days:
-## docker exec pmm-server-CS0037806 curl -s -u admin:admin --request POST -k --url https://127.0.0.1:443/v1/Settings/Change -H 'Content-Type: application/json' -d '{"data_retention":"5184000s"}'
+## docker exec pmm-server-CS0037806 curl -s -u admin:admin --request PUT -k --url https://127.0.0.1:443/v1/server/settings -H 'Content-Type: application/json' -d '{"data_retention":"5184000s"}'
 
 ## To destroy docker PMM server container:
 docker rm -vf pmm-server-CS0037806

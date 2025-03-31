@@ -13,13 +13,13 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
 	github.com/grafana/grafana-plugin-sdk-go v0.269.1
+	github.com/hashicorp/go-version v1.7.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.59.0
-	go.mongodb.org/mongo-driver v1.17.1
-	golang.org/x/sync v0.12.0
-	gopkg.in/yaml.v2 v2.4.0
+	go.mongodb.org/mongo-driver v1.17.3
+	golang.org/x/sync v0.12.0	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
