@@ -76,7 +76,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	var ports []string
-	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
+	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
@@ -106,7 +106,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 
-	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
+	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
@@ -143,7 +143,7 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	}
 
 	var httpPort, httpsPort, defaultHTTPPort, defaultHTTPSPort string
-	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
+	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
 		defaultHTTPPort = defaultHTTPPortv2
 		defaultHTTPSPort = defaultHTTPSPortv2
 	} else {
@@ -185,7 +185,7 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	var port string
-	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
+	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
 		port = "443"
 	} else {
 		port = "8443"

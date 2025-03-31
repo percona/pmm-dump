@@ -378,7 +378,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if pkgUtil.CheckStructuredVersion(pmm.GetVersion()) {
+	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}
