@@ -37,14 +37,14 @@ type Source struct {
 	cfg Config
 }
 
-func NewSource(c *client.Client, cfg Config) *Source {
+func NewSource(c *client.Client, cfg *Config) *Source {
 	if len(cfg.TimeSeriesSelectors) == 0 {
 		cfg.TimeSeriesSelectors = []string{`{__name__=~".*"}`}
 	}
 
 	return &Source{
 		c:   c,
-		cfg: cfg,
+		cfg: *cfg,
 	}
 }
 
@@ -245,7 +245,7 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 	return nil
 }
 
-func (s *Source) sendChunk(content []byte) error {
+func (s Source) sendChunk(content []byte) error {
 	url := s.cfg.ConnectionURL + "/api/v1/import"
 	if s.cfg.NativeData {
 		url = s.cfg.ConnectionURL + "/api/v1/import/native"

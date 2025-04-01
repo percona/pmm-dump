@@ -76,7 +76,11 @@ type Client struct {
 	password   string
 }
 
-const AuthCookieName = "grafana_session"
+// For PMM v2.
+const (
+	AuthCookieNameV2 = "grafana_session"
+	AuthCookieName   = "pmm_session"
+)
 
 func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
 	c.setAuthHeaders(req)
@@ -162,6 +166,7 @@ func (c *Client) setAuthHeaders(req *fasthttp.Request) {
 	}
 
 	if c.authCookie != "" {
+		req.Header.SetCookie(AuthCookieNameV2, c.authCookie)
 		req.Header.SetCookie(AuthCookieName, c.authCookie)
 	}
 }

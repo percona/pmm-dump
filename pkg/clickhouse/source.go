@@ -181,7 +181,7 @@ func prepareInsertStatement(tx *sql.Tx, columnsCount int) (*sql.Stmt, error) {
 
 	query.Grow(len(queryStart) + columnsCount*2)
 	query.WriteString("INSERT INTO metrics VALUES (")
-	for i := 0; i < columnsCount-1; i++ {
+	for range columnsCount {
 		query.WriteString("?,")
 	}
 	query.WriteString("?)")

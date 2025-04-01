@@ -17,7 +17,7 @@
 [[ -z ${1} ]] && {
   echo "ERROR: Arguments expected."
   echo " 1st argument: Ticket number"
-  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using percona/pmm-server"
+  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using perconalab/pmm-server"
   exit 1
 }
 
@@ -72,9 +72,13 @@ fi
 
 echo "## Using version: $pmm_version"
 
-docker pull percona/pmm-server:${pmm_version}
-
-docker run --detach --publish :443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+if [$(echo "$pmm_version" | cut -d. -f1) != "2"]; then 
+  docker pull perconalab/pmm-server:${pmm_version}
+  docker run --detach --publish 443:8443 --name pmm-server-${ticket_number} perconalab/pmm-server:${pmm_version}
+else
+  docker pull percona/pmm-server:${pmm_version}
+  docker run --detach --publish :443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+fi
 
 pmm_port_443=`docker ps --format "{{.Ports}} {{.Names}}"|grep ${ticket_number}|cut -d ':' -f2|cut -d '-' -f1`
 
@@ -101,7 +105,12 @@ docker exec pmm-server-${ticket_number} supervisorctl restart nginx
 # Wait for PMM server to restart
 echo -n "## Waiting for PMM sever to restart"
 while true; do
-  pmm_status=`docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:443/v1/readyz`
+
+  if [$(echo "$pmm_version" | cut -d. -f1) != "2"]; then 
+    pmm_status=$(docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:${pmm_port_443}/v1/server/readyz)
+  else 
+    pmm_status=`docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:443/v1/readyz`
+  fi
   if [[ ${pmm_status} == "{}" ]]; then
     echo
     echo "## PMM sever started"
@@ -184,7 +193,7 @@ echo "date -d @1657948064"
 echo
 echo "## Increase 'Data Retention' in the advanced settings if the samples are older than the default 30 days."
 echo "## For example, to increase to 60 days:"
-echo "## docker exec pmm-server-${ticket_number} curl -s -u admin:admin --request POST -k --url https://127.0.0.1:443/v1/Settings/Change -H 'Content-Type: application/json' -d '{\"data_retention\":\"5184000s\"}'"
+echo "## docker exec pmm-server-${ticket_number} curl -s -u admin:admin --request PUT -k --url https://127.0.0.1:${pmm_port_443}/v1/server/settings -H 'Content-Type: application/json' -d '{\"data_retention\":\"5184000s\"}'"
 echo
 echo "## To destroy docker PMM server container:"
 echo "docker rm -vf pmm-server-${ticket_number}"
@@ -198,4 +207,3 @@ elif [[ ${pmm_dump_import_err} -eq '1' ]]; then
 else
   exit 0
 fi
-
