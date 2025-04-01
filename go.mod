@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.33.0
-	github.com/VictoriaMetrics/metricsql v0.84.1
+	github.com/VictoriaMetrics/metricsql v0.84.3
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/docker v28.0.1+incompatible
@@ -18,8 +18,8 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.59.0
-	go.mongodb.org/mongo-driver v1.17.1
-	golang.org/x/sync v0.11.0
+	go.mongodb.org/mongo-driver v1.17.3
+	golang.org/x/sync v0.12.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
