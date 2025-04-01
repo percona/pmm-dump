@@ -11,15 +11,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"pmm-dump/internal/test/util"
-	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/victoriametrics"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+
+	"pmm-dump/internal/test/util"
+	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/victoriametrics"
 )
 
 func TestContentLimit(t *testing.T) {

@@ -4,7 +4,7 @@ import "io"
 
 type Source interface {
 	Type() SourceType
-	ReadChunk(ChunkMeta) (*Chunk, error)
+	ReadChunks(ChunkMeta) ([]*Chunk, error)
 	WriteChunk(filename string, r io.Reader) error
 	FinalizeWrites() error
 }

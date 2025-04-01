@@ -5,7 +5,7 @@ export CGO_ENABLED=0
 PMMD_BIN_NAME?=pmm-dump
 PMM_DUMP_PATTERN?=pmm-dump-*.tar.gz
 
-PMM_HTTP_PORT?=8281
+PMM_HTTP_PORT?=8282
 
 PMM_URL?="http://admin:admin@localhost:$(PMM_HTTP_PORT)"
 
@@ -63,7 +63,7 @@ export-all:
 
 export-vm:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core
+		--pmm-url=$(PMM_URL) --dump-core --chunk-time-range='60m'
 
 export-ch:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
