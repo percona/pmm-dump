@@ -48,6 +48,7 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	pmm.Log("URL for clickhouse: ", pmm.ClickhouseURL())
 	defer db.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
