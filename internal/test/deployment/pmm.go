@@ -347,7 +347,8 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to add mongo to PMM")
 	}
-	time.Sleep(5 * time.Second)
+
+	time.Sleep(5 * time.Second) //nolint:mnd
 	pmm.Log("Ping clickhouse")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
