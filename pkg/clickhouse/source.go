@@ -55,6 +55,7 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 		}
 		return nil, errors.Wrap(err, "ping")
 	}
+	time.Sleep(time.Second * 10) //nolint:mnd
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, errors.Wrap(err, "begin")
