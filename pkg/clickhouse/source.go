@@ -55,12 +55,10 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 		}
 		return nil, errors.Wrap(err, "ping")
 	}
-	time.Sleep(time.Second * 5) //nolint:mnd
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, errors.Wrap(err, "begin")
 	}
-	time.Sleep(time.Second * 5) //nolint:mnd
 	ct, err := columnTypes(db)
 	if err != nil {
 		return nil, errors.Wrap(err, "column types")

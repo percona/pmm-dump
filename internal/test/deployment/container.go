@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -166,6 +167,11 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse http port")
 	}
+	fmt.Println("Published new ports:")
+	fmt.Println("httpPort:", httpPort)
+	fmt.Println("httpsPort:", httpsPort)
+	fmt.Println("clichhousePort:", clickhousePort)
+	fmt.Println("clickhouseHTTPPort:", clickhouseHTTPPort)
 	pmm.setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort)
 	return nil
 }

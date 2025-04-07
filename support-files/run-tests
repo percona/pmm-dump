@@ -14,7 +14,7 @@ go clean -testcache
 run_e2e_tests() {
 	rm -f test/.env.test 
 	rm -f test/.env2.test
-	rm -f test/tmp
+	rm -rf test/tmp
 	./support-files/destroy-test-resources
 
 	PMM_CLIENT_IMAGE="perconalab/pmm-client"  PMM_SERVER_IMAGE="perconalab/pmm-server" PMM_VERSION="3" ./setup/test/init-test-configs.sh test
@@ -23,7 +23,7 @@ run_e2e_tests() {
 run_e2e_tests_v2() {
 	rm -f test/.env.test 
 	rm -f test/.env2.test
-	rm -f test/tmp
+	rm -rf test/tmp
 	./support-files/destroy-test-resources
 
 	PMM_CLIENT_IMAGE="percona/pmm-client"  PMM_SERVER_IMAGE="percona/pmm-server" PMM_VERSION="2" ./setup/test/init-test-configs.sh test
@@ -32,7 +32,7 @@ run_e2e_tests_v2() {
 run_unit_tests() {
 	rm -f test/.env.test 
 	rm -f test/.env2.test
-	rm -f test/tmp
+	rm -rf test/tmp
 	go test -timeout "$timeout" ./... -v \
 		| grep -v '\[no test files\]' # Filtering lines like `? pmm-dump/pkg/victoriametrics [no test files]`
 }
