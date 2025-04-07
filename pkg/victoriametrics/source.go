@@ -137,10 +137,6 @@ func ReadChunk(c *client.Client, startTime, endTime *time.Time, nativeData bool,
 	}
 	log.Info().Msg("start: " + startTime.UTC().Format(RFC3339Milli))
 	log.Info().Msg("end: " + endTime.UTC().Format(RFC3339Milli))
-	//	// milliseconds
-	// f("2023-05-20T04:57:43.123Z", now, 1.6845586631230001e+09)
-	// f("2023-05-20T04:57:43.123456789+02:30", now, 1.6845496631234567e+09)
-	// f("2023-05-20T04:57:43.123456789-02:30", now, 1.6845676631234567e+09)
 
 	url := fmt.Sprintf("%s/api/v1/export?%s", host, q.String())
 	if nativeData {

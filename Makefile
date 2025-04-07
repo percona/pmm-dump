@@ -99,6 +99,9 @@ run-e2e-tests-v2: init-e2e-tests
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
 
+run-e2e-test-query: init-e2e-tests
+	./support-files/run-tests query
+
 run-unit-tests:
 	./support-files/run-tests
 
