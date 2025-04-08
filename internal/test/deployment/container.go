@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -194,15 +195,20 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 //		return err
 //	}
 func getPublishedPort(container container.InspectResponse, port string) (string, error) {
+
 	portMap := container.NetworkSettings.Ports
+	fmt.Printf("\n Port Map: %s", portMap)
 	natPort, err := nat.NewPort("tcp", port)
 	if err != nil {
 		return "", err
 	}
+	fmt.Printf("\n NatPort: %s", natPort)
 	publishedPorts, ok := portMap[natPort]
 	if !ok || len(publishedPorts) == 0 {
 		return "", errors.New("port " + port + " is not published")
 	}
+	fmt.Printf("\n PublishedPorts: %s", publishedPorts)
+
 	return publishedPorts[0].HostPort, nil
 }
 
