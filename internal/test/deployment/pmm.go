@@ -199,16 +199,17 @@ func (p *PMM) MongoURL() string {
 }
 
 func (pmm *PMM) Deploy(ctx context.Context) error {
-	pmm.deployedMu.Lock()
+	createServer.Lock()
 	if pmm.deployed != nil && *pmm.deployed {
-		pmm.deployedMu.Unlock()
+		createServer.Unlock()
 		return nil
 	}
 	if err := pmm.deploy(ctx); err != nil {
+		createServer.Unlock()
 		return errors.Wrap(err, "failed to deploy")
 	}
 	*pmm.deployed = true
-	pmm.deployedMu.Unlock()
+	createServer.Unlock()
 	if !pmm.dontCleanup {
 		pmm.t.Cleanup(func() { //nolint:contextcheck
 			pmm.Destroy(context.Background())
@@ -309,13 +310,10 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return err
 	}
 
-	createServer.Lock()
 	pmm.Log("Creating PMM server")
 	if err := pmm.CreatePMMServer(ctx, dockerCli, netresp.ID); err != nil {
-		createServer.Unlock()
 		return errors.Wrap(err, "failed to create pmm server")
 	}
-	createServer.Unlock()
 
 	pmm.Log("Creating PMM client")
 	if err := pmm.CreatePMMClient(ctx, dockerCli, netresp.ID); err != nil {
