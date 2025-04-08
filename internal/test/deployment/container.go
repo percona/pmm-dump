@@ -167,11 +167,24 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse http port")
 	}
-	err = pmm.PingClickhouse(ctx)
+	pmm.setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort)
+	fmt.Println("Published new ports:")
+	fmt.Println("httpPort:", httpPort)
+	fmt.Println("httpsPort:", httpsPort)
+	fmt.Println("clichhousePort:", clickhousePort)
+	fmt.Println("clickhouseHTTPPort:", clickhouseHTTPPort)
+	err = pmm.tryPorts(ctx, container, clickhousePort, clickhouseHTTPPort)
+	if err != nil {
+		return errors.Wrap(err, "failed to ping clichouse port even with retrying")
+	}
+
+	return nil
+}
+func (pmm *PMM) tryPorts(ctx context.Context, container container.InspectResponse, clickhousePort string, clickhouseHTTPPort string) error {
+	err := pmm.PingClickhouse(ctx)
 	if err != nil {
 		fmt.Println("Some error pinging clickhouse port retriyng")
-		fmt.Println("Failed clichhousePort:", clickhousePort)
-		fmt.Println("Failed clickhouseHTTPPort:", clickhouseHTTPPort)
+
 		clickhousePort, err = getPublishedPort(container, defaultClickhousePort)
 		if err != nil {
 			return errors.Wrap(err, "failed to get published clickhouse port")
@@ -180,16 +193,12 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 		if err != nil {
 			return errors.Wrap(err, "failed to get published clickhouse http port")
 		}
+		fmt.Println("New clichhousePort:", clickhousePort)
+		fmt.Println("New clickhouseHTTPPort:", clickhouseHTTPPort)
+		pmm.setPorts(*pmm.httpPort, *pmm.httpsPort, clickhousePort, clickhouseHTTPPort)
 	}
-	fmt.Println("Published new ports:")
-	fmt.Println("httpPort:", httpPort)
-	fmt.Println("httpsPort:", httpsPort)
-	fmt.Println("clichhousePort:", clickhousePort)
-	fmt.Println("clickhouseHTTPPort:", clickhouseHTTPPort)
-	pmm.setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort)
-	return nil
+	return err
 }
-
 func getPublishedPort(container container.InspectResponse, port string) (string, error) {
 	portMap := container.NetworkSettings.Ports
 	natPort, err := nat.NewPort("tcp", port)
