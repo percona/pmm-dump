@@ -249,8 +249,10 @@ func (pmm *PMM) Logf(f string, args ...any) {
 	pmm.t.Logf(f, args...)
 }
 
-var checkImagesMu sync.Mutex
-var createServer sync.Mutex
+var (
+	checkImagesMu sync.Mutex
+	createServer  sync.Mutex
+)
 
 func (pmm *PMM) deploy(ctx context.Context) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())

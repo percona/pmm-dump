@@ -52,6 +52,7 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
 	defer cancel()
+
 	if err := db.PingContext(ctx); err != nil {
 		var exception *clickhouse.Exception
 		if errors.As(err, &exception) {

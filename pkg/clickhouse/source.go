@@ -59,7 +59,7 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "begin")
 	}
-	
+
 	ct, err := columnTypes(db)
 	if err != nil {
 		return nil, errors.Wrap(err, "column types")
