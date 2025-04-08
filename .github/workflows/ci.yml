@@ -22,7 +22,6 @@ jobs:
     continue-on-error: false
     runs-on: ubuntu-latest
 
-
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -85,7 +84,7 @@ jobs:
     timeout-minutes: 10
     if: github.event_name == 'pull_request'
     continue-on-error: false
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Check out code into the Go module directory
