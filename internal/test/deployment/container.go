@@ -167,6 +167,20 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse http port")
 	}
+	err = pmm.PingClickhouse(ctx)
+	if err != nil {
+		fmt.Println("Some error pinging clickhouse port retriyng")
+		fmt.Println("Failed clichhousePort:", clickhousePort)
+		fmt.Println("Failed clickhouseHTTPPort:", clickhouseHTTPPort)
+		clickhousePort, err = getPublishedPort(container, defaultClickhousePort)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published clickhouse port")
+		}
+		clickhouseHTTPPort, err = getPublishedPort(container, defaultClickhouseHTTPPort)
+		if err != nil {
+			return errors.Wrap(err, "failed to get published clickhouse http port")
+		}
+	}
 	fmt.Println("Published new ports:")
 	fmt.Println("httpPort:", httpPort)
 	fmt.Println("httpsPort:", httpsPort)

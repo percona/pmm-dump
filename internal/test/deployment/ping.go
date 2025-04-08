@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const pingTimeout = time.Second * 20
+const pingTimeout = time.Second * 5
 
 func (pmm *PMM) PingMongo(ctx context.Context) error {
 	cl, err := mongo.Connect(ctx, options.Client().ApplyURI(pmm.MongoURL()))
@@ -53,7 +53,6 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
 	defer cancel()
-
 	if err := db.PingContext(ctx); err != nil {
 		var exception *clickhouse.Exception
 		if errors.As(err, &exception) {
