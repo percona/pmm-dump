@@ -308,7 +308,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-
+	
 	pmm.Log("Creating PMM server")
 	if err := pmm.CreatePMMServer(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create pmm server")

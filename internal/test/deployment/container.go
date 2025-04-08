@@ -348,6 +348,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	cmd []string,
 	memoryLimit int64,
 ) (string, error) {
+	createServer.Lock()
 	containerConfig := &container.Config{
 		Cmd:   cmd,
 		Image: image,
@@ -373,6 +374,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		containerPort, err := nat.NewPort("tcp", port)
 		fmt.Printf("\n ContainerPort: %s", containerPort)
 		if err != nil {
+			createServer.Unlock()
 			return "", err
 		}
 		containerConfig.ExposedPorts[containerPort] = struct{}{}
@@ -388,11 +390,14 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	}
 	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, name)
 	if err != nil {
+		createServer.Unlock()
 		return "", errors.Wrap(err, "failed to create container")
 	}
 
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		createServer.Unlock()
 		return "", errors.Wrap(err, "failed to start container")
 	}
+	createServer.Unlock()
 	return resp.ID, nil
 }
