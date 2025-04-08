@@ -369,7 +369,9 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	}
 
 	for _, port := range ports {
+		fmt.Printf("\n Port: %s", port)
 		containerPort, err := nat.NewPort("tcp", port)
+		fmt.Printf("\n ContainerPort: %s", containerPort)
 		if err != nil {
 			return "", err
 		}
@@ -384,7 +386,6 @@ func (pmm *PMM) createContainer(ctx context.Context,
 			},
 		},
 	}
-
 	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, name)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create container")

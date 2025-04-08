@@ -250,6 +250,7 @@ func (pmm *PMM) Logf(f string, args ...any) {
 }
 
 var checkImagesMu sync.Mutex
+var createServer sync.Mutex
 
 func (pmm *PMM) deploy(ctx context.Context) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -308,16 +309,19 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return err
 	}
 
+	createServer.Lock()
 	pmm.Log("Creating PMM server")
 	if err := pmm.CreatePMMServer(ctx, dockerCli, netresp.ID); err != nil {
+		createServer.Unlock()
 		return errors.Wrap(err, "failed to create pmm server")
 	}
+	createServer.Unlock()
 
 	pmm.Log("Creating PMM client")
 	if err := pmm.CreatePMMClient(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create pmm client")
 	}
-	
+
 	pmm.Log("Creating mongo")
 	if err := pmm.CreateMongo(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create mongo container")
