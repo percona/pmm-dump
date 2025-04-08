@@ -16,7 +16,6 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -41,7 +40,7 @@ const (
 	defaultHTTPPortv3         = "8080"
 	defaultHTTPSPortv3        = "8443"
 	defaultClickhousePort     = "9000"
-	//defaultClickhouseHTTPPort = "8123"
+	defaultClickhouseHTTPPort = "8123"
 
 	defaultMongoPort = "27017"
 
@@ -78,9 +77,9 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	var ports []string
 	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
-		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort}
+		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
-		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort}
+		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
 	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
@@ -163,16 +162,11 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	if err != nil {
 		return errors.Wrap(err, "failed to get published clickhouse port")
 	}
-	// clickhouseHTTPPort, err := getPublishedPort(container, defaultClickhouseHTTPPort)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to get published clickhouse http port")
-	// }
-	pmm.setPorts(httpPort, httpsPort, clickhousePort)
-	fmt.Println("Published new ports:")
-	fmt.Println("httpPort:", httpPort)
-	fmt.Println("httpsPort:", httpsPort)
-	fmt.Println("clichhousePort:", clickhousePort)
-	//fmt.Println("clickhouseHTTPPort:", clickhouseHTTPPort)
+	clickhouseHTTPPort, err := getPublishedPort(container, defaultClickhouseHTTPPort)
+	if err != nil {
+		return errors.Wrap(err, "failed to get published clickhouse http port")
+	}
+	pmm.setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort)
 	// err = pmm.tryPorts(ctx, container)
 	// if err != nil {
 	// 	return errors.Wrap(err, "failed to ping clichouse port even with retrying")
@@ -180,24 +174,25 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 
 	return nil
 }
-// func (pmm *PMM) tryPorts(ctx context.Context, container container.InspectResponse) error {
-// 	err := pmm.PingClickhouse(ctx)
-// 	if err != nil {
-// 		fmt.Println("Some error pinging clickhouse port retriyng")
-// 		clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
-// 		if err != nil {
-// 			return errors.Wrap(err, "failed to get published clickhouse port")
-// 		}
-// 		clickhouseHTTPPort, err := getPublishedPort(container, defaultClickhouseHTTPPort)
-// 		if err != nil {
-// 			return errors.Wrap(err, "failed to get published clickhouse http port")
-// 		}
-// 		fmt.Println("New clichhousePort:", clickhousePort)
-// 		fmt.Println("New clickhouseHTTPPort:", clickhouseHTTPPort)
-// 		pmm.setPorts(*pmm.httpPort, *pmm.httpsPort, clickhousePort, clickhouseHTTPPort)
-// 	}
-// 	return err
-// }
+
+//	func (pmm *PMM) tryPorts(ctx context.Context, container container.InspectResponse) error {
+//		err := pmm.PingClickhouse(ctx)
+//		if err != nil {
+//			fmt.Println("Some error pinging clickhouse port retriyng")
+//			clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
+//			if err != nil {
+//				return errors.Wrap(err, "failed to get published clickhouse port")
+//			}
+//			clickhouseHTTPPort, err := getPublishedPort(container, defaultClickhouseHTTPPort)
+//			if err != nil {
+//				return errors.Wrap(err, "failed to get published clickhouse http port")
+//			}
+//			fmt.Println("New clichhousePort:", clickhousePort)
+//			fmt.Println("New clickhouseHTTPPort:", clickhouseHTTPPort)
+//			pmm.setPorts(*pmm.httpPort, *pmm.httpsPort, clickhousePort, clickhouseHTTPPort)
+//		}
+//		return err
+//	}
 func getPublishedPort(container container.InspectResponse, port string) (string, error) {
 	portMap := container.NetworkSettings.Ports
 	natPort, err := nat.NewPort("tcp", port)

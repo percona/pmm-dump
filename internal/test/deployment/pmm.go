@@ -64,7 +64,7 @@ type PMM struct {
 	httpPort             *string
 	httpsPort            *string
 	clickhousePort       *string
-	//clickhouseHTTPPort   *string
+	clickhouseHTTPPort   *string
 	mongoPort            *string
 	pmmServerContainerID *string
 	mongoContainerID     *string
@@ -73,11 +73,11 @@ type PMM struct {
 	deployedMu *sync.Mutex
 }
 
-func (pmm *PMM) setPorts(httpPort, httpsPort, clickhousePort string) {
+func (pmm *PMM) setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort string) {
 	*pmm.httpPort = httpPort
 	*pmm.httpsPort = httpsPort
 	*pmm.clickhousePort = clickhousePort
-	//*pmm.clickhouseHTTPPort = clickhouseHTTPPort
+	*pmm.clickhouseHTTPPort = clickhouseHTTPPort
 }
 
 func (pmm *PMM) setMongoPort(mongoPort string) {
@@ -133,7 +133,7 @@ func newPMM(deplName, configFile string) *PMM {
 		httpPort:             ptr(""),
 		httpsPort:            ptr(""),
 		clickhousePort:       ptr(""),
-		//clickhouseHTTPPort:   ptr(""),
+		clickhouseHTTPPort:   ptr(""),
 		mongoPort:            ptr(""),
 		pmmServerContainerID: ptr(""),
 		mongoContainerID:     ptr(""),
@@ -349,6 +349,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	}
 
 	time.Sleep(5 * time.Second) //nolint:mnd
+
 	pmm.Log("Ping clickhouse")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
