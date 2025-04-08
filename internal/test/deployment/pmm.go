@@ -312,11 +312,15 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	if err := pmm.CreatePMMServer(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create pmm server")
 	}
-
+	pmm.Log("Waiting for pmm server to be ready")
+	time.Sleep(time.Second * 15)
+	
 	pmm.Log("Creating PMM client")
 	if err := pmm.CreatePMMClient(ctx, dockerCli, netresp.ID); err != nil {
 		return errors.Wrap(err, "failed to create pmm client")
 	}
+	pmm.Log("Waiting for pmm client to be ready")
+	time.Sleep(time.Second * 15)
 
 	pmm.Log("Creating mongo")
 	if err := pmm.CreateMongo(ctx, dockerCli, netresp.ID); err != nil {
