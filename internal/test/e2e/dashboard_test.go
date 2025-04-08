@@ -33,7 +33,6 @@ import (
 )
 
 func TestDashboard(t *testing.T) {
-	return 
 	ctx := context.Background()
 
 	c := deployment.NewController(t)

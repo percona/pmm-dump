@@ -199,17 +199,16 @@ func (p *PMM) MongoURL() string {
 }
 
 func (pmm *PMM) Deploy(ctx context.Context) error {
-	createServer.Lock()
+	pmm.deployedMu.Lock()
 	if pmm.deployed != nil && *pmm.deployed {
-		createServer.Unlock()
+		pmm.deployedMu.Unlock()
 		return nil
 	}
 	if err := pmm.deploy(ctx); err != nil {
-		createServer.Unlock()
 		return errors.Wrap(err, "failed to deploy")
 	}
 	*pmm.deployed = true
-	createServer.Unlock()
+	pmm.deployedMu.Unlock()
 	if !pmm.dontCleanup {
 		pmm.t.Cleanup(func() { //nolint:contextcheck
 			pmm.Destroy(context.Background())
