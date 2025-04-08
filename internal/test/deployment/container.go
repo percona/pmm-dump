@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -172,14 +173,18 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 
 func getPublishedPort(container container.InspectResponse, port string) (string, error) {
 	portMap := container.NetworkSettings.Ports
+	fmt.Printf("\n Port Map: %s", portMap)
 	natPort, err := nat.NewPort("tcp", port)
 	if err != nil {
 		return "", err
 	}
+	fmt.Printf("\n NatPort: %s", natPort)
 	publishedPorts, ok := portMap[natPort]
 	if !ok || len(publishedPorts) == 0 {
 		return "", errors.New("port " + port + " is not published")
 	}
+	fmt.Printf("\n PublishedPorts: %s", publishedPorts)
+
 	return publishedPorts[0].HostPort, nil
 }
 
@@ -319,6 +324,8 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	cmd []string,
 	memoryLimit int64,
 ) (string, error) {
+	createServer.Lock()
+	defer createServer.Unlock()
 	containerConfig := &container.Config{
 		Cmd:   cmd,
 		Image: image,
@@ -364,5 +371,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
+	pmm.Log("Waiting for container to start")
+	time.Sleep(time.Second * 3) //nolint:mnd
 	return resp.ID, nil
 }
