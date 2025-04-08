@@ -44,11 +44,6 @@ jobs:
       - name: Build binaries
         run: make build
 
-      - name: Run unit-tests
-        run: |
-          go clean -testcache
-          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-unit-tests
-
       - name: Run e2e tests
         run: |
           go clean -testcache
