@@ -372,6 +372,6 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		return "", errors.Wrap(err, "failed to start container")
 	}
 	pmm.Log("Waiting for container to start")
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 3) //nolint:mnd
 	return resp.ID, nil
 }

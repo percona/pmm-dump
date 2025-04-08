@@ -364,6 +364,8 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 }
 
 func (pmm *PMM) Restart(ctx context.Context) error {
+	createServer.Lock()
+	defer createServer.Unlock()
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")
@@ -375,6 +377,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart pmm server")
 	}
+	time.Sleep(time.Second * 3) //nolint:mnd
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set server published ports")
 	}
