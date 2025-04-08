@@ -30,7 +30,7 @@ init:                   ## Install development tools
 	bash -c "[ ! -f .env ] && cp .env.example .env || true"
 
 build:
-	go build -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
+	go build -ldflags "-X 'main.GitBranch=$(BRANCH)' -X 'main.GitCommit=$(COMMIT)' -X 'main.GitVersion=$(VERSION)'" -o $(PMMD_BIN_NAME) pmm-dump/cmd/pmm-dump
 
 format:                 ## Format source code
 	bin/gofumpt -l -w .

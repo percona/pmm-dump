@@ -47,7 +47,6 @@ func TestValidate(t *testing.T) {
 	ctx := context.Background()
 
 	c := deployment.NewController(t)
-	
 	pmm := c.NewPMM("validate", ".env.test")
 	newPMM := c.NewPMM("validate-2", ".env2.test")
 

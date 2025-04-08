@@ -22,6 +22,7 @@ jobs:
     continue-on-error: false
     runs-on: ubuntu-latest
 
+
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -43,15 +44,20 @@ jobs:
       - name: Build binaries
         run: make build
 
+      - name: Run unit-tests
+        run: |
+          go clean -testcache
+          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-unit-tests
+
       - name: Run e2e tests
         run: |
           go clean -testcache
-          make run-tests
+          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-e2e-tests
 
-      # - name: Run e2e tests for V2
-      #   run: |
-      #     go clean -testcache
-      #     PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-e2e-tests-v2
+      - name: Run e2e tests for V2
+        run: |
+          go clean -testcache
+          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-e2e-tests-v2
   
       #   TODO: Add codecoverage
       # - name: Upload coverage results

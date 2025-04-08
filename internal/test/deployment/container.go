@@ -168,34 +168,10 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 		return errors.Wrap(err, "failed to get published clickhouse http port")
 	}
 	pmm.setPorts(httpPort, httpsPort, clickhousePort, clickhouseHTTPPort)
-	// err = pmm.tryPorts(ctx, container)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to ping clichouse port even with retrying")
-	// }
-
 	return nil
 }
 
-//	func (pmm *PMM) tryPorts(ctx context.Context, container container.InspectResponse) error {
-//		err := pmm.PingClickhouse(ctx)
-//		if err != nil {
-//			fmt.Println("Some error pinging clickhouse port retriyng")
-//			clickhousePort, err := getPublishedPort(container, defaultClickhousePort)
-//			if err != nil {
-//				return errors.Wrap(err, "failed to get published clickhouse port")
-//			}
-//			clickhouseHTTPPort, err := getPublishedPort(container, defaultClickhouseHTTPPort)
-//			if err != nil {
-//				return errors.Wrap(err, "failed to get published clickhouse http port")
-//			}
-//			fmt.Println("New clichhousePort:", clickhousePort)
-//			fmt.Println("New clickhouseHTTPPort:", clickhouseHTTPPort)
-//			pmm.setPorts(*pmm.httpPort, *pmm.httpsPort, clickhousePort, clickhouseHTTPPort)
-//		}
-//		return err
-//	}
 func getPublishedPort(container container.InspectResponse, port string) (string, error) {
-
 	portMap := container.NetworkSettings.Ports
 	fmt.Printf("\n Port Map: %s", portMap)
 	natPort, err := nat.NewPort("tcp", port)
@@ -349,6 +325,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	memoryLimit int64,
 ) (string, error) {
 	createServer.Lock()
+	defer createServer.Unlock()
 	containerConfig := &container.Config{
 		Cmd:   cmd,
 		Image: image,
@@ -370,11 +347,8 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	}
 
 	for _, port := range ports {
-		fmt.Printf("\n Port: %s", port)
 		containerPort, err := nat.NewPort("tcp", port)
-		fmt.Printf("\n ContainerPort: %s", containerPort)
 		if err != nil {
-			createServer.Unlock()
 			return "", err
 		}
 		containerConfig.ExposedPorts[containerPort] = struct{}{}
@@ -390,14 +364,11 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	}
 	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, name)
 	if err != nil {
-		createServer.Unlock()
 		return "", errors.Wrap(err, "failed to create container")
 	}
 
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		createServer.Unlock()
 		return "", errors.Wrap(err, "failed to start container")
 	}
-	createServer.Unlock()
 	return resp.ID, nil
 }
