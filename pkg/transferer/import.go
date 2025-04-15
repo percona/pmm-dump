@@ -82,7 +82,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	chunksC := make(chan *dump.Chunk, maxChunksInMem)
 
 	g, gCtx := errgroup.WithContext(ctx)
-	for i := 0; i < t.workersCount; i++ {
+	for range t.workersCount {
 		g.Go(func() error {
 			defer log.Debug().Msgf("Exiting from write chunks goroutine")
 			if err := t.writeChunksToSource(gCtx, chunksC); err != nil {

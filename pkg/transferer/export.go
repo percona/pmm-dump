@@ -49,7 +49,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 
 	log.Debug().Msgf("Starting %d goroutines to read chunks from sources...", t.workersCount)
 	readWG.Add(t.workersCount)
-	for i := 0; i < t.workersCount; i++ {
+	for range t.workersCount {
 		g.Go(func() error {
 			defer log.Debug().Msgf("Exiting from read chunks goroutine")
 			defer readWG.Done()

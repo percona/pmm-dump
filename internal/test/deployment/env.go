@@ -87,8 +87,7 @@ func setDefaultEnv(key string) string {
 	case envVarMongoTag:
 		return "latest"
 	case envVarPMMVersion:
-		// TODO: update this once PMM v3 goes GA
-		return "3-dev-latest"
+		return "3"
 	case envVarUseExistingPMM:
 		return "false"
 	default:
