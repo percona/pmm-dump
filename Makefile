@@ -120,9 +120,6 @@ run-e2e-tests-v2: init-e2e-tests
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
 
-run-enc-tests: init-e2e-tests
-	./support-files/run-tests enc
-
 run-unit-tests:
 	./support-files/run-tests
 

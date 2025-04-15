@@ -138,7 +138,7 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 		}
 	}
 }
-func (t Transferer) chekcOrGenerateIVAndKeyAndCipher() ([]byte, []byte, cipher.Block, error) {
+func (t Transferer) checkOrGenerateIVAndKeyAndCipher() ([]byte, []byte, cipher.Block, error) {
 	key := make([]byte, 32)
 	iv := make([]byte, aes.BlockSize)
 	var err error
@@ -179,7 +179,7 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 		block cipher.Block
 	)
 	if !*t.encrypted {
-		iv, key, block, err = t.chekcOrGenerateIVAndKeyAndCipher()
+		iv, key, block, err = t.checkOrGenerateIVAndKeyAndCipher()
 		if err != nil {
 			return errors.Wrap(err, "Failed to generate key")
 		}
