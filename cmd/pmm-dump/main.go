@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"unicode/utf8"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/rs/zerolog"
@@ -98,7 +99,12 @@ func main() { //nolint:gocyclo,maintidx
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
-		encryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
+		// encryption related
+		noEncryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
+		key          = cli.Flag("key", "Key for encryption, optional for export, mandatory for importing encrypted dump").Default("").String()
+		iv           = cli.Flag("iv", "IV for encryption. If was specified in export also needs to be specified in import").Default("").String()
+		justKey      = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
+		toFile       = cli.Flag("to-file", "Change key destination from stderr to file").Default("false").Bool()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
@@ -129,14 +135,31 @@ func main() { //nolint:gocyclo,maintidx
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
 	}
 
+	if *key != "" && *noEncryption {
+		log.Fatal().Msgf("key and no-encryption flag is mutually exclusive")
+	} else if *key != "" && utf8.RuneCountInString(*key) != 64 {
+		log.Fatal().Msg("Provided key is not 64 size lenght: " + fmt.Sprint(utf8.RuneCountInString(*key)))
+	} else if *iv != "" && utf8.RuneCountInString(*iv) != 32 {
+		log.Fatal().Msg("Provided iv is not 32 size lenght: " + fmt.Sprint(utf8.RuneCountInString(*iv)))
+	} else if *key == "" && *iv != "" {
+		log.Fatal().Msgf("Specified iv but not key")
+	} else if *justKey && *enableVerboseMode {
+		log.Fatal().Msgf("just-key and verbose flag is mutually exclusive")
+	}
+
 	if *enableVerboseMode {
 		log.Logger = log.Logger.
 			With().Caller().Logger().
 			Hook(goroutineLoggingHook{}).
 			Level(zerolog.DebugLevel)
+	} else if *justKey {
+		log.Logger = log.Logger.Level(zerolog.Disabled)
 	} else {
 		log.Logger = log.Logger.
 			Level(zerolog.InfoLevel)
+	}
+	if *key != "" && *iv == "" {
+		log.Warn().Msg("Entered key but not iv, dump will be encrypted/decrypted with empty iv")
 	}
 
 	switch cmd {
@@ -267,13 +290,13 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msgf("Failed to create a dump. No data was found")
 		}
 
-		file, err := createFile(*dumpPath, *stdout, encryption)
+		file, err := createFile(*dumpPath, *stdout, noEncryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
 		defer file.Close() //nolint:errcheck
 
-		t, err := transferer.New(file, sources, *workersCount, encryption)
+		t, err := transferer.New(file, sources, *workersCount, noEncryption, key, iv)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
@@ -298,7 +321,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool, &dumpLog); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool, &dumpLog, *justKey, *toFile); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -340,7 +363,7 @@ func main() { //nolint:gocyclo,maintidx
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' JSON export format")
 			}
 		} else {
-			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, encryption)
+			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, *noEncryption, key, iv)
 			if err != nil {
 				log.Warn().Msgf("Can't show meta: %v", err)
 				*vmNativeData = true
@@ -381,13 +404,13 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		file, err := getFile(*dumpPath, piped, encryption)
+		file, err := getFile(*dumpPath, piped, noEncryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
 		defer file.Close() //nolint:errcheck
 
-		t, err := transferer.New(file, sources, *workersCount, encryption)
+		t, err := transferer.New(file, sources, *workersCount, noEncryption, key, iv)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
@@ -415,7 +438,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, encryption)
+		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *noEncryption, key, iv)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)
 		}

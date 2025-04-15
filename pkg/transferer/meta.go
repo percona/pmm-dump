@@ -17,6 +17,9 @@ package transferer
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,18 +27,17 @@ import (
 	"path"
 	"time"
 
-	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool, enc *bool) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, enc bool, key, iv *string) (*dump.Meta, error) {
 	var file *os.File
 	var encpath string
-	if !*enc {
-		encpath = ".gpg"
+	if !enc {
+		encpath = ".enc"
 	}
 	if piped {
 		file = os.Stdin
@@ -49,24 +51,34 @@ func ReadMetaFromDump(dumpPath string, piped bool, enc *bool) (*dump.Meta, error
 	defer file.Close() //nolint:errcheck
 
 	var (
-		password  []byte
-		pgp       *crypto.PGPHandle
-		decHandle crypto.PGPDecryption
-		decReader crypto.Reader
-		gzr       *gzip.Reader
-		err       error
+		gzr  *gzip.Reader
+		err  error
+		keyB []byte
+		ivB  []byte
 	)
-	if !*enc {
-		password = []byte("hunter2")
-		pgp = crypto.PGP()
-		decHandle, err = pgp.Decryption().Password(password).New()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create decryption handler")
+	if !enc {
+		if *key == "" {
+			return nil, errors.Wrap(err, "password is empty, please specify password in arguments")
 		}
-		decReader, err = decHandle.DecryptingReader(file, crypto.Bytes)
+		keyB, err = hex.DecodeString(*key)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create decryption reader")
+			panic(err)
 		}
+		block, err := aes.NewCipher(keyB)
+		if err != nil {
+			panic(err)
+		}
+		ivB = make([]byte, aes.BlockSize)
+		if *iv != "" {
+			ivB, err = hex.DecodeString(*iv)
+			if err != nil {
+				panic(err)
+			}
+		}
+		stream := cipher.NewCTR(block, ivB)
+
+		decReader := &cipher.StreamReader{S: stream, R: file}
+
 		gzr, err = gzip.NewReader(decReader)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open as gzip")

@@ -498,7 +498,7 @@ func getFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, 
 	var file io.ReadWriteCloser
 	var encpath string
 	if !*encrypted {
-		encpath = ".gpg"
+ 		encpath = ".enc"
 	}
 	if piped {
 		file = os.Stdin
@@ -545,9 +545,9 @@ func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteClose
 func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, error) {
 	var encpath string
 	if !*encrypted {
-		encpath = ".gpg"
+		encpath = ".enc"
 	}
-	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz"+encpath, ts.Unix())
+	autoFilename := fmt.Sprintf("pmm-dump.tar.gz-%v"+encpath, ts.Unix())
 	if customPath == "" {
 		return autoFilename, nil
 	}

@@ -19,10 +19,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/hex"
 	"io"
 	"path"
 
-	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
@@ -33,24 +35,33 @@ import (
 func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	log.Info().Msg("Importing metrics...")
 	var (
-		password  []byte
-		pgp       *crypto.PGPHandle
-		decHandle crypto.PGPDecryption
-		decReader crypto.Reader
-		gzr       *gzip.Reader
-		err       error
+		gzr *gzip.Reader
+		err error
+		key []byte
+		iv  []byte
 	)
 	if !*t.encrypted {
-		password = []byte("hunter2")
-		pgp = crypto.PGP()
-		decHandle, err = pgp.Decryption().Password(password).New()
-		if err != nil {
-			return errors.Wrap(err, "failed to create decryption handler")
+		if *t.key == "" {
+			return errors.Wrap(err, "key is empty, please specify key in arguments")
 		}
-		decReader, err = decHandle.DecryptingReader(t.file, crypto.Bytes)
+		key, err = hex.DecodeString(*t.key)
 		if err != nil {
-			return errors.Wrap(err, "failed to create decryption reader")
+			panic(err)
 		}
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			panic(err)
+		}
+		iv = make([]byte, aes.BlockSize)
+		if *t.iv != "" {
+			iv, err = hex.DecodeString(*t.iv)
+			if err != nil {
+				panic(err)
+			}
+		}
+		stream := cipher.NewCTR(block, iv)
+
+		decReader := &cipher.StreamReader{S: stream, R: t.file}
 		gzr, err = gzip.NewReader(decReader)
 		if err != nil {
 			return errors.Wrap(err, "failed to open as gzip")

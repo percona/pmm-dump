@@ -72,6 +72,7 @@ func TestContentLimit(t *testing.T) {
 
 	stdout, stderr, err := b.Run(
 		"import",
+		"--no-encryption",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL())
 	if err != nil {
@@ -86,6 +87,7 @@ func TestContentLimit(t *testing.T) {
 
 	stdout, stderr, err = b.Run(
 		"import",
+		"--no-encryption",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL(),
 		"--vm-content-limit", "10024")

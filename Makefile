@@ -18,6 +18,7 @@ TEST_CFG_DIR=test
 ADMIN_MONGO_USERNAME?=admin
 ADMIN_MONGO_PASSWORD?=admin
 DUMP_FILENAME=dump.tar.gz
+ENCRYPTED_DUMP_FILENAME=dump.tar.gz.enc
 
 BRANCH:=$(shell git branch --show-current)
 COMMIT:=$(shell git rev-parse --short HEAD)
@@ -73,7 +74,17 @@ export-all:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
 
-export-all-noenc:
+export-all-with-key:
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --key="b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2" \
+		--iv="00000000000000000000000000000000"
+
+export-all-just-key:
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --key="b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2" \
+		--just-key  
+
+export-all-no-encryption:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
 
@@ -86,15 +97,17 @@ export-ch:
 
 import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --key="b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2"
 
-import-all-noenc:
+import-all-no-encryption:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
 
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
-	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(DUMP_FILENAME).gpg"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(DUMP_FILENAME)"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(ENCRYPTED_DUMP_FILENAME)"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(ENCRYPTED_DUMP_FILENAME)
 	rm -rf $(TEST_CFG_DIR)/pmm $(TEST_CFG_DIR)/tmp
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
@@ -106,6 +119,9 @@ run-e2e-tests-v2: init-e2e-tests
 
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
+
+run-enc-tests: init-e2e-tests
+	./support-files/run-tests enc
 
 run-unit-tests:
 	./support-files/run-tests

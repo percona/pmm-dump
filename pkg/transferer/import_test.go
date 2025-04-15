@@ -127,6 +127,9 @@ func TestImport(t *testing.T) {
 					sources:      sources,
 					workersCount: opt.workersCount,
 					file:         buf,
+					encrypted:    newFalse(),
+					key:          newString(),
+					iv:           newString(),
 				}
 				meta := dump.Meta{}
 				err := tr.Import(ctx, meta)

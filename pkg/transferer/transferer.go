@@ -33,9 +33,11 @@ type Transferer struct {
 	workersCount int
 	file         io.ReadWriter
 	encrypted    *bool
+	key          *string
+	iv           *string
 }
 
-func New(file io.ReadWriter, s []dump.Source, workersCount int, encrypted *bool) (*Transferer, error) {
+func New(file io.ReadWriter, s []dump.Source, workersCount int, encrypted *bool, key, iv *string) (*Transferer, error) {
 	if len(s) == 0 {
 		return nil, errors.New("no sources provided")
 	}
@@ -49,6 +51,8 @@ func New(file io.ReadWriter, s []dump.Source, workersCount int, encrypted *bool)
 		workersCount: workersCount,
 		file:         file,
 		encrypted:    encrypted,
+		key:          key,
+		iv:           iv,
 	}, nil
 }
 

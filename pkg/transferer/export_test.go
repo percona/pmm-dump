@@ -127,6 +127,9 @@ func TestExport(t *testing.T) {
 					sources:      sources,
 					workersCount: opt.workersCount,
 					file:         bytes.NewBuffer(nil),
+					encrypted:    newFalse(),
+					key:          newString(),
+					iv:           newString(),
 				}
 				var meta dump.Meta
 				var chunks []dump.ChunkMeta
@@ -141,7 +144,7 @@ func TestExport(t *testing.T) {
 				if err != nil {
 					t.Fatal(err, "failed to create new chunk pool")
 				}
-				err = tr.Export(ctx, fakeStatusGetter{status: tt.loadStatus.status, waitCount: tt.loadStatus.waitCount, statusAfterWait: tt.loadStatus.statusAfterWait, count: new(int)}, meta, pool, new(bytes.Buffer))
+				err = tr.Export(ctx, fakeStatusGetter{status: tt.loadStatus.status, waitCount: tt.loadStatus.waitCount, statusAfterWait: tt.loadStatus.statusAfterWait, count: new(int)}, meta, pool, new(bytes.Buffer), false, false)
 				if err != nil {
 					if tt.shouldErr {
 						return
@@ -154,6 +157,7 @@ func TestExport(t *testing.T) {
 		}
 	}
 }
+
 
 type fakeStatusGetter struct {
 	status          LoadStatus
