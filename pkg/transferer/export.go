@@ -138,11 +138,13 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 		}
 	}
 }
+
 func (t Transferer) checkOrGenerateIVAndKeyAndCipher() ([]byte, []byte, cipher.Block, error) {
-	key := make([]byte, 32)
+	key := make([]byte, 32) //nolint:mnd
 	iv := make([]byte, aes.BlockSize)
 	var err error
-	if *t.key != "" && *t.iv != "" { // provided key and iv
+	switch {
+	case *t.key != "" && *t.iv != "":
 		key, err = hex.DecodeString(*t.key)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "Failed to decode key to hex string")
@@ -151,12 +153,12 @@ func (t Transferer) checkOrGenerateIVAndKeyAndCipher() ([]byte, []byte, cipher.B
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "Failed to decode iv to hex string")
 		}
-	} else if *t.key != "" { // provided only key
+	case *t.key != "":
 		key, err = hex.DecodeString(*t.key)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "Failed to decode key to hex string")
 		}
-	} else { // key is not provided
+	default:
 		_, err = rand.Read(key)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "Failed to generate random string")
@@ -168,6 +170,35 @@ func (t Transferer) checkOrGenerateIVAndKeyAndCipher() ([]byte, []byte, cipher.B
 	}
 
 	return iv, key, block, nil
+}
+
+func (t Transferer) outputKeys(justKey, toFile bool, key, iv []byte) error {
+	if *t.encrypted {
+		return nil
+	}
+	if justKey {
+		wr := zerolog.ConsoleWriter{
+			Out:     os.Stderr,
+			NoColor: true,
+		}
+		wr.PartsOrder = []string{
+			zerolog.MessageFieldName,
+		}
+		lo := log.Output(wr)
+		lo.Info().Msg("Key: " + hex.EncodeToString(key))
+		lo.Info().Msg("Iv: " + hex.EncodeToString(iv))
+	} else {
+		log.Info().Msg("Key: " + hex.EncodeToString(key))
+		log.Info().Msg("Iv: " + hex.EncodeToString(iv))
+	}
+	if toFile {
+		log.Info().Msg("Exporting key an iv to file")
+		err := writeKeyToFile(key, iv)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, justKey, toFile bool) error {
@@ -197,7 +228,7 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			return errors.Wrap(err, "Failed to create gzip writer")
 		}
 	}
-	defer gzw.Close()
+	defer gzw.Close() //nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
 	defer tw.Close() //nolint:errcheck
@@ -215,33 +246,11 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 				return err
 			}
 
-			log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
-			if !*t.encrypted {
-				if justKey {
-					wr := zerolog.ConsoleWriter{
-						Out:     os.Stderr,
-						NoColor: true,
-					}
-					wr.PartsOrder = []string{
-						zerolog.MessageFieldName,
-					}
-					lo := log.Output(wr)
-					lo.Info().Msg("Key: " + hex.EncodeToString(key))
-					lo.Info().Msg("Iv: " + hex.EncodeToString(iv))
-
-				} else {
-					log.Info().Msg("Key: " + hex.EncodeToString(key))
-					log.Info().Msg("Iv: " + hex.EncodeToString(iv))
-				}
-				if toFile {
-					log.Info().Msg("Exporting key an iv to file")
-					err := writeKeyToFile(key, iv)
-					if err != nil {
-						return err
-					}
-				}
+			if err = t.outputKeys(justKey, toFile, key, iv); err != nil {
+				return err
 			}
 
+			log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 			return nil
 		}
 
@@ -272,17 +281,19 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 		}
 	}
 }
+
 func writeKeyToFile(key, iv []byte) error {
-	file, err := os.Create("EncKeys.txt") //nolint:gosec
+	file, err := os.Create("EncKeys.txt")
 	if err != nil {
 		return errors.Wrap(err, "failed to create key file")
 	}
-	file.Write([]byte("key:"))
-	file.Write([]byte(hex.EncodeToString(key)))
-	file.Write([]byte("\niv:"))
-	file.Write([]byte(hex.EncodeToString(iv)))
+	_, err = file.WriteString("key:" + hex.EncodeToString(key) + "\niv:" + hex.EncodeToString(iv))
+	if err != nil {
+		return errors.Wrap(err, "failed to create key file")
+	}
 	return nil
 }
+
 func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 	log.Debug().Msg("Writing dump log")
 

@@ -69,10 +69,12 @@ func TestMain(m *testing.M) {
 	m.Run()
 	os.Exit(0)
 }
+
 func newFalse() *bool {
 	b := true
 	return &b
 }
+
 func newString() *string {
 	b := ""
 	return &b

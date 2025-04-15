@@ -51,29 +51,15 @@ func ReadMetaFromDump(dumpPath string, piped bool, enc bool, key, iv *string) (*
 	defer file.Close() //nolint:errcheck
 
 	var (
-		gzr  *gzip.Reader
-		err  error
-		keyB []byte
-		ivB  []byte
+		gzr   *gzip.Reader
+		err   error
+		ivB   []byte
+		block cipher.Block
 	)
 	if !enc {
-		if *key == "" {
-			return nil, errors.Wrap(err, "password is empty, please specify password in arguments")
-		}
-		keyB, err = hex.DecodeString(*key)
+		block, ivB, err = decodeKeys(*key, *iv)
 		if err != nil {
-			panic(err)
-		}
-		block, err := aes.NewCipher(keyB)
-		if err != nil {
-			panic(err)
-		}
-		ivB = make([]byte, aes.BlockSize)
-		if *iv != "" {
-			ivB, err = hex.DecodeString(*iv)
-			if err != nil {
-				panic(err)
-			}
+			return nil, errors.Wrap(err, "failed to create block")
 		}
 		stream := cipher.NewCTR(block, ivB)
 
@@ -123,6 +109,28 @@ func ReadMetaFromDump(dumpPath string, piped bool, enc bool, key, iv *string) (*
 
 		return meta, nil
 	}
+}
+
+func decodeKeys(key, iv string) (cipher.Block, []byte, error) {
+	if key == "" {
+		return nil, nil, errors.New("password is empty, please specify password in arguments")
+	}
+	keyB, err := hex.DecodeString(key)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failde to decode key")
+	}
+	block, err := aes.NewCipher(keyB)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create block")
+	}
+	ivB := make([]byte, aes.BlockSize)
+	if iv != "" {
+		ivB, err = hex.DecodeString(iv)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to decode iv")
+		}
+	}
+	return block, ivB, nil
 }
 
 func writeMetafile(tw *tar.Writer, meta dump.Meta) error {

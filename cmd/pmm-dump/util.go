@@ -487,7 +487,7 @@ func getFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, 
 	var file io.ReadWriteCloser
 	var encpath string
 	if !*encrypted {
- 		encpath = ".enc"
+		encpath = ".enc"
 	}
 	if piped {
 		file = os.Stdin
@@ -550,6 +550,6 @@ func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, 
 		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
-	customPath = customPath + encpath
+	customPath += encpath
 	return customPath, nil
 }

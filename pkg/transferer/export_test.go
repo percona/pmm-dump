@@ -158,7 +158,6 @@ func TestExport(t *testing.T) {
 	}
 }
 
-
 type fakeStatusGetter struct {
 	status          LoadStatus
 	count           *int

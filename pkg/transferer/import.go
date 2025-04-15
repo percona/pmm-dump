@@ -19,9 +19,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/aes"
 	"crypto/cipher"
-	"encoding/hex"
 	"io"
 	"path"
 
@@ -35,29 +33,15 @@ import (
 func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 	log.Info().Msg("Importing metrics...")
 	var (
-		gzr *gzip.Reader
-		err error
-		key []byte
-		iv  []byte
+		gzr   *gzip.Reader
+		err   error
+		iv    []byte
+		block cipher.Block
 	)
 	if !*t.encrypted {
-		if *t.key == "" {
-			return errors.Wrap(err, "key is empty, please specify key in arguments")
-		}
-		key, err = hex.DecodeString(*t.key)
+		iv, _, block, err = t.checkOrGenerateIVAndKeyAndCipher()
 		if err != nil {
-			panic(err)
-		}
-		block, err := aes.NewCipher(key)
-		if err != nil {
-			panic(err)
-		}
-		iv = make([]byte, aes.BlockSize)
-		if *t.iv != "" {
-			iv, err = hex.DecodeString(*t.iv)
-			if err != nil {
-				panic(err)
-			}
+			return errors.Wrap(err, "failed generate block and iv")
 		}
 		stream := cipher.NewCTR(block, iv)
 
