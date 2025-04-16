@@ -16,7 +16,6 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -62,7 +61,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		Name: pmm.ServerContainerName() + volumeSuffix,
 		Labels: map[string]string{
 			PerconaLabel: pmm.testName,
-		
 		},
 	})
 	if err != nil {
@@ -141,9 +139,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.Client) error {
 	container, err := dockerCli.ContainerInspect(ctx, *pmm.pmmServerContainerID)
-	// container.NetworkSettings.
-	portMap := container.NetworkSettings.Ports
-	fmt.Printf("\n Port Map: %s", portMap)
 	if err != nil {
 		return errors.Wrap(err, "failed to inspect container")
 	}
@@ -178,21 +173,13 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 
 func getPublishedPort(container container.InspectResponse, port string) (string, error) {
 	portMap := container.NetworkSettings.Ports
-	fmt.Printf("\n Port Map: %s", portMap)
 	natPort, err := nat.NewPort("tcp", port)
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("\n NatPort: %s", natPort)
 	publishedPorts, ok := portMap[natPort]
 	if !ok || len(publishedPorts) == 0 {
 		return "", errors.New("port " + port + " is not published")
-	}
-
-	fmt.Printf("\n PublishedPorts: %s", publishedPorts)
-	if publishedPorts[0].HostPort != publishedPorts[1].HostPort {
-		fmt.Printf("\n Port are messed up")
-
 	}
 	return publishedPorts[0].HostPort, nil
 }
@@ -346,6 +333,16 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		AttachStdout: true,
 		AttachStderr: true,
 	}
+
+	s := nat.PortMap{}
+	for _, port := range ports {
+		containerPort, err := nat.NewPort("tcp", port)
+		if err != nil {
+			return "", err
+		}
+		containerConfig.ExposedPorts[containerPort] = struct{}{}
+		s[containerPort] = []nat.PortBinding{{HostIP: "0.0.0.0"}}
+	}
 	hostConfig := &container.HostConfig{
 		NetworkMode:     container.NetworkMode(pmm.NetworkName()),
 		Mounts:          mounts,
@@ -353,16 +350,8 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		Resources: container.Resources{
 			Memory: memoryLimit,
 		},
+		PortBindings: s,
 	}
-
-	for _, port := range ports {
-		containerPort, err := nat.NewPort("tcp", port)
-		if err != nil {
-			return "", err
-		}
-		containerConfig.ExposedPorts[containerPort] = struct{}{}
-	}
-
 	networkConfig := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
 			pmm.NetworkName(): {
