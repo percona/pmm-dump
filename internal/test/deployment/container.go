@@ -122,7 +122,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
-	pmm.Log(pmmConfig)
 	if err != nil {
 		return errors.Wrap(err, "get pmm config")
 	}
@@ -343,6 +342,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		containerConfig.ExposedPorts[containerPort] = struct{}{}
 		s[containerPort] = []nat.PortBinding{{HostIP: "0.0.0.0"}}
 	}
+
 	hostConfig := &container.HostConfig{
 		NetworkMode:     container.NetworkMode(pmm.NetworkName()),
 		Mounts:          mounts,
@@ -352,6 +352,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		},
 		PortBindings: s,
 	}
+
 	networkConfig := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
 			pmm.NetworkName(): {
@@ -360,7 +361,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 			},
 		},
 	}
-	pmm.Log("Waiting for container to start", containerConfig)
+
 	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, name)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create container")

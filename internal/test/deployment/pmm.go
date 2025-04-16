@@ -377,7 +377,9 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart pmm server")
 	}
+	pmm.Log("Waiting for container to restart")
 	time.Sleep(time.Second * 3) //nolint:mnd
+
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set server published ports")
 	}
