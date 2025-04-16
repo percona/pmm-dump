@@ -79,7 +79,7 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	pmm.log(stderr)
+	pmm.Log(stderr)
 
 	pmm.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
 	time.Sleep(chunkTimeRange)
@@ -98,7 +98,7 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
-	pmm.log(stderr)
+	pmm.Log(stderr)
 
 	pmm.Log("Sleeping for 10 seconds")
 	time.Sleep(time.Second * 10)
@@ -116,7 +116,7 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
-	pmm.log(stderr)
+	pmm.Log(stderr)
 
 	loss, missingChunks, err := validateChunks(t, pmm, xDumpPath, yDumpPath)
 	if err != nil {

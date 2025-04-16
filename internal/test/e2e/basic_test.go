@@ -54,7 +54,7 @@ func TestExportImport(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	pmm.log(stderr)
+	pmm.Log(stderr)
 	checkDumpFiltering(t, filepath.Join(testDir, "filter-dump.tar.gz"), "pmm-server")
 
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL()}
@@ -64,14 +64,14 @@ func TestExportImport(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	pmm.log(stderr)
+	pmm.Log(stderr)
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL()}
 	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
 	stdout, stderr, err = b.Run(append([]string{"import"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
-	pmm.log(stderr)
+	pmm.Log(stderr)
 }
 
 func TestShowMeta(t *testing.T) {
