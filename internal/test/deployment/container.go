@@ -139,6 +139,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.Client) error {
 	container, err := dockerCli.ContainerInspect(ctx, *pmm.pmmServerContainerID)
+	// container.NetworkSettings.
 	portMap := container.NetworkSettings.Ports
 	fmt.Printf("\n Port Map: %s", portMap)
 	if err != nil {
@@ -191,7 +192,7 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 		fmt.Printf("\n Port are messed up")
 
 	}
-	return publishedPorts[0].HostPort, nil
+	return publishedPorts[1].HostPort, nil
 }
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {

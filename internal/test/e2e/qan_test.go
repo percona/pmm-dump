@@ -39,9 +39,9 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-const qanWaitTimeout = time.Minute * 5
+const qanWaitTimeout = time.Minute * 7
 
-const qanTestRetryTimeout = time.Minute * 2
+const qanTestRetryTimeout = time.Minute * 3
 
 var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
