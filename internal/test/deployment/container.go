@@ -62,6 +62,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		Name: pmm.ServerContainerName() + volumeSuffix,
 		Labels: map[string]string{
 			PerconaLabel: pmm.testName,
+		
 		},
 	})
 	if err != nil {
@@ -123,6 +124,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	pmm.Log(pmmConfig)
 	if err != nil {
 		return errors.Wrap(err, "get pmm config")
 	}
@@ -192,7 +194,7 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 		fmt.Printf("\n Port are messed up")
 
 	}
-	return publishedPorts[1].HostPort, nil
+	return publishedPorts[0].HostPort, nil
 }
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
