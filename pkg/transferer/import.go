@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
 	"path"
 
@@ -160,6 +161,7 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 			}
 
 			s, ok := t.sourceByType(c.Source)
+			log.Info().Msg("Source of chunk: " + fmt.Sprint(c.Source))
 			if !ok {
 				switch c.Source {
 				case dump.ClickHouse:
