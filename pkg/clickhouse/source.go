@@ -60,7 +60,7 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 		return nil, errors.Wrap(err, "begin")
 	}
 
-	ct, err := columnTypes(db)
+	ct, err := columnTypes(db, ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "column types")
 	}
@@ -78,8 +78,8 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	}, nil
 }
 
-func columnTypes(db *sql.DB) ([]*sql.ColumnType, error) {
-	rows, err := db.Query("SELECT * FROM metrics LIMIT 1")
+func columnTypes(db *sql.DB, ctx context.Context) ([]*sql.ColumnType, error) {
+	rows, err := db.QueryContext(ctx, "SELECT * FROM metrics LIMIT 1")
 	if err != nil {
 		return nil, err
 	}

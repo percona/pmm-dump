@@ -52,8 +52,8 @@ func TestValidate(t *testing.T) {
 
 	var b util.Binary
 	tmpDir := util.CreateTestDir(t, "validate-test")
-	xDumpPath := filepath.Join(tmpDir, "validate-dump.tar.gz")
-	yDumpPath := filepath.Join(tmpDir, "validate-dump2.tar.gz")
+	xDumpPath := filepath.Join(tmpDir, "dump.tar.gz")
+	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
 	chunkTimeRange := time.Second * 30
 
 	if err := pmm.Deploy(ctx); err != nil {
