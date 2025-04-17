@@ -74,15 +74,13 @@ export-all:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
 
-export-all-with-key:
+export-all-to-file:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --key="b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2" \
-		--iv="00000000000000000000000000000000"
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt
 
 export-all-just-key:
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --key="b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2" \
-		--just-key  
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --just-key  
 
 export-all-no-encryption:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
@@ -97,9 +95,24 @@ export-ch:
 
 import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --key="b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2"
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass
 
 import-all-no-encryption:
+	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
+pipe:
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --stdout | \
+	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass
+pipe-openssl:
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --stdout | \
+	 openssl enc -aes-256-ctr -pbkdf2 -out dump.tar.gz -d -pass pass:somepass
+
+pipe-no-encryption:
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption --stdout | \
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
 
@@ -119,6 +132,9 @@ run-e2e-tests-v2: init-e2e-tests
 
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
+
+run-encryption-test: init-e2e-tests
+	./support-files/run-tests enc
 
 run-unit-tests:
 	./support-files/run-tests

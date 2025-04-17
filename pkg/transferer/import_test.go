@@ -18,7 +18,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -30,7 +29,7 @@ import (
 )
 
 func TestImport(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name          string
@@ -127,12 +126,15 @@ func TestImport(t *testing.T) {
 					sources:      sources,
 					workersCount: opt.workersCount,
 					file:         buf,
-					encrypted:    newFalse(),
-					key:          newString(),
-					iv:           newString(),
+				}
+				e := Encyptor{
+					noEncryption: true,
+					justKey:      false,
+					pass:         "",
+					filepath:     "",
 				}
 				meta := dump.Meta{}
-				err := tr.Import(ctx, meta)
+				err := tr.Import(ctx, meta, e)
 				if err != nil {
 					if tt.shouldErr {
 						return

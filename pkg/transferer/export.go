@@ -19,25 +19,19 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"os"
 	"path"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, justKey, toFile bool) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e Encyptor) error {
 	log.Info().Msg("Exporting metrics...")
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
@@ -71,7 +65,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
 	g.Go(func() error {
 		defer log.Debug().Msgf("Exiting from write chunks goroutine")
-		if err := t.writeChunksToFile(meta, chunksCh, logBuffer, justKey, toFile); err != nil {
+		if err := t.writeChunksToFile(meta, chunksCh, logBuffer, e); err != nil {
 			return errors.Wrap(err, "failed to write chunks to the dump")
 		}
 		return nil
@@ -139,83 +133,16 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 	}
 }
 
-func (t Transferer) checkOrGenerateIVAndKeyAndCipher() ([]byte, []byte, cipher.Block, error) {
-	key := make([]byte, 32) //nolint:mnd
-	iv := make([]byte, aes.BlockSize)
-	var err error
-	switch {
-	case *t.key != "" && *t.iv != "":
-		key, err = hex.DecodeString(*t.key)
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "Failed to decode key to hex string")
-		}
-		iv, err = hex.DecodeString(*t.iv)
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "Failed to decode iv to hex string")
-		}
-	case *t.key != "":
-		key, err = hex.DecodeString(*t.key)
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "Failed to decode key to hex string")
-		}
-	default:
-		_, err = rand.Read(key)
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "Failed to generate random string")
-		}
-	}
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "Failed to generate cipher")
-	}
-
-	return iv, key, block, nil
-}
-
-func (t Transferer) outputKeys(justKey, toFile bool, key, iv []byte) error {
-	if *t.encrypted {
-		return nil
-	}
-	if justKey {
-		wr := zerolog.ConsoleWriter{
-			Out:     os.Stderr,
-			NoColor: true,
-		}
-		wr.PartsOrder = []string{
-			zerolog.MessageFieldName,
-		}
-		lo := log.Output(wr)
-		lo.Info().Msg("Key: " + hex.EncodeToString(key))
-		lo.Info().Msg("Iv: " + hex.EncodeToString(iv))
-	} else {
-		log.Info().Msg("Key: " + hex.EncodeToString(key))
-		log.Info().Msg("Iv: " + hex.EncodeToString(iv))
-	}
-	if toFile {
-		log.Info().Msg("Exporting key an iv to file")
-		err := writeKeyToFile(key, iv)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, justKey, toFile bool) error {
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e Encyptor) error {
 	var (
-		gzw   *gzip.Writer
-		err   error
-		iv    []byte
-		key   []byte
-		block cipher.Block
+		gzw *gzip.Writer
+		err error
 	)
-	if !*t.encrypted {
-		iv, key, block, err = t.checkOrGenerateIVAndKeyAndCipher()
+	if !e.noEncryption {
+		writer, err := e.GetEncryptedWriter(t.file)
 		if err != nil {
-			return errors.Wrap(err, "Failed to generate key")
+			return errors.Wrap(err, "Failed to create encrypted writer")
 		}
-		stream := cipher.NewCTR(block, iv)
-		writer := &cipher.StreamWriter{S: stream, W: t.file}
 		defer writer.Close() //nolint:errcheck
 
 		gzw, err = gzip.NewWriterLevel(writer, gzip.BestCompression)
@@ -232,7 +159,6 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 
 	tw := tar.NewWriter(gzw)
 	defer tw.Close() //nolint:errcheck
-
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
@@ -246,7 +172,7 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 				return err
 			}
 
-			if err = t.outputKeys(justKey, toFile, key, iv); err != nil {
+			if err = e.OutputPass(); err != nil {
 				return err
 			}
 
@@ -280,18 +206,6 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			return errors.Wrap(err, "failed to write chunk content")
 		}
 	}
-}
-
-func writeKeyToFile(key, iv []byte) error {
-	file, err := os.Create("EncKeys.txt")
-	if err != nil {
-		return errors.Wrap(err, "failed to create key file")
-	}
-	_, err = file.WriteString("key:" + hex.EncodeToString(key) + "\niv:" + hex.EncodeToString(iv))
-	if err != nil {
-		return errors.Wrap(err, "failed to create key file")
-	}
-	return nil
 }
 
 func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {

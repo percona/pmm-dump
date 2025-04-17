@@ -17,6 +17,7 @@ package util
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -57,4 +58,56 @@ func Exec(ctx context.Context, wd string, name string, args ...string) (string, 
 	err = cmd.Run()
 
 	return stdout.String(), stderr.String(), err
+}
+
+func (b *Binary) RunPipe(exportP []string, importP []string, nameOut string, nameIn string) (string, string, error) {
+	if b.timeout == 0 {
+		b.timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
+	defer cancel()
+	c1 := exec.CommandContext(ctx, nameOut, exportP...)
+	c2 := exec.CommandContext(ctx, nameIn, importP...)
+	var err error
+	if RepoPath == "" {
+		c1.Dir, err = os.Getwd()
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to get working directory")
+		}
+		c2.Dir, err = os.Getwd()
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to get working directory")
+		}
+	} else {
+		c1.Dir = RepoPath
+		c2.Dir = RepoPath
+	}
+	pr, pw := io.Pipe()
+	c1.Stdout = pw
+	c2.Stdin = pr
+	var stderr1, stderr2 bytes.Buffer
+	c1.Stderr = &stderr1
+	c2.Stderr = &stderr2
+
+	err = c1.Start()
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to export")
+	}
+	err = c2.Start()
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to import")
+	}
+	go func() {
+		defer pw.Close() //nolint:errcheck
+		err = c1.Wait()
+		if err != nil {
+			panic("failed to export")
+		}
+	}()
+
+	err = c2.Wait()
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to import")
+	}
+	return stderr1.String(), stderr2.String(), err
 }

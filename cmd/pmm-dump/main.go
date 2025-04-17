@@ -20,9 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
-	"unicode/utf8"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/rs/zerolog"
@@ -102,10 +100,9 @@ func main() { //nolint:gocyclo,maintidx
 
 		// encryption related
 		noEncryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
-		key          = cli.Flag("key", "Key for encryption, optional for export, mandatory for importing encrypted dump").Default("").String()
-		iv           = cli.Flag("iv", "IV for encryption. If was specified in export also needs to be specified in import").Default("").String()
+		pass         = cli.Flag("pass", "Pass for encryption/decryption").Default("").String()
 		justKey      = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
-		toFile       = cli.Flag("to-file", "Change key destination from stderr to file").Default("false").Bool()
+		toFile       = cli.Flag("pass-filepath", "Filepath to output pass").Default("").String()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
@@ -119,6 +116,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		// version command options
 		versionCmd = cli.Command("version", "Shows tool version of the binary")
+		pipe       = cli.Flag("pipe", "Force pipe status").Default("false").Bool()
 	)
 
 	ctx := context.Background()
@@ -135,42 +133,25 @@ func main() { //nolint:gocyclo,maintidx
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
 	}
+	switch {
+	case *enableVerboseMode && *justKey:
+		log.Fatal().Msgf("Verbose and justkey are mutually exclusive")
 
-	if *key != "" && *noEncryption {
-		log.Fatal().Msgf("key and no-encryption flag is mutually exclusive")
-	}
+	case *noEncryption && (*pass != "" || *justKey || *toFile != ""):
+		log.Fatal().Msgf("No encryption and other encryptions parametrs are mutually exclusive")
 
-	if *key != "" && utf8.RuneCountInString(*key) != 64 {
-		log.Fatal().Msg("Provided key is not 64 size lenght: " + strconv.Itoa(utf8.RuneCountInString(*key)))
-	}
-	// TODO make autofill iv if size is to small
-	if *iv != "" && utf8.RuneCountInString(*iv) != 32 {
-		log.Fatal().Msg("Provided iv is not 32 size lenght: " + strconv.Itoa(utf8.RuneCountInString(*iv)))
-	}
-
-	if *key == "" && *iv != "" {
-		log.Fatal().Msgf("Specified iv but not key")
-	}
-
-	if *justKey && *enableVerboseMode {
-		log.Fatal().Msgf("just-key and verbose flag is mutually exclusive")
-	}
-
-	if *enableVerboseMode {
+	case *enableVerboseMode:
 		log.Logger = log.Logger.
 			With().Caller().Logger().
 			Hook(goroutineLoggingHook{}).
 			Level(zerolog.DebugLevel)
-	}
-	if *justKey {
+
+	case *justKey:
 		log.Logger = log.Logger.Level(zerolog.Disabled)
-	} else {
+
+	default:
 		log.Logger = log.Logger.
 			Level(zerolog.InfoLevel)
-	}
-
-	if *key != "" && *iv == "" {
-		log.Warn().Msg("Entered key but not iv, dump will be encrypted/decrypted with empty iv")
 	}
 
 	switch cmd {
@@ -307,11 +288,11 @@ func main() { //nolint:gocyclo,maintidx
 		}
 		defer file.Close() //nolint:errcheck
 
-		t, err := transferer.New(file, sources, *workersCount, noEncryption, key, iv)
+		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
-
+		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
 		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
@@ -332,13 +313,10 @@ func main() { //nolint:gocyclo,maintidx
 
 		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool, &dumpLog, *justKey, *toFile); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool, &dumpLog, *e); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
-		if *key == "" && !*noEncryption {
-			log.Fatal().Msg("Importing encrypted dump without key is impossible, perhaps you wanted to disable encryption?")
-		}
 		httpC := newClientHTTP(*allowInsecureCerts)
 		parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword)
 
@@ -369,7 +347,10 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-
+		if *pipe || piped {
+			piped = true
+		}
+		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
 		if piped { //nolint:nestif
 			if *vmNativeData {
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
@@ -377,7 +358,7 @@ func main() { //nolint:gocyclo,maintidx
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' JSON export format")
 			}
 		} else {
-			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, *noEncryption, key, iv)
+			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, *e)
 			if err != nil {
 				log.Warn().Msgf("Can't show meta: %v", err)
 				*vmNativeData = true
@@ -424,7 +405,7 @@ func main() { //nolint:gocyclo,maintidx
 		}
 		defer file.Close() //nolint:errcheck
 
-		t, err := transferer.New(file, sources, *workersCount, noEncryption, key, iv)
+		t, err := transferer.New(file, sources, *workersCount)
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup import: %v", err)
 		}
@@ -434,7 +415,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
 
-		if err = t.Import(ctx, *meta); err != nil {
+		if err = t.Import(ctx, *meta, *e); err != nil {
 			var additionalInfo string
 			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
 				additionalInfo = ". Consider to use \"vm-content-limit\" option. Also, you can decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
@@ -448,11 +429,14 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
+		if *pipe || piped {
+			piped = true
+		}
 		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
-
-		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *noEncryption, key, iv)
+		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
+		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *e)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)
 		}

@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -48,13 +49,13 @@ func TestEncryptionExportImport(t *testing.T) {
 	var b util.Binary
 	testDir := t.TempDir()
 	pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz.enc"))
-	args := []string{"-d", filepath.Join(testDir, "dump.tar.gz.enc"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--key", "b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2"}
+	args := []string{"-d", filepath.Join(testDir, "dump.tar.gz.enc"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--pass", "somepass"}
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
 
-	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz.enc"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "--key", "b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2"}
+	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz.enc"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "--pass", "somepass"}
 	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz.enc"))
 	stdout, stderr, err = b.Run(append([]string{"import"}, args...)...)
 	if err != nil {
@@ -62,17 +63,64 @@ func TestEncryptionExportImport(t *testing.T) {
 	}
 
 	pmm.Log("Exporting data to check keys", filepath.Join(testDir, "dump-just-key.tar.gz.enc"))
-	args = []string{"-d", filepath.Join(testDir, "dump-just-key.tar.gz.enc"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--key", "b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2", "--just-key"}
+	args = []string{"-d", filepath.Join(testDir, "dump-just-key.tar.gz.enc"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--pass", "somepass", "--just-key"}
 	stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	want := `Key: b1f30dc47b1f0f401c5165ba9b6a493a8a74521ce5a27d8c0ec580cf54609bb2
-Iv: 00000000000000000000000000000000
-`
+
+	want := `Pass: somepass`
+	stderr = strings.TrimSpace(stderr)
 	if stderr != want {
 		t.Fatalf("want %s, got %s", want, stderr)
 	}
 
-	pmm.Log("Exporting data to check keys", filepath.Join(testDir, "dump-just-key.tar.gz.enc"))
+	pmm.Log("Exporting data to check pipe", filepath.Join(testDir, "dump.tar.gz.enc"))
+	pmm.Log("Piping data")
+	argsExpo := []string{
+		"export",
+		"-d",
+		filepath.Join(testDir, "dump.tar.gz.enc"),
+		"--pmm-url",
+		newPMM.PMMURL(),
+		"--dump-qan",
+		"--click-house-url",
+		newPMM.ClickhouseURL(),
+		"--pass",
+		"somepass",
+		"--stdout",
+	}
+	argsImpo := []string{
+		"import",
+		"-d",
+		filepath.Join(testDir,
+			"dump.tar.gz.enc"),
+		"--pmm-url",
+		newPMM.PMMURL(),
+		"--dump-qan",
+		"--click-house-url",
+		newPMM.ClickhouseURL(),
+		"--pass",
+		"somepass",
+		"--pipe",
+	}
+	stderr1, stderr2, err := b.RunPipe(argsExpo, argsImpo, "./pmm-dump", "./pmm-dump")
+	if err != nil {
+		t.Fatal("failed to pipe", err, stderr1, stderr2)
+	}
+
+	pmm.Log("Exporting data to check openssl", filepath.Join(testDir, "dump.tar.gz.enc"))
+	pmm.Log("Piping openssl")
+	argsExpo = []string{"export", "-d", filepath.Join(testDir, "dump.tar.gz.enc"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "--pass", "somepass", "--stdout"}
+	argsImpo = []string{"enc", "-d", "-aes-256-ctr", "-pbkdf2", "-out", filepath.Join(testDir, "dump.tar.gz"), "-pass", "pass:somepass"}
+	stderr1, stderr2, err = b.RunPipe(argsExpo, argsImpo, "./pmm-dump", "openssl")
+	if err != nil {
+		t.Fatal("failed to pipe", err, stderr1, stderr2)
+	}
+	argsImport := []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "--no-encryption"}
+	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
+	stdout, stderr, err = b.Run(append([]string{"import"}, argsImport...)...)
+	if err != nil {
+		t.Fatal("failed to import", err, stdout, stderr)
+	}
 }

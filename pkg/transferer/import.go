@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/cipher"
 	"io"
 	"path"
 
@@ -30,23 +29,18 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
+func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e Encyptor) error {
 	log.Info().Msg("Importing metrics...")
 	var (
-		gzr   *gzip.Reader
-		err   error
-		iv    []byte
-		block cipher.Block
+		gzr *gzip.Reader
+		err error
 	)
-	if !*t.encrypted {
-		iv, _, block, err = t.checkOrGenerateIVAndKeyAndCipher()
+	if !e.noEncryption {
+		reader, err := e.GetDecryptionReader(t.file)
 		if err != nil {
-			return errors.Wrap(err, "failed generate block and iv")
+			return errors.Wrap(err, "failed to create decryption reader")
 		}
-		stream := cipher.NewCTR(block, iv)
-
-		decReader := &cipher.StreamReader{S: stream, R: t.file}
-		gzr, err = gzip.NewReader(decReader)
+		gzr, err = gzip.NewReader(reader)
 		if err != nil {
 			return errors.Wrap(err, "failed to open as gzip")
 		}

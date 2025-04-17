@@ -17,9 +17,6 @@ package transferer
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/aes"
-	"crypto/cipher"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,10 +30,10 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool, enc bool, key, iv *string) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, e Encyptor) (*dump.Meta, error) {
 	var file *os.File
 	var encpath string
-	if !enc {
+	if !e.noEncryption {
 		encpath = ".enc"
 	}
 	if piped {
@@ -51,20 +48,14 @@ func ReadMetaFromDump(dumpPath string, piped bool, enc bool, key, iv *string) (*
 	defer file.Close() //nolint:errcheck
 
 	var (
-		gzr   *gzip.Reader
-		err   error
-		ivB   []byte
-		block cipher.Block
+		gzr *gzip.Reader
+		err error
 	)
-	if !enc {
-		block, ivB, err = decodeKeys(*key, *iv)
+	if !e.noEncryption {
+		decReader, err := e.GetDecryptionReader(file)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create block")
+			return nil, errors.Wrap(err, "failed to open as gzip")
 		}
-		stream := cipher.NewCTR(block, ivB)
-
-		decReader := &cipher.StreamReader{S: stream, R: file}
-
 		gzr, err = gzip.NewReader(decReader)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open as gzip")
@@ -109,28 +100,6 @@ func ReadMetaFromDump(dumpPath string, piped bool, enc bool, key, iv *string) (*
 
 		return meta, nil
 	}
-}
-
-func decodeKeys(key, iv string) (cipher.Block, []byte, error) {
-	if key == "" {
-		return nil, nil, errors.New("password is empty, please specify password in arguments")
-	}
-	keyB, err := hex.DecodeString(key)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failde to decode key")
-	}
-	block, err := aes.NewCipher(keyB)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create block")
-	}
-	ivB := make([]byte, aes.BlockSize)
-	if iv != "" {
-		ivB, err = hex.DecodeString(iv)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to decode iv")
-		}
-	}
-	return block, ivB, nil
 }
 
 func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
