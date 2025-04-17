@@ -100,9 +100,6 @@ func (b *Binary) RunPipe(exportP []string, importP []string, nameOut string, nam
 	go func() {
 		defer pw.Close() //nolint:errcheck
 		err = c1.Wait()
-		if err != nil {
-			panic("failed to export")
-		}
 	}()
 
 	err = c2.Wait()
