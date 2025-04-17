@@ -127,7 +127,7 @@ func TestExport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         bytes.NewBuffer(nil),
 				}
-				e := Encyptor{
+				e := EncryptionOptions{
 					noEncryption: true,
 					justKey:      false,
 					pass:         "",

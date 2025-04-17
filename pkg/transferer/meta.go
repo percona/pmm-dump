@@ -30,7 +30,7 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool, e Encyptor) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, e EncryptionOptions) (*dump.Meta, error) {
 	var file *os.File
 	var encpath string
 	if !e.noEncryption {

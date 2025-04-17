@@ -29,15 +29,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Encyptor struct {
+type EncryptionOptions struct {
 	noEncryption bool
 	justKey      bool
 	pass         string
 	filepath     string
 }
 
-func NewEncryptor(filepath, pass string, encrypted, justKey bool) *Encyptor {
-	return &Encyptor{
+func NewEncryptor(filepath, pass string, encrypted, justKey bool) *EncryptionOptions {
+	return &EncryptionOptions{
 		filepath:     filepath,
 		pass:         pass,
 		noEncryption: encrypted,
@@ -45,7 +45,7 @@ func NewEncryptor(filepath, pass string, encrypted, justKey bool) *Encyptor {
 	}
 }
 
-func (e *Encyptor) GetEncryptedWriter(w io.Writer) (*cipher.StreamWriter, error) {
+func (e *EncryptionOptions) GetEncryptedWriter(w io.Writer) (*cipher.StreamWriter, error) {
 	salt := make([]byte, 8) //nolint:mnd
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return nil, errors.Wrap(err, "Failed to generate salt")
@@ -72,7 +72,7 @@ func (e *Encyptor) GetEncryptedWriter(w io.Writer) (*cipher.StreamWriter, error)
 	return writer, nil
 }
 
-func (e *Encyptor) GetDecryptionReader(r io.Reader) (*cipher.StreamReader, error) {
+func (e *EncryptionOptions) GetDecryptionReader(r io.Reader) (*cipher.StreamReader, error) {
 	salt := make([]byte, 16) //nolint:mnd
 	_, err := r.Read(salt)
 	if err != nil {
@@ -97,7 +97,7 @@ func (e *Encyptor) GetDecryptionReader(r io.Reader) (*cipher.StreamReader, error
 	return reader, nil
 }
 
-func (e *Encyptor) writeSaltToFile(w io.Writer, salt []byte) {
+func (e *EncryptionOptions) writeSaltToFile(w io.Writer, salt []byte) {
 	prefix := []byte("Salted__")
 	prefix = append(prefix, salt...)
 	_, err := w.Write(prefix)
@@ -106,7 +106,7 @@ func (e *Encyptor) writeSaltToFile(w io.Writer, salt []byte) {
 	}
 }
 
-func (e *Encyptor) OutputPass() error {
+func (e *EncryptionOptions) OutputPass() error {
 	if e.noEncryption {
 		return nil
 	}
@@ -136,7 +136,7 @@ func (e *Encyptor) OutputPass() error {
 	return nil
 }
 
-func (e *Encyptor) generatePassword() error {
+func (e *EncryptionOptions) generatePassword() error {
 	buffer := make([]byte, 16) //nolint:mnd
 	_, err := rand.Read(buffer)
 	if err != nil {

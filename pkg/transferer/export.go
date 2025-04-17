@@ -31,7 +31,7 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e Encyptor) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e EncryptionOptions) error {
 	log.Info().Msg("Exporting metrics...")
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
@@ -133,7 +133,7 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 	}
 }
 
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e Encyptor) error {
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e EncryptionOptions) error {
 	var (
 		gzw *gzip.Writer
 		err error

@@ -127,7 +127,7 @@ func TestImport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         buf,
 				}
-				e := Encyptor{
+				e := EncryptionOptions{
 					noEncryption: true,
 					justKey:      false,
 					pass:         "",

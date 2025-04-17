@@ -29,7 +29,7 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e Encyptor) error {
+func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e EncryptionOptions) error {
 	log.Info().Msg("Importing metrics...")
 	var (
 		gzr *gzip.Reader
