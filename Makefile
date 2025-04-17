@@ -100,22 +100,7 @@ import-all:
 import-all-no-encryption:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
-pipe:
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --stdout | \
-	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass
-pipe-openssl:
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --stdout | \
-	 openssl enc -aes-256-ctr -pbkdf2 -out dump.tar.gz -d -pass pass:somepass
-
-pipe-no-encryption:
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption --stdout | \
-	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
-
+		
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(DUMP_FILENAME)"
@@ -132,9 +117,6 @@ run-e2e-tests-v2: init-e2e-tests
 
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
-
-run-encryption-test: init-e2e-tests
-	./support-files/run-tests enc
 
 run-unit-tests:
 	./support-files/run-tests

@@ -19,14 +19,6 @@ run_e2e_tests() {
 	PMM_CLIENT_IMAGE="perconalab/pmm-client"  PMM_SERVER_IMAGE="perconalab/pmm-server" PMM_VERSION="3" ./setup/test/init-test-configs.sh test
 	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v  
 }
-run_enc_tests() {
-	rm -f test/.env.test 
-	rm -f test/.env2.test
-	./support-files/destroy-test-resources
-
-	PMM_CLIENT_IMAGE="perconalab/pmm-client"  PMM_SERVER_IMAGE="perconalab/pmm-server" PMM_VERSION="3" ./setup/test/init-test-configs.sh test
-	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/encryption_test.go -v  
-}
 run_e2e_tests_v2() {
 	rm -f test/.env.test 
 	rm -f test/.env2.test
@@ -42,8 +34,6 @@ run_unit_tests() {
 
 if [[ ${build_tag} == "v2"  ]]; then
 	run_e2e_tests_v2
-elif [[ ${build_tag} == "enc"  ]]; then
-	run_enc_tests
 elif [[ -n $build_tag ]]; then
 	run_e2e_tests
 else
