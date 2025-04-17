@@ -64,5 +64,5 @@ func (t Transferer) sourceByType(st dump.SourceType) (dump.Source, bool) { //nol
 			return s, true
 		}
 	}
-	return nil, false //nolint:ireturn
+	return nil, false
 }
