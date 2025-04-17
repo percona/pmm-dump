@@ -97,7 +97,7 @@ func main() { //nolint:gocyclo,maintidx
 				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
-
+		pipe   = cli.Flag("pipe", "Force pipe status").Default("false").Bool()
 		// encryption related
 		noEncryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
 		pass         = cli.Flag("pass", "Pass for encryption/decryption").Default("").String()
@@ -116,7 +116,6 @@ func main() { //nolint:gocyclo,maintidx
 
 		// version command options
 		versionCmd = cli.Command("version", "Shows tool version of the binary")
-		pipe       = cli.Flag("pipe", "Force pipe status").Default("false").Bool()
 	)
 
 	ctx := context.Background()
