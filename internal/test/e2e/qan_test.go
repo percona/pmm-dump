@@ -43,12 +43,12 @@ const qanWaitTimeout = time.Minute * 7
 
 const qanTestRetryTimeout = time.Minute * 3
 
-var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
+//var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
 	c := deployment.NewController(t)
-	pmm := c.ReusablePMM(qanPMM)
+	pmm := c.NewPMM("qan", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -256,9 +256,8 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 
 func TestQANEmptyChunks(t *testing.T) {
 	ctx := context.Background()
-
 	c := deployment.NewController(t)
-	pmm := c.ReusablePMM(qanPMM)
+	pmm := c.NewPMM("qan-empty", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
