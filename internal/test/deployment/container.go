@@ -319,6 +319,8 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	cmd []string,
 	memoryLimit int64,
 ) (string, error) {
+	createServer.Lock()
+	defer createServer.Unlock()
 	containerConfig := &container.Config{
 		Cmd:   cmd,
 		Image: image,
@@ -330,6 +332,17 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		AttachStdout: true,
 		AttachStderr: true,
 	}
+
+	s := nat.PortMap{}
+	for _, port := range ports {
+		containerPort, err := nat.NewPort("tcp", port)
+		if err != nil {
+			return "", err
+		}
+		containerConfig.ExposedPorts[containerPort] = struct{}{}
+		s[containerPort] = []nat.PortBinding{{HostIP: "0.0.0.0"}}
+	}
+
 	hostConfig := &container.HostConfig{
 		NetworkMode:     container.NetworkMode(pmm.NetworkName()),
 		Mounts:          mounts,
@@ -337,14 +350,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		Resources: container.Resources{
 			Memory: memoryLimit,
 		},
-	}
-
-	for _, port := range ports {
-		containerPort, err := nat.NewPort("tcp", port)
-		if err != nil {
-			return "", err
-		}
-		containerConfig.ExposedPorts[containerPort] = struct{}{}
+		PortBindings: s,
 	}
 
 	networkConfig := &network.NetworkingConfig{
@@ -364,5 +370,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
+	pmm.Log("Waiting for container to start")
+	time.Sleep(time.Second * 5) //nolint:mnd
 	return resp.ID, nil
 }

@@ -39,19 +39,21 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-const qanWaitTimeout = time.Minute * 5
+const qanWaitTimeout = time.Minute * 7
 
-const qanTestRetryTimeout = time.Minute * 2
+const qanTestRetryTimeout = time.Minute * 3
 
-var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
+// var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
 	c := deployment.NewController(t)
-	pmm := c.ReusablePMM(qanPMM)
+	pmm := c.NewPMM("qan", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
+	pmm.Log("Waiting 20 second after deploy")
+	time.Sleep(time.Second * 20)
 
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
@@ -135,6 +137,7 @@ func TestQANWhere(t *testing.T) {
 				"--dump-qan",
 				"--click-house-url", pmm.ClickhouseURL(),
 				"--where", tt.query,
+				"-v",
 			}
 
 			for _, instance := range tt.instances {
@@ -256,9 +259,8 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 
 func TestQANEmptyChunks(t *testing.T) {
 	ctx := context.Background()
-
 	c := deployment.NewController(t)
-	pmm := c.ReusablePMM(qanPMM)
+	pmm := c.NewPMM("qan-empty", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -320,6 +322,7 @@ func TestQANEmptyChunks(t *testing.T) {
 		"--start-ts", startTime.Format(time.RFC3339),
 		"--end-ts", time.Now().Format(time.RFC3339),
 		"--chunk-rows", "1",
+		"-v",
 	}
 
 	pmm.Log("Exporting data to", dumpPath)

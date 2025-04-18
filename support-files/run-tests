@@ -28,6 +28,8 @@ run_e2e_tests_v2() {
 	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v  
 }
 run_unit_tests() {
+	rm -f test/.env.test 
+	rm -f test/.env2.test
 	go test -timeout "$timeout" ./... -v \
 		| grep -v '\[no test files\]' # Filtering lines like `? pmm-dump/pkg/victoriametrics [no test files]`
 }
