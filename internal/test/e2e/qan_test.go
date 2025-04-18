@@ -135,6 +135,7 @@ func TestQANWhere(t *testing.T) {
 				"--dump-qan",
 				"--click-house-url", pmm.ClickhouseURL(),
 				"--where", tt.query,
+				"-v",
 			}
 
 			for _, instance := range tt.instances {
@@ -319,6 +320,7 @@ func TestQANEmptyChunks(t *testing.T) {
 		"--start-ts", startTime.Format(time.RFC3339),
 		"--end-ts", time.Now().Format(time.RFC3339),
 		"--chunk-rows", "1",
+		"-v",
 	}
 
 	pmm.Log("Exporting data to", dumpPath)

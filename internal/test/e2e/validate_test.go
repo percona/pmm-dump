@@ -75,7 +75,8 @@ func TestValidate(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339),
 		"--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String())
+		"--chunk-time-range", chunkTimeRange.String(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
@@ -94,7 +95,8 @@ func TestValidate(t *testing.T) {
 		"-d", xDumpPath,
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
-		"--click-house-url", newPMM.ClickhouseURL())
+		"--click-house-url", newPMM.ClickhouseURL(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -112,7 +114,8 @@ func TestValidate(t *testing.T) {
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String())
+		"--chunk-time-range", chunkTimeRange.String(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
