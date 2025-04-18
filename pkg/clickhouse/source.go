@@ -110,7 +110,6 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Info().Msg(fmt.Sprint(columns))
 	values := make([]interface{}, len(columns))
 	for i := range columns {
 		var ei interface{}

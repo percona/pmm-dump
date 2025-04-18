@@ -45,17 +45,17 @@ func TestExportImport(t *testing.T) {
 	if err := g.Wait(); err != nil {
 		t.Fatal(err)
 	}
+	pmm.Log("Waiting 20 second after deploy")
+	time.Sleep(time.Second * 20)
 
 	var b util.Binary
 	testDir := t.TempDir()
-	time.Sleep(time.Second * 15)
 	pmm.Log("Checking filtering with `--instance` flag")
 	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-server", "-v"}
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	pmm.Log(stderr)
 	checkDumpFiltering(t, filepath.Join(testDir, "filter-dump.tar.gz"), "pmm-server")
 
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "-v"}
@@ -65,14 +65,12 @@ func TestExportImport(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	pmm.Log(stderr)
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "-v"}
 	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
 	stdout, stderr, err = b.Run(append([]string{"import"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
-	pmm.Log(stderr)
 }
 
 func TestShowMeta(t *testing.T) {

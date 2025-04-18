@@ -59,6 +59,8 @@ func TestValidate(t *testing.T) {
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
+	pmm.Log("Waiting 20 second after deploy")
+	time.Sleep(time.Second * 20)
 
 	start := time.Now().UTC()
 	pmm.Log("Sleeping for 120 seconds")
@@ -80,7 +82,6 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-	pmm.Log(stderr)
 
 	pmm.Logf("Sleeping for %d seconds", int(chunkTimeRange.Seconds()))
 	time.Sleep(chunkTimeRange)
@@ -88,7 +89,9 @@ func TestValidate(t *testing.T) {
 	if err := newPMM.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(time.Second * 15)
+	pmm.Log("Waiting 20 second after deploy")
+	time.Sleep(time.Second * 20)
+
 	pmm.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
 		"import",
@@ -100,7 +103,6 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
-	pmm.Log(stderr)
 
 	pmm.Log("Sleeping for 10 seconds")
 	time.Sleep(time.Second * 10)
@@ -119,7 +121,6 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
-	pmm.Log(stderr)
 
 	loss, missingChunks, err := validateChunks(t, pmm, xDumpPath, yDumpPath)
 	if err != nil {

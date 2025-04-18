@@ -54,14 +54,15 @@ func TestPMMCompatibility(t *testing.T) {
 		if err := pmm.Deploy(ctx); err != nil {
 			t.Fatal(err)
 		}
-		time.Sleep(time.Second * 15)
+		pmm.Log("Waiting 20 second after deploy")
+		time.Sleep(time.Second * 20)
+
 		if dumpPath != "" {
 			pmm.Log("Importing data from", dumpPath)
 			stdout, stderr, err := b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "-v")
 			if err != nil {
 				t.Fatal("failed to import", err, stdout, stderr)
 			}
-			pmm.Log(stderr)
 		}
 
 		testDir := t.TempDir()
@@ -71,14 +72,14 @@ func TestPMMCompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatal("failed to export", err, stdout, stderr)
 		}
-		time.Sleep(time.Second * 15)
-		pmm.Log(stderr)
+		pmm.Log("Waiting 20 second after deploy")
+		time.Sleep(time.Second * 20)
+
 		pmm.Log("Importing data from", dumpPath)
 		stdout, stderr, err = b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "-v")
 		if err != nil {
 			t.Fatal("failed to import", err, stdout, stderr)
 		}
-		pmm.Log(stderr)
 		pmm.Destroy(ctx)
 	}
 }
