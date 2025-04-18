@@ -52,8 +52,18 @@ Here are main commands/flags:
 | show-meta | -                    | Shows dump meta in human readable format                                                                  | -                                                                                                          |
 | show-meta | no-prettify          | Shows raw dump meta                                                                                       | -                                                                                                          |
 | version   | -                    | Shows binary version                                                                                      | -                                                                                                          |
+| no-encryption   | -                    | Disables encryption                                                                                      | -                                                                                                          |
+| pass   | -                    | Password for encryption/decryption                                                                                      | `somepass`                                                                                                          |
+| just-key   | -                    | Disable logging and only leave key                                                                                    | -                                                                                                          |
+| pass-filepath   | -                    | Filepath to output pass                                                                                      | `pass.txt`                                                                                                          |
+| pipe   | -                    | Force pipe status                                                                                     | -                                                                                                          |
 
-
+If you didn't add flag `no-encryption`, dump will be encrypted using aes256-ctr algorithm, deriving key and iv from passphrase using pbkdf2.
+If passphrase wasn't provided during export it will automatically generated.
+You can decrypt dump yourself using openssl with this command.
+``` 
+openssl enc -d -aes-256-ctr -pbkdf2 -in dump.tar.gz.enc -out dump.tar.gz
+```
 For filtering you could use the following commands (will be improved in the future):
 
 | Command | Flag        | Description                       | Example                      |
@@ -152,10 +162,16 @@ You will need to have Go 1.21+ and Docker installed.
 | make down           | Shuts down docker containers |
 | make re             | Shortcut for `down up`       |
 | make export-all     | Runs export from local PMM   |
+| make export-all-to-file     | Runs export from local PMM and writes passphrase to file|
+| make export-all-just-key     | Runs export from local PMM and dissables logging except passphrase|
+| make export-all-no-encryption     | Runs export from local PMM with disabled encryption|
+| make import-all    | Runs import to local PMM      |
+| make import-all-no-encryption     | Runs export from local PMM with disabled encryption |
 | make run-tests      | Runs all tests               |
 | make run-e2e-tests  | Runs all e2e tests           |
 | make run-e2e-tests-v2| Runs all e2e tests for version 2|
 | make run-unit-tests | Runs all unit tests          |
+
 
 Read `Makefile` for more.
 

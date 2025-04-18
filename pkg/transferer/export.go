@@ -31,9 +31,8 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e EncryptionOptions) error {
 	log.Info().Msg("Exporting metrics...")
-
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
 		Int("size", maxChunksInMem).
@@ -66,7 +65,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
 	g.Go(func() error {
 		defer log.Debug().Msgf("Exiting from write chunks goroutine")
-		if err := t.writeChunksToFile(meta, chunksCh, logBuffer); err != nil {
+		if err := t.writeChunksToFile(meta, chunksCh, logBuffer, e); err != nil {
 			return errors.Wrap(err, "failed to write chunks to the dump")
 		}
 		return nil
@@ -78,7 +77,6 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	}
 
 	log.Info().Msg("Successfully exported!")
-
 	return nil
 }
 
@@ -135,16 +133,32 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 	}
 }
 
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer) error {
-	gzw, err := gzip.NewWriterLevel(t.file, gzip.BestCompression)
-	if err != nil {
-		return errors.Wrap(err, "failed to create gzip writer")
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e EncryptionOptions) error {
+	var (
+		gzw *gzip.Writer
+		err error
+	)
+	if !e.noEncryption {
+		writer, err := e.GetEncryptedWriter(t.file)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create encrypted writer")
+		}
+		defer writer.Close() //nolint:errcheck
+
+		gzw, err = gzip.NewWriterLevel(writer, gzip.BestCompression)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create gzip writer")
+		}
+	} else {
+		gzw, err = gzip.NewWriterLevel(t.file, gzip.BestCompression)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create gzip writer")
+		}
 	}
 	defer gzw.Close() //nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
 	defer tw.Close() //nolint:errcheck
-
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
@@ -158,6 +172,10 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 				return err
 			}
 
+			if err = e.OutputPass(); err != nil {
+				return err
+			}
+
 			log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 			return nil
 		}
@@ -168,7 +186,6 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			Stringer("source", c.Source).
 			Str("filename", c.Filename).
 			Msg("Writing chunk to the dump...")
-
 		chunkSize := int64(len(c.Content))
 		if chunkSize > meta.MaxChunkSize {
 			meta.MaxChunkSize = chunkSize

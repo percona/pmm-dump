@@ -30,24 +30,44 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, e EncryptionOptions) (*dump.Meta, error) {
 	var file *os.File
+	var encpath string
+	if !e.noEncryption {
+		encpath = ".enc"
+	}
 	if piped {
 		file = os.Stdin
 	} else {
 		var err error
-		file, err = os.Open(dumpPath) //nolint:gosec
+		file, err = os.Open(dumpPath + encpath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open file")
 		}
 	}
 	defer file.Close() //nolint:errcheck
 
-	gzr, err := gzip.NewReader(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+	var (
+		gzr *gzip.Reader
+		err error
+	)
+	if !e.noEncryption {
+		decReader, err := e.GetDecryptionReader(file)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open as gzip")
+		}
+		gzr, err = gzip.NewReader(decReader)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open as gzip")
+		}
+		defer gzr.Close() //nolint:errcheck
+	} else {
+		gzr, err = gzip.NewReader(file)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open as gzip")
+		}
+		defer gzr.Close() //nolint:errcheck
 	}
-	defer gzr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gzr)
 

@@ -483,8 +483,12 @@ func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
 	*pmmURL = parsedURL.String()
 }
 
-func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+func getFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
 	var file io.ReadWriteCloser
+	var encpath string
+	if !*encrypted {
+		encpath = ".enc"
+	}
 	if piped {
 		file = os.Stdin
 	} else {
@@ -493,7 +497,7 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 			Str("path", dumpPath).
 			Msg("Opening dump file...")
 
-		file, err = os.Open(dumpPath) //nolint:gosec
+		file, err = os.Open(dumpPath + encpath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
 		}
@@ -503,14 +507,14 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 
 const dirPermission = 0o777
 
-func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
 	var file *os.File
 	if piped {
 		file = os.Stdout
 	} else {
 		exportTS := time.Now().UTC()
 		log.Debug().Msgf("Trying to determine filepath")
-		filepath, err := getDumpFilepath(dumpPath, exportTS)
+		filepath, err := getDumpFilepath(dumpPath, exportTS, encrypted)
 		if err != nil {
 			return nil, err
 		}
@@ -527,8 +531,12 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
-func getDumpFilepath(customPath string, ts time.Time) (string, error) {
-	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz", ts.Unix())
+func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, error) {
+	var encpath string
+	if !*encrypted {
+		encpath = ".enc"
+	}
+	autoFilename := fmt.Sprintf("pmm-dump.tar.gz-%v"+encpath, ts.Unix())
 	if customPath == "" {
 		return autoFilename, nil
 	}
@@ -542,6 +550,6 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
-
+	customPath += encpath
 	return customPath, nil
 }
