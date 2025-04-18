@@ -88,7 +88,7 @@ func TestValidate(t *testing.T) {
 	if err := newPMM.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
-
+	time.Sleep(time.Second * 15)
 	pmm.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
 		"import",

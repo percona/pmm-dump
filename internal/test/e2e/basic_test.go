@@ -20,6 +20,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -47,7 +48,7 @@ func TestExportImport(t *testing.T) {
 
 	var b util.Binary
 	testDir := t.TempDir()
-
+	time.Sleep(time.Second * 15)
 	pmm.Log("Checking filtering with `--instance` flag")
 	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-server", "-v"}
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
