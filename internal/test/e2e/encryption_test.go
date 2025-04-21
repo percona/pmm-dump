@@ -76,51 +76,25 @@ func TestEncryptionExportImport(t *testing.T) {
 	}
 
 	pmm.Log("Exporting data to check pipe", filepath.Join(testDir, "dump.tar.gz.enc"))
-	pmm.Log("Piping data")
-	argsExpo := []string{
-		"export",
-		"-d",
-		filepath.Join(testDir, "dump.tar.gz.enc"),
-		"--pmm-url",
-		newPMM.PMMURL(),
-		"--dump-qan",
-		"--click-house-url",
-		newPMM.ClickhouseURL(),
-		"--pass",
-		"somepass",
-		"--stdout",
-	}
-	argsImpo := []string{
-		"import",
-		"-d",
-		filepath.Join(testDir,
-			"dump.tar.gz.enc"),
-		"--pmm-url",
-		newPMM.PMMURL(),
-		"--dump-qan",
-		"--click-house-url",
-		newPMM.ClickhouseURL(),
-		"--pass",
-		"somepass",
-		"--pipe",
-	}
-	stderr1, stderr2, err := b.RunPipe(argsExpo, argsImpo, "./pmm-dump", "./pmm-dump")
+	exportArgs := "./pmm-dump export -d " + filepath.Join(testDir, "dump.tar.gz.enc") + " --pmm-url " + newPMM.PMMURL() + " --dump-qan --click-house-url " + newPMM.ClickhouseURL() + " --pass somepass --stdout "
+	importArgs := " | ./pmm-dump import -d " + filepath.Join(testDir, "dump.tar.gz.enc") + " --pmm-url " + newPMM.PMMURL() + " --dump-qan --click-house-url " + newPMM.ClickhouseURL() + " --pass somepass"
+	output, outputerr, err := b.RunBash(append([]string{"-c"}, exportArgs+importArgs)...)
 	if err != nil {
-		t.Fatal("failed to pipe", err, stderr1, stderr2)
+		t.Fatal("failed to pipe", err, output, outputerr)
 	}
 
-	pmm.Log("Exporting data to check openssl", filepath.Join(testDir, "dump.tar.gz.enc"))
-	pmm.Log("Piping openssl")
-	argsExpo = []string{"export", "-d", filepath.Join(testDir, "dump.tar.gz.enc"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "--pass", "somepass", "--stdout"}
-	argsImpo = []string{"enc", "-d", "-aes-256-ctr", "-pbkdf2", "-out", filepath.Join(testDir, "dump.tar.gz"), "-pass", "pass:somepass"}
-	stderr1, stderr2, err = b.RunPipe(argsExpo, argsImpo, "./pmm-dump", "openssl")
+	pmm.Log("Exporting data to check pipe openssl", filepath.Join(testDir, "dump.tar.gz.enc"))
+	opensslArgs := " | openssl enc -d -aes-256-ctr -pbkdf2 -out " + filepath.Join(testDir, "dump.tar.gz") + " -pass pass:somepass"
+	output, outputerr, err = b.RunBash(append([]string{"-c"}, exportArgs+opensslArgs)...)
 	if err != nil {
-		t.Fatal("failed to pipe", err, stderr1, stderr2)
+		t.Fatal("failed to pipe to openssl", err, output, outputerr)
 	}
+
+	pmm.Log("Importing data to check openssl decryption", filepath.Join(testDir, "dump.tar.gz.enc"))
 	argsImport := []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "--no-encryption"}
 	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
-	stdout, stderr, err = b.Run(append([]string{"import"}, argsImport...)...)
+	output, outputerr, err = b.Run(append([]string{"import"}, argsImport...)...)
 	if err != nil {
-		t.Fatal("failed to import", err, stdout, stderr)
+		t.Fatal("failed to import", err, output, outputerr)
 	}
 }

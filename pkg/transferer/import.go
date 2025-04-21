@@ -15,9 +15,7 @@
 package transferer
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
 	"path"
@@ -31,29 +29,12 @@ import (
 
 func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e EncryptionOptions) error {
 	log.Info().Msg("Importing metrics...")
-	var (
-		gzr *gzip.Reader
-		err error
-	)
-	if !e.noEncryption {
-		reader, err := e.GetDecryptionReader(t.file)
-		if err != nil {
-			return errors.Wrap(err, "failed to create decryption reader")
-		}
-		gzr, err = gzip.NewReader(reader)
-		if err != nil {
-			return errors.Wrap(err, "failed to open as gzip")
-		}
-		defer gzr.Close() //nolint:errcheck
-	} else {
-		gzr, err = gzip.NewReader(t.file)
-		if err != nil {
-			return errors.Wrap(err, "failed to open as gzip")
-		}
-		defer gzr.Close() //nolint:errcheck
-	}
 
-	tr := tar.NewReader(gzr)
+	tr, err := e.GetReader(t.file)
+	if err != nil {
+		return errors.Wrap(err, "failed to create reader")
+	}
+	defer e.closeReaders()
 
 	var metafileExists bool
 

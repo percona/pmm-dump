@@ -15,6 +15,8 @@
 package transferer
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/pbkdf2"
@@ -28,6 +30,20 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+const (
+	iteration    int = 10000 // Openssl makes this number of iterations by default when encrypting/decrypting with pbdkf2
+	split        int = 48    // Number of bytes needed to get key and iv from pbkdf2. 32 on key and rest on iv
+	saltSize     int = 8     // Salt size by default in openssl
+	passwordSize int = 16    // Size of password in bytes when generating random password
+)
+
+var gzw *gzip.Writer
+var tw *tar.Writer
+var writer *cipher.StreamWriter
+var gzr *gzip.Reader
+var tr *tar.Reader
+var reader *cipher.StreamReader
 
 type EncryptionOptions struct {
 	noEncryption bool
@@ -45,18 +61,33 @@ func NewEncryptor(filepath, pass string, encrypted, justKey bool) *EncryptionOpt
 	}
 }
 
-func (e *EncryptionOptions) GetEncryptedWriter(w io.Writer) (*cipher.StreamWriter, error) {
-	salt := make([]byte, 8) //nolint:mnd
+func (e *EncryptionOptions) GetWriter(w io.Writer) (*tar.Writer, error) {
+	var err error
+	if e.noEncryption {
+		log.Debug().Msg("Creating writer without encryption")
+		gzw, err = gzip.NewWriterLevel(w, gzip.BestCompression)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to create gzip writer")
+		}
+
+		tw = tar.NewWriter(gzw)
+		return tw, nil // return file<-gzip<-tar
+	}
+	log.Debug().Msg("Creating writer with encryption")
+
+	salt := make([]byte, saltSize)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return nil, errors.Wrap(err, "Failed to generate salt")
 	}
 	if e.pass == "" {
+		log.Debug().Msg("Password not provided, generating new")
 		err := e.generatePassword()
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to generate random password")
 		}
 	}
-	pbkdf, err := pbkdf2.Key(sha256.New, e.pass, salt, 10000, 48) //nolint:mnd
+
+	pbkdf, err := pbkdf2.Key(sha256.New, e.pass, salt, iteration, split)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to generate key from pass")
 	}
@@ -66,23 +97,44 @@ func (e *EncryptionOptions) GetEncryptedWriter(w io.Writer) (*cipher.StreamWrite
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to generate key")
 	}
+
 	stream := cipher.NewCTR(block, iv)
-	writer := &cipher.StreamWriter{S: stream, W: w}
+	writer = &cipher.StreamWriter{S: stream, W: w}
+
 	e.writeSaltToFile(w, salt)
-	return writer, nil
+
+	gzw, err = gzip.NewWriterLevel(writer, gzip.BestCompression)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create gzip writer")
+	}
+	tw = tar.NewWriter(gzw)
+
+	return tw, nil // return file<-encryption<-gzip<-tar
 }
 
-func (e *EncryptionOptions) GetDecryptionReader(r io.Reader) (*cipher.StreamReader, error) {
-	salt := make([]byte, 16) //nolint:mnd
-	_, err := r.Read(salt)
+func (e *EncryptionOptions) GetReader(r io.Reader) (*tar.Reader, error) {
+	var err error
+	if e.noEncryption {
+		gzr, err = gzip.NewReader(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create gzip reader")
+		}
+		tr = tar.NewReader(gzr)
+		return tr, nil // return file->gzip->tar
+	}
+
+	salt := make([]byte, saltSize+8) //nolint:mnd
+	_, err = r.Read(salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get salt")
 	}
 	salt = salt[8:]
+
 	if e.pass == "" {
 		return nil, errors.New("Password not provided, please provide password")
 	}
-	pbkdf, err := pbkdf2.Key(sha256.New, e.pass, salt, 10000, 48) //nolint:mnd
+
+	pbkdf, err := pbkdf2.Key(sha256.New, e.pass, salt, iteration, split)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to generate key from pass")
 	}
@@ -92,9 +144,17 @@ func (e *EncryptionOptions) GetDecryptionReader(r io.Reader) (*cipher.StreamRead
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to generate key")
 	}
+
 	stream := cipher.NewCTR(block, iv)
-	reader := &cipher.StreamReader{S: stream, R: r}
-	return reader, nil
+	reader = &cipher.StreamReader{S: stream, R: r}
+
+	gzr, err = gzip.NewReader(reader)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open as gzip")
+	}
+
+	tr = tar.NewReader(gzr)
+	return tr, nil // return file->decryption->gzip->tar
 }
 
 func (e *EncryptionOptions) writeSaltToFile(w io.Writer, salt []byte) {
@@ -110,6 +170,7 @@ func (e *EncryptionOptions) OutputPass() error {
 	if e.noEncryption {
 		return nil
 	}
+
 	if e.justKey {
 		wr := zerolog.ConsoleWriter{
 			Out:     os.Stderr,
@@ -129,19 +190,32 @@ func (e *EncryptionOptions) OutputPass() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to open pass file")
 		}
-		file.Write([]byte(e.pass)) //nolint:errcheck, gosec, mirror
-
+		_, err = file.Write([]byte(e.pass))
+		if err != nil {
+			return errors.Wrap(err, "failed to write to file")
+		}
 		defer file.Close() //nolint:errcheck
 	}
 	return nil
 }
 
 func (e *EncryptionOptions) generatePassword() error {
-	buffer := make([]byte, 16) //nolint:mnd
+	buffer := make([]byte, passwordSize)
 	_, err := rand.Read(buffer)
 	if err != nil {
 		return err
 	}
-	e.pass = hex.EncodeToString(buffer)[:16]
+	e.pass = hex.EncodeToString(buffer)[:passwordSize]
 	return nil
+}
+
+func (e *EncryptionOptions) closeWriters() {
+	tw.Close()
+	gzw.Close()
+	if !e.noEncryption{
+		writer.Close()
+	}
+}
+func (e *EncryptionOptions) closeReaders() {
+	gzr.Close()
 }

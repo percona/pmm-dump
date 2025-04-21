@@ -97,10 +97,9 @@ func main() { //nolint:gocyclo,maintidx
 				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
-		pipe   = cli.Flag("pipe", "Force pipe status").Default("false").Bool()
 		// encryption related
 		noEncryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
-		pass         = cli.Flag("pass", "Pass for encryption/decryption").Default("").String()
+		pass         = cli.Flag("pass", "Password for encryption/decryption").Default("").String()
 		justKey      = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
 		toFile       = cli.Flag("pass-filepath", "Filepath to output pass").Default("").String()
 
@@ -346,9 +345,6 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-		if *pipe || piped {
-			piped = true
-		}
 		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
 		if piped { //nolint:nestif
 			if *vmNativeData {
@@ -427,9 +423,6 @@ func main() { //nolint:gocyclo,maintidx
 		piped, err := checkPiped()
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
-		}
-		if *pipe || piped {
-			piped = true
 		}
 		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")

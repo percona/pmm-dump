@@ -16,7 +16,6 @@ package transferer
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,29 +46,11 @@ func ReadMetaFromDump(dumpPath string, piped bool, e EncryptionOptions) (*dump.M
 	}
 	defer file.Close() //nolint:errcheck
 
-	var (
-		gzr *gzip.Reader
-		err error
-	)
-	if !e.noEncryption {
-		decReader, err := e.GetDecryptionReader(file)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to open as gzip")
-		}
-		gzr, err = gzip.NewReader(decReader)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to open as gzip")
-		}
-		defer gzr.Close() //nolint:errcheck
-	} else {
-		gzr, err = gzip.NewReader(file)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to open as gzip")
-		}
-		defer gzr.Close() //nolint:errcheck
+	tr, err := e.GetReader(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
-
-	tr := tar.NewReader(gzr)
+	defer e.closeReaders()
 
 	for {
 		log.Debug().Msg("Reading files from dump...")

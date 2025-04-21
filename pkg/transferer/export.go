@@ -17,7 +17,6 @@ package transferer
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"path"
@@ -134,31 +133,12 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 }
 
 func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e EncryptionOptions) error {
-	var (
-		gzw *gzip.Writer
-		err error
-	)
-	if !e.noEncryption {
-		writer, err := e.GetEncryptedWriter(t.file)
-		if err != nil {
-			return errors.Wrap(err, "Failed to create encrypted writer")
-		}
-		defer writer.Close() //nolint:errcheck
-
-		gzw, err = gzip.NewWriterLevel(writer, gzip.BestCompression)
-		if err != nil {
-			return errors.Wrap(err, "Failed to create gzip writer")
-		}
-	} else {
-		gzw, err = gzip.NewWriterLevel(t.file, gzip.BestCompression)
-		if err != nil {
-			return errors.Wrap(err, "Failed to create gzip writer")
-		}
+	tw, err := e.GetWriter(t.file)
+	if err != nil {
+		return errors.Wrap(err, "failed to create writer")
 	}
-	defer gzw.Close() //nolint:errcheck
+	defer e.closeWriters()
 
-	tw := tar.NewWriter(gzw)
-	defer tw.Close() //nolint:errcheck
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
