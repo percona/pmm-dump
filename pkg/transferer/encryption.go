@@ -38,12 +38,14 @@ const (
 	passwordSize int = 16    // Size of password in bytes when generating random password
 )
 
-var gzw *gzip.Writer
-var tw *tar.Writer
-var writer *cipher.StreamWriter
-var gzr *gzip.Reader
-var tr *tar.Reader
-var reader *cipher.StreamReader
+var (
+	gzw    *gzip.Writer
+	tw     *tar.Writer
+	writer *cipher.StreamWriter
+	gzr    *gzip.Reader
+	tr     *tar.Reader
+	reader *cipher.StreamReader
+)
 
 type EncryptionOptions struct {
 	noEncryption bool
@@ -190,7 +192,7 @@ func (e *EncryptionOptions) OutputPass() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to open pass file")
 		}
-		_, err = file.Write([]byte(e.pass))
+		_, err = file.Write([]byte(e.pass)) //nolint:mirror
 		if err != nil {
 			return errors.Wrap(err, "failed to write to file")
 		}
@@ -210,12 +212,25 @@ func (e *EncryptionOptions) generatePassword() error {
 }
 
 func (e *EncryptionOptions) closeWriters() {
-	tw.Close()
-	gzw.Close()
-	if !e.noEncryption{
-		writer.Close()
+	err := tw.Close()
+	if err != nil {
+		panic(err)
+	}
+	err = gzw.Close()
+	if err != nil {
+		panic(err)
+	}
+	if !e.noEncryption {
+		err = writer.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
+
 func (e *EncryptionOptions) closeReaders() {
-	gzr.Close()
+	err := gzr.Close()
+	if err != nil {
+		panic(err)
+	}
 }
