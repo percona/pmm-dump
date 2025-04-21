@@ -27,7 +27,6 @@ run_e2e_tests_v2() {
 	PMM_CLIENT_IMAGE="percona/pmm-client"  PMM_SERVER_IMAGE="percona/pmm-server" PMM_VERSION="2" ./setup/test/init-test-configs.sh test
 	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v  
 }
-
 run_unit_tests() {
 	go test -timeout "$timeout" ./... -v \
 		| grep -v '\[no test files\]' # Filtering lines like `? pmm-dump/pkg/victoriametrics [no test files]`
