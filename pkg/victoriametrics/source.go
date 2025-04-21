@@ -55,42 +55,51 @@ func (s Source) Type() dump.SourceType {
 
 const requestTimeout = time.Second * 30
 
+func (s Source) splitChunk(m dump.ChunkMeta) ([]*dump.Chunk, error) {
+	if m.End.UnixMilli()-m.Start.UnixMilli() <= 1 {
+		return nil, errors.New("Time range is smaller than millisecond, split is impossible, can only be fixed by increasing -search.maxSamplesPerQuery")
+	}
+
+	dur := m.End.Sub(*m.Start) / 2 //nolint:mnd
+	t := m.Start.Add(dur)
+
+	log.Info().Msg("Splitting chunk in to two parts")
+
+	firstMeta := dump.ChunkMeta{
+		Source: dump.VictoriaMetrics,
+		Start:  m.Start,
+		End:    &t,
+	}
+
+	secondMeta := dump.ChunkMeta{
+		Source: dump.VictoriaMetrics,
+		Start:  &t,
+		End:    m.End,
+	}
+
+	firstPart, err := s.ReadChunks(firstMeta)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to read first chunk. Start time:"+m.Start.String()+"End time: "+t.String())
+	}
+	secondPart, err := s.ReadChunks(secondMeta)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to read second chunk. Start time:"+t.String()+"End time: "+m.End.String())
+	}
+	firstPart = append(firstPart, secondPart...)
+	return firstPart, nil
+}
+
 func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	body, status, err := ReadChunk(s.c, m.Start, m.End, s.cfg.NativeData, s.cfg.ConnectionURL, s.cfg.TimeSeriesSelectors)
 	if status == fasthttp.StatusBadRequest && strings.Contains(gzipDecode(body), "cannot select more than -search.maxSamplesPerQuery") {
-		// TODO: separate func
-		if m.End.UnixMilli()-m.Start.UnixMilli() <= 1 {
-			panic("too small duration")
-		}
-
-		dur := m.End.Sub(*m.Start) / 2
-		t := m.Start.Add(dur)
-
-		log.Info().Msg("Splitting chunk two parts")
-
-		firstMeta := dump.ChunkMeta{
-			Source: dump.VictoriaMetrics,
-			Start:  m.Start,
-			End:    &t,
-		}
-
-		secondMeta := dump.ChunkMeta{
-			Source: dump.VictoriaMetrics,
-			Start:  &t,
-			End:    m.End,
-		}
-
-		firstPart, err := s.ReadChunks(firstMeta)
+		c, err := s.splitChunk(m)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Failed to split VM chunk")
 		}
-		secondPart, err := s.ReadChunks(secondMeta)
-		if err != nil {
-			return nil, err
-		}
-		chunks := append(firstPart, secondPart...)
-		return chunks, nil
+		log.Debug().Msg("VM chunk was split into several parts")
+		return c, nil
 	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "Error getting responce from Victoria Metrics")
 	}
@@ -99,14 +108,14 @@ func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 
 	metrics, err := ParseMetrics(bytes.NewReader([]byte(gzipDecode(body))))
 	if err != nil {
-		panic(err)
+		return nil, errors.Wrap(err, "Failed to parse metrics from body")
 	}
 	samples := 0
 	for _, m := range metrics {
 		samples += len(m.Timestamps)
 	}
 	if samples != 0 {
-		log.Info().Msg(fmt.Sprintln("SAMPLES: ", samples))
+		log.Debug().Msg(fmt.Sprintln("Got samples from reading: ", samples))
 	}
 
 	chunk := &dump.Chunk{
@@ -402,29 +411,7 @@ func (s Source) HasMetrics(start, end time.Time) (bool, error) {
 
 	if status := resp.StatusCode(); status != fasthttp.StatusOK {
 		if strings.Contains(body, "cannot select more than -search.maxSamplesPerQuery") {
-			log.Info().Msg("Too big samples size, trying to split")
-			diff := start.Sub(end) / 2
-			middle := start.Add(diff)
-
-			firstPart, err := s.HasMetrics(start, middle)
-			if err != nil && !strings.Contains(body, "cannot select more than -search.maxSamplesPerQuery") {
-				return false, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
-			}
-
-			if firstPart {
-				log.Info().Msg("First part has metrics")
-				return true, nil
-			}
-
-			secondPart, err := s.HasMetrics(middle, end)
-			if err != nil && !strings.Contains(body, "cannot select more than -search.maxSamplesPerQuery") {
-				return false, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
-			}
-
-			if secondPart {
-				log.Info().Msg("Second part has metrics")
-				return true, nil
-			}
+			return s.splitContainsMetrics(start, end, body)
 		} else {
 			return false, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
 		}
@@ -442,7 +429,33 @@ func (s Source) HasMetrics(start, end time.Time) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
 
+func (s Source) splitContainsMetrics(start, end time.Time, body string) (bool, error) {
+	log.Debug().Msg("Too big samples size, trying to split")
+
+	diff := end.Sub(start) / 2 //nolint:mnd
+	middle := start.Add(diff)
+	log.Debug().Msg("Time range for first part: Start:" + start.String() + " End:" + middle.String() + " ")
+	firstPart, err := s.HasMetrics(start, middle)
+	if err != nil && !strings.Contains(body, "cannot select more than -search.maxSamplesPerQuery") {
+		return false, errors.Errorf("non-OK response from victoria metrics: %s", body)
+	}
+
+	if firstPart {
+		log.Debug().Msg("First part has metrics")
+		return true, nil
+	}
+	log.Debug().Msg("Time range for first part: Start:" + middle.String() + "End:" + end.String() + " ")
+	secondPart, err := s.HasMetrics(middle, end)
+	if err != nil && !strings.Contains(body, "cannot select more than -search.maxSamplesPerQuery") {
+		return false, errors.Errorf("non-OK response from victoria metrics: %s", body)
+	}
+	if secondPart {
+		log.Debug().Msg("Second part has metrics")
+		return true, nil
+	}
+	return false, errors.New("Can't find metrics")
 }
 
 func SplitTimeRangeIntoChunks(start, end time.Time, delta time.Duration) []dump.ChunkMeta {

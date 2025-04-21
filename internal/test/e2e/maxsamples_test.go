@@ -1,3 +1,18 @@
+//go:build e2e
+
+// Copyright 2023 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package e2e
 
 import (
@@ -6,20 +21,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"time"
-
-	//"os"
-
 	"strings"
 	"testing"
+	"time"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 )
-
-// /srv/victoriametrics/data/indexdb/
-// https://docs.victoriametrics.com/#storage
-// https://github.com/VictoriaMetrics/VictoriaMetrics/issues/2691#issuecomment-1178442457
 
 func TestMaxSamples(t *testing.T) {
 	type metadata struct {
@@ -47,17 +55,17 @@ func TestMaxSamples(t *testing.T) {
 	tmpDir := util.CreateTestDir(t, "max-samples-test")
 	dumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 
-	pmm.Deploy(ctx)
-
+	err := pmm.Deploy(ctx)
+	if err != nil {
+		t.Fatal("Failde to deploy pmm", err)
+	}
 	var stdout, stderr string
-	var err error
-
 	time.Sleep(time.Second * 20)
 
 	mounth := fmt.Sprintf("%02d", time.Now().Month())
 	year := fmt.Sprint(time.Now().Year())
 	part := parts{}
-	reader, err := pmm.DockerCopy(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+mounth+"/parts.json")
+	reader, err := pmm.DockerGetFromContainer(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+mounth+"/parts.json")
 	if err != nil {
 		t.Fatal("failed to get file from container", err)
 	}
@@ -65,7 +73,7 @@ func TestMaxSamples(t *testing.T) {
 
 	tr := tar.NewReader(reader)
 	if _, err := tr.Next(); err != nil {
-		panic(err)
+		t.Fatal("failed to read from json", err)
 	}
 	decoder := json.NewDecoder(tr)
 	err = decoder.Decode(&part)
@@ -76,14 +84,14 @@ func TestMaxSamples(t *testing.T) {
 	metaD := metadata{}
 	var rows int
 	for _, n := range part.Small {
-		meta, err := pmm.DockerCopy(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+mounth+"/"+n+"/metadata.json")
+		meta, err := pmm.DockerGetFromContainer(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+mounth+"/"+n+"/metadata.json")
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
 		}
 		defer meta.Close()
 		ta := tar.NewReader(meta)
 		if _, err := ta.Next(); err != nil {
-			panic(err)
+			t.Fatal("failed to read from reader", err)
 		}
 		metaDecoder := json.NewDecoder(ta)
 		err = metaDecoder.Decode(&metaD)
@@ -92,9 +100,9 @@ func TestMaxSamples(t *testing.T) {
 		}
 		rows += metaD.RowsCount
 	}
-	fmt.Printf("Number of rows in metadata: %v ", rows)
+	pmm.Log("Number of rows in metadata: " + fmt.Sprint(rows))
 	rows = rows - 10
-	fmt.Printf("Number of rows after conversion: %v ", rows)
+	pmm.Log("Number of rows after conversion: " + fmt.Sprint(rows))
 	from := "1500000000"
 	to := fmt.Sprint(rows)
 
@@ -124,12 +132,9 @@ func TestMaxSamples(t *testing.T) {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
 
-	if !strings.Contains(stderr, "Chunk was split into several parts") {
+	if !strings.Contains(stderr, "VM chunk was split into several parts") {
 		t.Fatal("No chunk was split", err, stdout, stderr)
 	} else {
-		pmm.Log(stdout)
-		pmm.Log(stderr)
-		pmm.Log("Number of rows after test:", rows)
 		pmm.Log("Succesfuly splited big chunks into smaller one")
 	}
 }

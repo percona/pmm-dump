@@ -75,7 +75,7 @@ export-all:
 
 export-vm:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --chunk-time-range='60m'
+		--pmm-url=$(PMM_URL) --dump-core 
 
 export-ch:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
@@ -98,9 +98,6 @@ run-e2e-tests-v2: init-e2e-tests
 
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
-
-run-e2e-test-query: init-e2e-tests
-	./support-files/run-tests query
 
 run-unit-tests:
 	./support-files/run-tests
