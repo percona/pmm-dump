@@ -43,7 +43,7 @@ const qanWaitTimeout = time.Minute * 5
 
 const qanTestRetryTimeout = time.Minute * 2
 
-func TestQANWhere(t *testing.T) {
+func TestQAN(t *testing.T) {
 	c := deployment.NewController(t)
 	ctx := context.Background()
 	pmm := c.NewPMM("qan", ".env.test")
@@ -53,6 +53,9 @@ func TestQANWhere(t *testing.T) {
 
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
+
+	startTime := time.Now()
+
 	clickConfig := &clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 		Where:         "",
@@ -66,7 +69,8 @@ func TestQANWhere(t *testing.T) {
 	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
 	defer cancel()
 	if err := util.RetryOnError(tCtx, func() error {
-		rowsCount, err := cSource.Count("", nil, nil)
+		tn := time.Now()
+		rowsCount, err := cSource.Count("", &startTime, &tn)
 		if err != nil {
 			return err
 		}
@@ -315,7 +319,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 // 	var b util.Binary
 // 	testDir := util.CreateTestDir(t, "qan-empty-chunks")
 
-// 	startTime := time.Now()
+//
 
 // 	clickConfig := &clickhouse.Config{
 // 		ConnectionURL: pmm.ClickhouseURL(),
