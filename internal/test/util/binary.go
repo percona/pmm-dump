@@ -30,13 +30,13 @@ type Binary struct {
 	timeout time.Duration
 }
 
-func (b *Binary) Run(args ...string) (string, string, error) {
+func (b *Binary) Run(ctx context.Context, args ...string) (string, string, error) {
 	if b.timeout == 0 {
 		b.timeout = defaultTimeout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
+	Rctx, cancel := context.WithTimeout(ctx, b.timeout)
 	defer cancel()
-	return Exec(ctx, RepoPath, "./pmm-dump", args...)
+	return Exec(Rctx, RepoPath, "./pmm-dump", args...)
 }
 
 func Exec(ctx context.Context, wd string, name string, args ...string) (string, string, error) {

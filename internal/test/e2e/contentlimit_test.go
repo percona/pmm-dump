@@ -71,6 +71,7 @@ func TestContentLimit(t *testing.T) {
 	}
 
 	stdout, stderr, err := b.Run(
+		ctx,
 		"import",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL())
@@ -85,6 +86,7 @@ func TestContentLimit(t *testing.T) {
 	pmm.Log("Importing with 10KB limit")
 
 	stdout, stderr, err = b.Run(
+		ctx,
 		"import",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL(),
@@ -137,7 +139,7 @@ func generateFakeDump(filepath string) error {
 		return errors.Wrap(err, "failed to write dump meta content")
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		content, err := generateFakeChunk(100000)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate fake chunk")
@@ -166,7 +168,7 @@ func generateFakeDump(filepath string) error {
 func generateFakeChunk(size int) ([]byte, error) {
 	r := rand.New(rand.NewSource(time.Now().Unix())) //nolint:gosec
 	var data []byte
-	for i := 0; i < size; i++ {
+	for i := range size {
 		metricsData, err := json.Marshal(victoriametrics.Metric{
 			Metric: map[string]string{
 				"__name__": "test",

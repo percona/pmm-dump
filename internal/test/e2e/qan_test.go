@@ -68,9 +68,8 @@ func TestQAN(t *testing.T) {
 	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
 	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		tn := time.Now()
-		rowsCount, err := cSource.Count("", &startTime, &tn)
+	if err := util.RetryOnError(tCtx, func(context.Context) error {
+		rowsCount, err := cSource.Count("", nil, nil)
 		if err != nil {
 			return err
 		}
@@ -127,7 +126,6 @@ func TestQAN(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		i := i
 		t.Run(tt.name, func(t *testing.T) {
 			dumpName := fmt.Sprintf("dump-%d.tar.gz", i)
 			dumpPath := filepath.Join(testDir, dumpName)
@@ -145,11 +143,10 @@ func TestQAN(t *testing.T) {
 				args = append(args, "--instance="+instance)
 			}
 
-			tCtx, cancel := context.WithTimeout(ctx, qanTestRetryTimeout)
 			defer cancel()
-			if err := util.RetryOnError(tCtx, func() error {
+			if err := util.RetryOnError(tCtx, func(context.Context) error {
 				pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
-				stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+				stdout, stderr, err := b.Run(ctx, append([]string{"export", "--ignore-load"}, args...)...)
 				if err != nil {
 					return errors.Wrapf(err, "failed to export: stdout %s; stderr %s", stdout, stderr)
 				}
@@ -176,7 +173,7 @@ func TestQAN(t *testing.T) {
 	pmm.Log("Waiting for QAN data about instance \"pmm-server-postgresql\" for", qanWaitTimeout, "minutes")
 	tCtx, cancel = context.WithTimeout(ctx, qanWaitTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
+	if err := util.RetryOnError(tCtx, func(context.Context) error {
 		tn := time.Now()
 		rowsCount, err := cSource.Count("service_name='pmm-server-postgresql'", &startTime, &tn)
 		if err != nil {
@@ -206,7 +203,7 @@ func TestQAN(t *testing.T) {
 	}
 
 	pmm.Log("Exporting data to", dumpPath)
-	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+	stdout, stderr, err := b.Run(ctx, append([]string{"export", "--ignore-load"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}

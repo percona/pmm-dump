@@ -97,7 +97,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
+	if err := util.RetryOnError(tCtx, func(context.Context) error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart clickhouse")
@@ -127,7 +127,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
+	if err := util.RetryOnError(tCtx, func(context.Context) error {
 		return victoriametrics.ExportTestRequest(gc, pmmConfig.VictoriaMetricsURL)
 	}); err != nil {
 		return errors.Wrap(err, "failed to check victoriametrics")
@@ -222,7 +222,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
+	if err := util.RetryOnError(tCtx, func(context.Context) error {
 		err = pmm.Exec(ctx, pmm.ClientContainerName(), "pmm-admin", "status")
 		if err != nil {
 			if strings.Contains(err.Error(), "is not running") {

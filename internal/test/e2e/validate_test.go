@@ -67,6 +67,7 @@ func TestValidate(t *testing.T) {
 
 	pmm.Log("Exporting data to", xDumpPath, start, end)
 	stdout, stderr, err := b.Run(
+		ctx,
 		"export",
 		"--ignore-load",
 		"-d", xDumpPath,
@@ -90,6 +91,7 @@ func TestValidate(t *testing.T) {
 
 	pmm.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
+		ctx,
 		"import",
 		"-d", xDumpPath,
 		"--pmm-url", newPMM.PMMURL(),
@@ -105,6 +107,7 @@ func TestValidate(t *testing.T) {
 
 	pmm.Log("Exporting data to", yDumpPath)
 	stdout, stderr, err = b.Run(
+		ctx,
 		"export",
 		"--ignore-load",
 		"-d", yDumpPath,
@@ -374,7 +377,10 @@ func isGzip(data []byte) bool {
 	reader := bytes.NewReader(data)
 	r, err := gzip.NewReader(reader)
 	if r != nil {
-		r.Close()
+		err = r.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return err == nil
 }

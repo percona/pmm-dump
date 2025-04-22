@@ -17,6 +17,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -107,6 +108,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 			defer server.Close()
 
 			_, stderr, err := b.Run(
+				context.Background(),
 				"import",
 				"-d", "some-dumppath",
 				"--pmm-url", server.URL,
