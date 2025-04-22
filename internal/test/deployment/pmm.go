@@ -180,7 +180,6 @@ func (p *PMM) ClickhouseURL() string {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
 	u.Host += ":" + *p.clickhousePort
-
 	return u.String()
 }
 
@@ -194,7 +193,6 @@ func (p *PMM) MongoURL() string {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
 	u.Host += ":" + *p.mongoPort
-
 	return u.String()
 }
 
@@ -360,6 +358,15 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to ping clickhouse")
 	}
 
+	pmm.Log("Ping VictoriaMetrics")
+	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	if err != nil {
+		return errors.Wrap(err, "failed to get PMM config")
+	}
+	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/health"); err != nil && !errors.Is(err, io.EOF) {
+		return errors.Wrap(err, "failed to ping VM")
+	}
+	
 	return nil
 }
 
@@ -377,9 +384,6 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart pmm server")
 	}
-	pmm.Log("Waiting for container to restart")
-	time.Sleep(time.Second * 5) //nolint:mnd
-
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set server published ports")
 	}

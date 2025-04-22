@@ -20,7 +20,6 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -45,8 +44,6 @@ func TestExportImport(t *testing.T) {
 	if err := g.Wait(); err != nil {
 		t.Fatal(err)
 	}
-	pmm.Log("Waiting 20 second after deploy")
-	time.Sleep(time.Second * 20)
 
 	var b util.Binary
 	testDir := t.TempDir()

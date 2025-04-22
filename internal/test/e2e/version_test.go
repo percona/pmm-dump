@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -54,8 +53,6 @@ func TestPMMCompatibility(t *testing.T) {
 		if err := pmm.Deploy(ctx); err != nil {
 			t.Fatal(err)
 		}
-		pmm.Log("Waiting 20 second after deploy")
-		time.Sleep(time.Second * 20)
 
 		if dumpPath != "" {
 			pmm.Log("Importing data from", dumpPath)
@@ -72,8 +69,6 @@ func TestPMMCompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatal("failed to export", err, stdout, stderr)
 		}
-		pmm.Log("Waiting 20 second after deploy")
-		time.Sleep(time.Second * 20)
 
 		pmm.Log("Importing data from", dumpPath)
 		stdout, stderr, err = b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "-v")

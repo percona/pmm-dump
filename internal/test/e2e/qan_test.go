@@ -39,11 +39,9 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-const qanWaitTimeout = time.Minute * 7
+const qanWaitTimeout = time.Minute * 5
 
-const qanTestRetryTimeout = time.Minute * 3
-
-// var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
+const qanTestRetryTimeout = time.Minute * 2
 
 func TestQANWhere(t *testing.T) {
 	ctx := context.Background()
@@ -52,8 +50,6 @@ func TestQANWhere(t *testing.T) {
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
-	pmm.Log("Waiting 20 second after deploy")
-	time.Sleep(time.Second * 20)
 
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")

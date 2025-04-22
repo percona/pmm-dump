@@ -59,8 +59,6 @@ func TestValidate(t *testing.T) {
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
-	pmm.Log("Waiting 20 second after deploy")
-	time.Sleep(time.Second * 20)
 
 	start := time.Now().UTC()
 	pmm.Log("Sleeping for 120 seconds")
@@ -89,8 +87,6 @@ func TestValidate(t *testing.T) {
 	if err := newPMM.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
-	pmm.Log("Waiting 20 second after deploy")
-	time.Sleep(time.Second * 20)
 
 	pmm.Log("Importing data from", xDumpPath)
 	stdout, stderr, err = b.Run(
