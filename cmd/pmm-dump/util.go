@@ -425,7 +425,7 @@ func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhous
 		Where:         where,
 	}
 
-	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
+	clickhouseSource, err := clickhouse.NewSource(ctx, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create ClickHouse source")
 	}
