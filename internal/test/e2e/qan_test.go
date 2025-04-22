@@ -58,7 +58,6 @@ func TestQAN(t *testing.T) {
 	pmm.Log(pmm.ClickhouseURL())
 	clickConfig := &clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
-		Where:         "",
 	}
 	cSource, err := clickhouse.NewSource(ctx, clickConfig)
 	if err != nil {
@@ -73,6 +72,7 @@ func TestQAN(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		pmm.Log(rowsCount)
 		if rowsCount == 0 {
 			return errors.New("no qan data")
 		}
