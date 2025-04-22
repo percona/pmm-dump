@@ -60,7 +60,7 @@ func TestQAN(t *testing.T) {
 		ConnectionURL: pmm.ClickhouseURL(),
 		Where:         "",
 	}
-	cSource, err := clickhouse.NewSource(ctx, clickConfig)
+	cSource, err := clickhouse.NewSource(ctx, *clickConfig)
 	if err != nil {
 		t.Fatal("failed to create clickhouse source", err)
 	}

@@ -33,7 +33,7 @@ import (
 
 type Source struct {
 	db   *sql.DB
-	cfg  *Config
+	cfg  Config
 	tx   *sql.Tx
 	ct   []*sql.ColumnType
 	stmt *sql.Stmt
@@ -70,7 +70,7 @@ func NewSource(ctx context.Context, cfg *Config) (*Source, error) {
 		return nil, errors.Wrap(err, "prepare insert statement")
 	}
 	return &Source{
-		cfg:  cfg,
+		cfg:  *cfg,
 		db:   db,
 		tx:   tx,
 		ct:   ct,
@@ -90,11 +90,11 @@ func columnTypes(db *sql.DB, ctx context.Context) ([]*sql.ColumnType, error) {
 	return rows.ColumnTypes()
 }
 
-func (s *Source) Type() dump.SourceType {
+func (s Source) Type() dump.SourceType {
 	return dump.ClickHouse
 }
 
-func (s *Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
+func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
@@ -154,7 +154,7 @@ func toStringSlice(iSlice []interface{}) []string {
 	return values
 }
 
-func (s *Source) WriteChunk(_ string, r io.Reader) error {
+func (s Source) WriteChunk(_ string, r io.Reader) error {
 	reader := tsv.NewReader(r, s.ColumnTypes())
 
 	for {
@@ -188,7 +188,7 @@ func prepareInsertStatement(tx *sql.Tx, columnsCount int) (*sql.Stmt, error) {
 	return tx.Prepare(query.String())
 }
 
-func (s *Source) FinalizeWrites() error {
+func (s Source) FinalizeWrites() error {
 	if err := s.stmt.Close(); err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func prepareWhereClause(whereCondition string, start, end *time.Time) string {
 	return query
 }
 
-func (s *Source) Count(where string, startTime, endTime *time.Time) (int, error) {
+func (s Source) Count(where string, startTime, endTime *time.Time) (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
 	if where != "" {
@@ -232,11 +232,11 @@ func (s *Source) Count(where string, startTime, endTime *time.Time) (int, error)
 	return count, nil
 }
 
-func (s *Source) ColumnTypes() []*sql.ColumnType {
+func (s Source) ColumnTypes() []*sql.ColumnType {
 	return s.ct
 }
 
-func (s *Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) ([]dump.ChunkMeta, error) {
+func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) ([]dump.ChunkMeta, error) {
 	if chunkRowsLen <= 0 {
 		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
