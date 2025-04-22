@@ -65,5 +65,10 @@ func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) e
 		}
 		return errors.New("exit code is not 0:" + string(output))
 	}
+	output, err := io.ReadAll(attach.Reader)
+	if err != nil {
+		return errors.Wrap(err, "failed to read exec output")
+	}
+	pmm.Log(string(output))
 	return nil
 }
