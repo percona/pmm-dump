@@ -44,8 +44,8 @@ const qanWaitTimeout = time.Minute * 5
 const qanTestRetryTimeout = time.Minute * 2
 
 func TestQANWhere(t *testing.T) {
-	ctx := context.Background()
 	c := deployment.NewController(t)
+	ctx := context.Background()
 	pmm := c.NewPMM("qan", ".env.test")
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
@@ -53,10 +53,11 @@ func TestQANWhere(t *testing.T) {
 
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
-
-	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
+	clickConfig := &clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
-	})
+		Where:         "",
+	}
+	cSource, err := clickhouse.NewSource(ctx, *clickConfig)
 	if err != nil {
 		t.Fatal("failed to create clickhouse source", err)
 	}
@@ -266,9 +267,11 @@ func TestQANEmptyChunks(t *testing.T) {
 
 	startTime := time.Now()
 
-	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
+	clickConfig := &clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
-	})
+		Where:         "",
+	}
+	cSource, err := clickhouse.NewSource(ctx, *clickConfig)
 	if err != nil {
 		t.Fatal("failed to create clickhouse source", err)
 	}
