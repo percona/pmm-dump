@@ -168,6 +168,56 @@ func TestQANWhere(t *testing.T) {
 			}
 		})
 	}
+
+	pmm.Log("Waiting for QAN data about instance \"pmm-server-postgresql\" for", qanWaitTimeout, "minutes")
+	tCtx, cancel = context.WithTimeout(ctx, qanWaitTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		tn := time.Now()
+		rowsCount, err := cSource.Count("service_name='pmm-server-postgresql'", &startTime, &tn)
+		if err != nil {
+			return err
+		}
+		if rowsCount == 0 {
+			pmm.Log("QAN doesn't have data about instance \"pmm-server-postgresql\". Waiting...")
+			return errors.New("no qan data")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err, "failed to get qan data")
+	}
+
+	dumpPath := filepath.Join(testDir, "dump.tar.gz")
+	args := []string{
+		"-d", dumpPath,
+		"--pmm-url", pmm.PMMURL(),
+		"--dump-qan",
+		"--no-dump-core",
+		"--click-house-url", pmm.ClickhouseURL(),
+		"--instance", "pmm-server-postgresql",
+		"--start-ts", startTime.Format(time.RFC3339),
+		"--end-ts", time.Now().Format(time.RFC3339),
+		"--chunk-rows", "1",
+		"-v",
+	}
+
+	pmm.Log("Exporting data to", dumpPath)
+	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+	if err != nil {
+		t.Fatal("failed to export", err, stdout, stderr)
+	}
+
+	// We shouldn't have any empty chunks in the dump
+	chunks, err := getQANChunks(dumpPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, data := range chunks {
+		if len(data) == 0 {
+			t.Fatalf("Empty chunk %s found in the dump %s", name, dumpPath)
+		}
+	}
 }
 
 func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string]string) error {
@@ -254,91 +304,42 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 	return chunkMap, nil
 }
 
-func TestQANEmptyChunks(t *testing.T) {
-	ctx := context.Background()
-	c := deployment.NewController(t)
-	pmm := c.NewPMM("qan-empty", ".env.test")
-	if err := pmm.Deploy(ctx); err != nil {
-		t.Fatal(err)
-	}
+// func TestQANEmptyChunks(t *testing.T) {
+// 	ctx := context.Background()
+// 	c := deployment.NewController(t)
+// 	pmm := c.NewPMM("qan-empty", ".env.test")
+// 	if err := pmm.Deploy(ctx); err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	var b util.Binary
-	testDir := util.CreateTestDir(t, "qan-empty-chunks")
+// 	var b util.Binary
+// 	testDir := util.CreateTestDir(t, "qan-empty-chunks")
 
-	startTime := time.Now()
+// 	startTime := time.Now()
 
-	clickConfig := &clickhouse.Config{
-		ConnectionURL: pmm.ClickhouseURL(),
-		Where:         "",
-	}
-	cSource, err := clickhouse.NewSource(ctx, *clickConfig)
-	if err != nil {
-		t.Fatal("failed to create clickhouse source", err)
-	}
+// 	clickConfig := &clickhouse.Config{
+// 		ConnectionURL: pmm.ClickhouseURL(),
+// 		Where:         "",
+// 	}
+// 	cSource, err := clickhouse.NewSource(ctx, *clickConfig)
+// 	if err != nil {
+// 		t.Fatal("failed to create clickhouse source", err)
+// 	}
 
-	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
-	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		rowsCount, err := cSource.Count("", nil, nil)
-		if err != nil {
-			return err
-		}
-		if rowsCount == 0 {
-			return errors.New("no qan data")
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err, "failed to get qan data")
-	}
+// 	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
+// 	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
+// 	defer cancel()
+// 	if err := util.RetryOnError(tCtx, func() error {
+// 		rowsCount, err := cSource.Count("", nil, nil)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if rowsCount == 0 {
+// 			return errors.New("no qan data")
+// 		}
+// 		return nil
+// 	}); err != nil {
+// 		t.Fatal(err, "failed to get qan data")
+// 	}
 
-	pmm.Log("Waiting for QAN data about instance \"pmm-server-postgresql\" for", qanWaitTimeout, "minutes")
-	tCtx, cancel = context.WithTimeout(ctx, qanWaitTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		tn := time.Now()
-		rowsCount, err := cSource.Count("service_name='pmm-server-postgresql'", &startTime, &tn)
-		if err != nil {
-			return err
-		}
-		if rowsCount == 0 {
-			pmm.Log("QAN doesn't have data about instance \"pmm-server-postgresql\". Waiting...")
-			return errors.New("no qan data")
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err, "failed to get qan data")
-	}
-
-	dumpPath := filepath.Join(testDir, "dump.tar.gz")
-	args := []string{
-		"-d", dumpPath,
-		"--pmm-url", pmm.PMMURL(),
-		"--dump-qan",
-		"--no-dump-core",
-		"--click-house-url", pmm.ClickhouseURL(),
-		"--instance", "pmm-server-postgresql",
-		"--start-ts", startTime.Format(time.RFC3339),
-		"--end-ts", time.Now().Format(time.RFC3339),
-		"--chunk-rows", "1",
-		"-v",
-	}
-
-	pmm.Log("Exporting data to", dumpPath)
-	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
-	if err != nil {
-		t.Fatal("failed to export", err, stdout, stderr)
-	}
-
-	// We shouldn't have any empty chunks in the dump
-	chunks, err := getQANChunks(dumpPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for name, data := range chunks {
-		if len(data) == 0 {
-			t.Fatalf("Empty chunk %s found in the dump %s", name, dumpPath)
-		}
-	}
-}
+// }
