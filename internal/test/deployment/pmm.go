@@ -366,7 +366,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/health"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping VM")
 	}
-	
+
 	return nil
 }
 
