@@ -55,7 +55,6 @@ func TestQAN(t *testing.T) {
 	testDir := util.CreateTestDir(t, "qan-where")
 
 	startTime := time.Now()
-	pmm.Log(pmm.ClickhouseURL())
 	clickConfig := &clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 	}
@@ -72,7 +71,7 @@ func TestQAN(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		pmm.Log(rowsCount)
+		pmm.Log("Rows found: " + fmt.Sprint(rowsCount))
 		if rowsCount == 0 {
 			return errors.New("no qan data")
 		}

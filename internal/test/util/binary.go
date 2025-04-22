@@ -34,9 +34,9 @@ func (b *Binary) Run(ctx context.Context, args ...string) (string, string, error
 	if b.timeout == 0 {
 		b.timeout = defaultTimeout
 	}
-	Rctx, cancel := context.WithTimeout(ctx, b.timeout)
+	ctxR, cancel := context.WithTimeout(ctx, b.timeout)
 	defer cancel()
-	return Exec(Rctx, RepoPath, "./pmm-dump", args...)
+	return Exec(ctxR, RepoPath, "./pmm-dump", args...)
 }
 
 func Exec(ctx context.Context, wd string, name string, args ...string) (string, string, error) {
