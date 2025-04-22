@@ -55,7 +55,7 @@ func TestQAN(t *testing.T) {
 	testDir := util.CreateTestDir(t, "qan-where")
 
 	startTime := time.Now()
-
+	pmm.Log(pmm.ClickhouseURL())
 	clickConfig := &clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 		Where:         "",
