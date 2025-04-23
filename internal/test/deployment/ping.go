@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -30,7 +29,7 @@ import (
 const pingTimeout = time.Second * 10
 
 func (pmm *PMM) PingMongo(ctx context.Context) error {
-	fmt.Print(pmm.MongoURL())
+	pmm.Log("Mongo URL:", pmm.MongoURL())
 	cl, err := mongo.Connect(ctx, options.Client().ApplyURI(pmm.MongoURL()))
 	if err != nil {
 		return errors.Wrap(err, "failed to connect")
@@ -47,6 +46,7 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 }
 
 func (pmm *PMM) PingClickhouse(ctx context.Context) error {
+	pmm.Log("ClickHouse URL:", pmm.ClickhouseURL())
 	db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
 	if err != nil {
 		return err
@@ -66,16 +66,9 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 
 	var count int
 	query := "SELECT COUNT(*) FROM metrics"
-	row := db.QueryRow(query)
+	row := db.QueryRowContext(ctx, query)
 	if err := row.Scan(&count); err != nil {
 		fmt.Print(err)
-		if strings.Contains(err.Error(), "Table pmm.metrics does not exist") {
-			pmm.Log("Pmm.metrics was not created trying to restart pmm")
-			err = pmm.Restart(ctx)
-			if err != nil {
-				return err
-			}
-		}
 	}
 	return nil
 }
