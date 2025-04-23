@@ -16,7 +16,7 @@ package deployment
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -25,10 +25,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const pingTimeout = time.Second * 10
+const pingTimeout = time.Second * 5
 
 func (pmm *PMM) PingMongo(ctx context.Context) error {
-	pmm.Log("Mongo URL:", pmm.MongoURL())
 	cl, err := mongo.Connect(ctx, options.Client().ApplyURI(pmm.MongoURL()))
 	if err != nil {
 		return errors.Wrap(err, "failed to connect")
@@ -45,26 +44,10 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 }
 
 func (pmm *PMM) PingClickhouse(ctx context.Context) error {
-	pmm.Log("ClickHouse URL:", pmm.ClickhouseURL())
-	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{pmm.ClickhouseURL()},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
-		},
-		DialTimeout:          time.Second * 30,
-		Debug:                true,
-		BlockBufferSize:      10,
-		MaxCompressionBuffer: 10240,
-	})
-	//db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
-	// if err != nil {
-	// 	return err
-	// }
+	db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
+	if err != nil {
+		return err
+	}
 	defer db.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
@@ -76,13 +59,6 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 			return errors.Errorf("exception: [%d] %s %s", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return err
-	}
-
-	var count int
-	query := "SELECT COUNT(*) FROM pmm.metrics"
-	row := db.QueryRowContext(ctx, query)
-	if err := row.Scan(&count); err != nil {
-		fmt.Print(err)
 	}
 	return nil
 }

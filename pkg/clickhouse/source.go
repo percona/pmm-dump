@@ -40,25 +40,10 @@ type Source struct {
 }
 
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
-	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{cfg.ConnectionURL},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
-		},
-		DialTimeout:          time.Second * 30,
-		Debug:                true,
-		BlockBufferSize:      10,
-		MaxCompressionBuffer: 10240,
-	})
-	// db, err := sql.Open("clickhouse", cfg.ConnectionURL)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "sql open")
-	// }
+	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "sql open")
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -94,7 +79,7 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 }
 
 func columnTypes(db *sql.DB) ([]*sql.ColumnType, error) {
-	rows, err := db.Query("SELECT * FROM pmm.metrics LIMIT 1")
+	rows, err := db.Query("SELECT * FROM metrics LIMIT 1")
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +97,7 @@ func (s Source) Type() dump.SourceType {
 func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
-	query := "SELECT * FROM pmm.metrics"
+	query := "SELECT * FROM metrics"
 	query += " " + prepareWhereClause(s.cfg.Where, m.Start, m.End)
 	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)
 	rows, err := s.db.Query(query)
@@ -192,10 +177,10 @@ func (s Source) WriteChunk(_ string, r io.Reader) error {
 func prepareInsertStatement(tx *sql.Tx, columnsCount int) (*sql.Stmt, error) {
 	var query strings.Builder
 
-	queryStart := "INSERT INTO pmm.metrics VALUES ("
+	queryStart := "INSERT INTO metrics VALUES ("
 
 	query.Grow(len(queryStart) + columnsCount*2)
-	query.WriteString("INSERT INTO pmm.metrics VALUES (")
+	query.WriteString("INSERT INTO metrics VALUES (")
 	for range columnsCount {
 		query.WriteString("?,")
 	}
@@ -236,13 +221,12 @@ func prepareWhereClause(whereCondition string, start, end *time.Time) string {
 
 func (s Source) Count(where string, startTime, endTime *time.Time) (int, error) {
 	var count int
-	query := "SELECT COUNT(*) FROM pmm.metrics"
+	query := "SELECT COUNT(*) FROM metrics"
 	if where != "" {
 		query += " " + prepareWhereClause(where, startTime, endTime)
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
-		fmt.Print(err)
 		return 0, err
 	}
 	return count, nil

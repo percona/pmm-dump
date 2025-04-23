@@ -39,7 +39,7 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-const qanWaitTimeout = time.Minute * 2
+const qanWaitTimeout = time.Minute * 3
 
 var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
@@ -54,7 +54,7 @@ func TestQANWhere(t *testing.T) {
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
 
-	columnTypes := getCount(*pmm, ctx, t, time.Now())
+	columnTypes := getCount(*pmm, ctx, t)
 
 	tests := []struct {
 		name      string
@@ -143,7 +143,7 @@ func TestQANWhere(t *testing.T) {
 		})
 	}
 }
-func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart time.Time) []*sql.ColumnType {
+func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T) []*sql.ColumnType {
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 	})
@@ -158,12 +158,6 @@ func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart t
 		rowsCount, err := cSource.Count("", nil, nil)
 		if err != nil {
 			return err
-		}
-		pmm.Log("Rows found: " + fmt.Sprint(rowsCount))
-		pmm.Log("Pinging clickhouse")
-		err = pmm.PingClickhouse(ctx)
-		if err != nil {
-			pmm.Log(err)
 		}
 
 		if rowsCount == 0 {

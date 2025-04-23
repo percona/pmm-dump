@@ -173,16 +173,15 @@ func (p *PMM) ClickhouseURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-
-	u.Scheme = ""
-	//u.Path = "pmm"
-	//u.Host = u.Host[2:]
+	u.User = nil
+	u.Scheme = "clickhouse"
+	u.Path = "pmm"
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	temp := u.Host + ":" + *p.clickhousePort
+	u.Host += ":" + *p.clickhousePort
 
-	return temp
+	return u.String()
 }
 
 func (p *PMM) MongoURL() string {
@@ -366,7 +365,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get PMM config")
 	}
-	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/health"); err != nil && !errors.Is(err, io.EOF) {
+	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/ready"); err != nil && !errors.Is(err, io.EOF) {
 		return errors.Wrap(err, "failed to ping VM")
 	}
 
@@ -419,9 +418,6 @@ func getUntilOk(ctx context.Context, url string) error {
 		if err != nil {
 			return err
 		}
-		buf := make([]byte, 1000)
-		resp.Body.Read(buf)
-		fmt.Print("\n" + "URL:" + url + "\n" + string(buf) + "\n")
 		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil
