@@ -55,9 +55,7 @@ func TestQANWhere(t *testing.T) {
 	testDir := util.CreateTestDir(t, "qan-where")
 
 	columnTypes := getCount(*pmm, ctx, t, time.Now())
-	if columnTypes == nil {
-		restartTest(t)
-	}
+
 	tests := []struct {
 		name      string
 		instances []string
@@ -145,12 +143,6 @@ func TestQANWhere(t *testing.T) {
 		})
 	}
 }
-func restartTest(t *testing.T) {
-	qanPMM.DestroyNoFail(context.Background())
-	qanPMM = deployment.NewReusablePMM("qan", ".env.test")
-	TestQANWhere(t)
-	TestQANEmptyChunks(t)
-}
 func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart time.Time) []*sql.ColumnType {
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
@@ -179,12 +171,7 @@ func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart t
 		}
 		return nil
 	}); err != nil {
-		if time.Now().Sub(timeStart) > time.Minute*6 {
-			return nil
-		}
-		pmm.Log("Trying to restart PMM because Clickhouse didn't create data")
-		pmm.Restart(ctx)
-		return getCount(pmm, ctx, t, timeStart)
+		t.Fatal(err, "no column types")
 	}
 
 	return cSource.ColumnTypes()

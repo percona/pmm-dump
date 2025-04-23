@@ -27,9 +27,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const pingTimeout = time.Second * 5
+const pingTimeout = time.Second * 10
 
 func (pmm *PMM) PingMongo(ctx context.Context) error {
+	fmt.Print(pmm.MongoURL())
 	cl, err := mongo.Connect(ctx, options.Client().ApplyURI(pmm.MongoURL()))
 	if err != nil {
 		return errors.Wrap(err, "failed to connect")
