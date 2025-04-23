@@ -41,8 +41,6 @@ import (
 
 const qanWaitTimeout = time.Minute * 2
 
-const qanTestRetryTimeout = time.Minute * 2
-
 var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
 func TestQANWhere(t *testing.T) {
@@ -115,7 +113,7 @@ func TestQANWhere(t *testing.T) {
 				"--where", tt.query,
 				"-v",
 			}
-			tCtx, cancel := context.WithTimeout(ctx, qanTestRetryTimeout)
+			tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
 			for _, instance := range tt.instances {
 				args = append(args, "--instance="+instance)
 			}
@@ -147,11 +145,11 @@ func TestQANWhere(t *testing.T) {
 		})
 	}
 }
+
 func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart time.Time) []*sql.ColumnType {
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 	})
-
 	if err != nil {
 		t.Fatal("failed to create clickhouse source", err)
 	}
@@ -165,9 +163,11 @@ func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart t
 			return err
 		}
 		pmm.Log("Rows found: " + fmt.Sprint(rowsCount))
-		pmm.Log("Ping clickhouse")
-		temp := pmm.PingClickhouse(ctx)
-		pmm.Log(temp)
+		pmm.Log("Pinging clickhouse")
+		err = pmm.PingClickhouse(ctx)
+		if err != nil {
+			pmm.Log(err)
+		}
 
 		if rowsCount == 0 {
 			return errors.New("no qan data")
@@ -177,13 +177,14 @@ func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart t
 		if time.Now().Sub(timeStart) > time.Minute*6 {
 			return nil
 		}
-		pmm.Log("Restarting pmm")
+		pmm.Log("Trying to restart PMM because Clickhouse didn't create data")
 		pmm.Restart(ctx)
 		return getCount(pmm, ctx, t, timeStart)
 	}
 
 	return cSource.ColumnTypes()
 }
+
 func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string]string) error {
 	tr := tsv.NewReader(bytes.NewReader(data), columnTypes)
 	for {
