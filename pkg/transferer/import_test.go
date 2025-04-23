@@ -18,7 +18,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -30,7 +29,7 @@ import (
 )
 
 func TestImport(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name          string

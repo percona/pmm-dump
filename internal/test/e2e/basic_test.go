@@ -17,7 +17,6 @@
 package e2e
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +31,7 @@ func TestExportImport(t *testing.T) {
 	pmm := c.NewPMM("export-import", ".env.test")
 	newPMM := c.NewPMM("export-import-2", ".env2.test")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	g, gCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return pmm.Deploy(gCtx)
@@ -47,7 +46,7 @@ func TestExportImport(t *testing.T) {
 
 	var b util.Binary
 	testDir := t.TempDir()
-	
+
 	pmm.Log("Checking filtering with `--instance` flag")
 	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-server", "-v"}
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)

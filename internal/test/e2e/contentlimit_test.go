@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -47,7 +46,7 @@ func TestContentLimit(t *testing.T) {
 		t.Skip("skipping test because existing deployment is used")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	var b util.Binary
 	tmpDir := util.CreateTestDir(t, "content-limit-test")

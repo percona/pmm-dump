@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -44,7 +43,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c := deployment.NewController(t)
 	pmm := c.NewPMM("validate", ".env.test")

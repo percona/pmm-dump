@@ -45,7 +45,7 @@ var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
 func TestQANWhere(t *testing.T) {
 	c := deployment.NewController(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	pmm := c.ReusablePMM(qanPMM)
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
@@ -54,8 +54,10 @@ func TestQANWhere(t *testing.T) {
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
 
-	columnTypes := getCount(*pmm, ctx, t)
-
+	columnTypes, err := getCount(ctx, *pmm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		name      string
 		instances []string
@@ -143,12 +145,13 @@ func TestQANWhere(t *testing.T) {
 		})
 	}
 }
-func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T) []*sql.ColumnType {
+
+func getCount(ctx context.Context, pmm deployment.PMM) ([]*sql.ColumnType, error) {
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
 		ConnectionURL: pmm.ClickhouseURL(),
 	})
 	if err != nil {
-		t.Fatal("failed to create clickhouse source", err)
+		return nil, err
 	}
 
 	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
@@ -165,10 +168,10 @@ func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T) []*sql.Colu
 		}
 		return nil
 	}); err != nil {
-		t.Fatal(err, "no column types")
+		return nil, err
 	}
 
-	return cSource.ColumnTypes()
+	return cSource.ColumnTypes(), nil
 }
 
 func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string]string) error {
@@ -256,7 +259,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 }
 
 func TestQANEmptyChunks(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c := deployment.NewController(t)
 	pmm := c.ReusablePMM(qanPMM)

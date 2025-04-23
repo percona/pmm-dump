@@ -17,7 +17,6 @@
 package e2e
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +29,7 @@ import (
 )
 
 func TestPMMCompatibility(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	pmmVersions, err := getVersions()
 	if err != nil {
