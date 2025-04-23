@@ -173,15 +173,16 @@ func (p *PMM) ClickhouseURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	u.User = nil
-	u.Scheme = "clickhouse"
-	u.Path = "pmm"
+
+	u.Scheme = ""
+	//u.Path = "pmm"
+	//u.Host = u.Host[2:]
 	if strings.Contains(u.Host, ":") {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
-	u.Host += ":" + *p.clickhousePort
+	temp := u.Host + ":" + *p.clickhousePort
 
-	return u.String()
+	return temp
 }
 
 func (p *PMM) MongoURL() string {
@@ -420,7 +421,7 @@ func getUntilOk(ctx context.Context, url string) error {
 		}
 		buf := make([]byte, 1000)
 		resp.Body.Read(buf)
-		fmt.Print("\n"+"URL:"+url+"\n" + string(buf) + "\n")
+		fmt.Print("\n" + "URL:" + url + "\n" + string(buf) + "\n")
 		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil

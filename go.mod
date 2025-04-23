@@ -1,8 +1,6 @@
 module pmm-dump
 
-go 1.23.5
-
-toolchain go1.24.1
+go 1.24.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.33.0

@@ -16,7 +16,6 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -47,10 +46,25 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 
 func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	pmm.Log("ClickHouse URL:", pmm.ClickhouseURL())
-	db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
-	if err != nil {
-		return err
-	}
+	db := clickhouse.OpenDB(&clickhouse.Options{
+		Addr: []string{pmm.ClickhouseURL()},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+		},
+		DialTimeout:          time.Second * 30,
+		Debug:                true,
+		BlockBufferSize:      10,
+		MaxCompressionBuffer: 10240,
+	})
+	//db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
+	// if err != nil {
+	// 	return err
+	// }
 	defer db.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
@@ -65,7 +79,7 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	}
 
 	var count int
-	query := "SELECT COUNT(*) FROM metrics"
+	query := "SELECT COUNT(*) FROM pmm.metrics"
 	row := db.QueryRowContext(ctx, query)
 	if err := row.Scan(&count); err != nil {
 		fmt.Print(err)
