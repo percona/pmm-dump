@@ -227,6 +227,7 @@ func (s Source) Count(where string, startTime, endTime *time.Time) (int, error) 
 	}
 	row := s.db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
+		fmt.Print(err)
 		return 0, err
 	}
 	return count, nil

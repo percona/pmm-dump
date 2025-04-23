@@ -72,6 +72,15 @@ func TestQAN(t *testing.T) {
 			return err
 		}
 		pmm.Log("Rows found: " + fmt.Sprint(rowsCount))
+
+		pmm.Log("Ping clickhouse")
+		defer cancel()
+		if err := util.RetryOnError(tCtx, func(context.Context) error {
+			return pmm.PingClickhouse(ctx)
+		}); err != nil {
+			return errors.Wrap(err, "failed to ping clickhouse")
+		}
+
 		if rowsCount == 0 {
 			return errors.New("no qan data")
 		}
