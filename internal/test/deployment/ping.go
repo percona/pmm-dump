@@ -17,6 +17,7 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -60,5 +61,13 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 		}
 		return err
 	}
+	var count int
+	query := "SELECT COUNT(*) FROM metrics"
+	row := db.QueryRow(query)
+	if err := row.Scan(&count); err != nil {
+		fmt.Print(err)
+		
+	}
+	fmt.Print(count)
 	return nil
 }
