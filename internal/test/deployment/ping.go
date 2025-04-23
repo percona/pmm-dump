@@ -66,6 +66,7 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	query := "SELECT COUNT(*) FROM metrics"
 	row := db.QueryRow(query)
 	if err := row.Scan(&count); err != nil {
+		fmt.Print(err)
 		if strings.Contains(err.Error(), "Table pmm.metrics does not exist") {
 			time.Sleep(5 * time.Second)
 			return pmm.PingClickhouse(ctx)

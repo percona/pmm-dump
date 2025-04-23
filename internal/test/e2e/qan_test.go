@@ -39,7 +39,7 @@ import (
 	"pmm-dump/pkg/dump"
 )
 
-const qanWaitTimeout = time.Minute * 5
+const qanWaitTimeout = time.Minute * 2
 
 const qanTestRetryTimeout = time.Minute * 2
 
@@ -56,36 +56,10 @@ func TestQANWhere(t *testing.T) {
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
 
-	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
-		ConnectionURL: pmm.ClickhouseURL(),
-	})
-	if err != nil {
-		t.Fatal("failed to create clickhouse source", err)
+	columnTypes := getCount(*pmm, ctx, t, time.Now())
+	if columnTypes == nil {
+		t.Fatal("Couldn't get data from Clickhouse")
 	}
-
-	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
-	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		rowsCount, err := cSource.Count("", nil, nil)
-		if err != nil {
-			return err
-		}
-		pmm.Log("Rows found: " + fmt.Sprint(rowsCount))
-		pmm.Log("Ping clickhouse")
-		temp := pmm.PingClickhouse(ctx)
-		pmm.Log(temp)
-
-		if rowsCount == 0 {
-			return errors.New("no qan data")
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err, "failed to get qan data")
-	}
-
-	columnTypes := cSource.ColumnTypes()
-
 	tests := []struct {
 		name      string
 		instances []string
@@ -173,7 +147,43 @@ func TestQANWhere(t *testing.T) {
 		})
 	}
 }
+func getCount(pmm deployment.PMM, ctx context.Context, t *testing.T, timeStart time.Time) []*sql.ColumnType {
+	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
+		ConnectionURL: pmm.ClickhouseURL(),
+	})
 
+	if err != nil {
+		t.Fatal("failed to create clickhouse source", err)
+	}
+
+	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
+	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		rowsCount, err := cSource.Count("", nil, nil)
+		if err != nil {
+			return err
+		}
+		pmm.Log("Rows found: " + fmt.Sprint(rowsCount))
+		pmm.Log("Ping clickhouse")
+		temp := pmm.PingClickhouse(ctx)
+		pmm.Log(temp)
+
+		if rowsCount == 0 {
+			return errors.New("no qan data")
+		}
+		return nil
+	}); err != nil {
+		if time.Now().Sub(timeStart) > time.Minute*6 {
+			return nil
+		}
+		pmm.Log("Restarting pmm")
+		pmm.Restart(ctx)
+		return getCount(pmm, ctx, t, timeStart)
+	}
+
+	return cSource.ColumnTypes()
+}
 func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string]string) error {
 	tr := tsv.NewReader(bytes.NewReader(data), columnTypes)
 	for {
