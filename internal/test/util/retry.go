@@ -21,14 +21,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RetryOnError(ctx context.Context, f func(context.Context) error) error {
+func RetryOnError(ctx context.Context, f func() error) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	var err error
 	for {
 		select {
 		case <-ticker.C:
-			err = f(ctx)
+			err = f()
 			if err == nil {
 				return nil
 			}

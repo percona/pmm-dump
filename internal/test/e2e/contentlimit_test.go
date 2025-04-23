@@ -71,7 +71,6 @@ func TestContentLimit(t *testing.T) {
 	}
 
 	stdout, stderr, err := b.Run(
-		ctx,
 		"import",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL())
@@ -86,7 +85,6 @@ func TestContentLimit(t *testing.T) {
 	pmm.Log("Importing with 10KB limit")
 
 	stdout, stderr, err = b.Run(
-		ctx,
 		"import",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL(),

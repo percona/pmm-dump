@@ -180,6 +180,7 @@ func (p *PMM) ClickhouseURL() string {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
 	u.Host += ":" + *p.clickhousePort
+
 	return u.String()
 }
 
@@ -193,6 +194,7 @@ func (p *PMM) MongoURL() string {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
 	u.Host += ":" + *p.mongoPort
+
 	return u.String()
 }
 
@@ -299,7 +301,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func(context.Context) error {
+	if err := util.RetryOnError(tCtx, func() error {
 		_, err := dockerCli.NetworkInspect(ctx, netresp.ID, network.InspectOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "failed to inspect network %s", netresp.ID)
@@ -328,7 +330,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	err = util.RetryOnError(tCtx, func(context.Context) error {
+	err = util.RetryOnError(tCtx, func() error {
 		return pmm.PingMongo(ctx)
 	})
 	if err != nil {
@@ -338,7 +340,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	pmm.Log("Adding mongo to PMM")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func(context.Context) error {
+	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ClientContainerName(),
 			"pmm-admin", "add", "mongodb",
 			"--username", "admin",
@@ -352,7 +354,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 	pmm.Log("Ping clickhouse")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
-	if err := util.RetryOnError(tCtx, func(context.Context) error {
+	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.PingClickhouse(ctx)
 	}); err != nil {
 		return errors.Wrap(err, "failed to ping clickhouse")
@@ -411,7 +413,7 @@ func (pmm *PMM) Destroy(ctx context.Context) {
 }
 
 func getUntilOk(ctx context.Context, url string) error {
-	return util.RetryOnError(ctx, func(context.Context) error {
+	return util.RetryOnError(ctx, func() error {
 		resp, err := http.Get(url) //nolint:gosec,noctx
 		if err != nil {
 			return err
