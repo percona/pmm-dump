@@ -141,7 +141,7 @@ func TestQANWhere(t *testing.T) {
 				"--where", tt.query,
 				"-v",
 			}
-
+			tCtx, cancel := context.WithTimeout(ctx, qanTestRetryTimeout)
 			for _, instance := range tt.instances {
 				args = append(args, "--instance="+instance)
 			}
@@ -260,6 +260,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 
 func TestQANEmptyChunks(t *testing.T) {
 	ctx := context.Background()
+
 	c := deployment.NewController(t)
 	pmm := c.ReusablePMM(qanPMM)
 	if err := pmm.Deploy(ctx); err != nil {
