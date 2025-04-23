@@ -418,6 +418,9 @@ func getUntilOk(ctx context.Context, url string) error {
 		if err != nil {
 			return err
 		}
+		buf := make([]byte, 1000)
+		resp.Body.Read(buf)
+		fmt.Print(string(buf))
 		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil
