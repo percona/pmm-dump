@@ -412,6 +412,13 @@ func (pmm *PMM) Destroy(ctx context.Context) {
 	}
 }
 
+func (pmm *PMM) DestroyNoFail(ctx context.Context) {
+	pmm.Log("Destroying deployment")
+	if err := destroy(ctx, filters.NewArgs(filters.Arg("label", PerconaLabel+"="+pmm.testName)), pmm); err != nil {
+		pmm.Log(err)
+	}
+}
+
 func getUntilOk(ctx context.Context, url string) error {
 	return util.RetryOnError(ctx, func() error {
 		resp, err := http.Get(url) //nolint:gosec,noctx
