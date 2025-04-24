@@ -69,7 +69,6 @@ func TestQANWhere(t *testing.T) {
 		if err != nil {
 			return err
 		}
-
 		if rowsCount == 0 {
 			return errors.New("no qan data")
 		}
@@ -77,6 +76,8 @@ func TestQANWhere(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err, "failed to get qan data")
 	}
+
+	columnTypes := cSource.ColumnTypes()
 
 	tests := []struct {
 		name      string
