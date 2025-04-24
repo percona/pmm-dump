@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,7 +29,12 @@ import (
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
+	pkgUtil "pmm-dump/pkg/util"
+
+	"github.com/pkg/errors"
 )
+
+const getTimeout = 60
 
 func TestMaxSamples(t *testing.T) {
 	type metadata struct {
@@ -43,7 +50,7 @@ func TestMaxSamples(t *testing.T) {
 		Big   []string `json:"Big"`
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	c := deployment.NewController(t)
 
 	pmm := c.NewPMM("max-samples", ".env.test")
@@ -59,13 +66,14 @@ func TestMaxSamples(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failde to deploy pmm", err)
 	}
-	var stdout, stderr string
-	time.Sleep(time.Second * 20)
 
-	mounth := fmt.Sprintf("%02d", time.Now().Month())
+	var stdout, stderr string
+
+	month := fmt.Sprintf("%02d", time.Now().Month())
 	year := fmt.Sprint(time.Now().Year())
 	part := parts{}
-	reader, err := pmm.DockerGetFromContainer(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+mounth+"/parts.json")
+	pmm.Log("Getting parts names from /srv/victoriametrics/data/data/small/" + year + "_" + month + "/parts.json")
+	reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+month+"/parts.json")
 	if err != nil {
 		t.Fatal("failed to get file from container", err)
 	}
@@ -83,12 +91,13 @@ func TestMaxSamples(t *testing.T) {
 
 	metaD := metadata{}
 	var rows int
+
+	pmm.Log("Getting number of rows in each small part")
 	for _, n := range part.Small {
-		meta, err := pmm.DockerGetFromContainer(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+mounth+"/"+n+"/metadata.json")
+		meta, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+month+"/"+n+"/metadata.json")
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
 		}
-		defer meta.Close()
 		ta := tar.NewReader(meta)
 		if _, err := ta.Next(); err != nil {
 			t.Fatal("failed to read from reader", err)
@@ -99,10 +108,12 @@ func TestMaxSamples(t *testing.T) {
 			t.Fatal("failed to decode json", err)
 		}
 		rows += metaD.RowsCount
+		meta.Close()
 	}
+
 	pmm.Log("Number of rows in metadata: " + fmt.Sprint(rows))
 	rows = rows - 10
-	pmm.Log("Number of rows after conversion: " + fmt.Sprint(rows))
+	pmm.Log("Subtracting 10 from number of rows and updating victoria metrics with: search.maxSamplesPerQuery = " + fmt.Sprint(rows))
 	from := "1500000000"
 	to := fmt.Sprint(rows)
 
@@ -119,11 +130,35 @@ func TestMaxSamples(t *testing.T) {
 		t.Fatal("failed to update supervisorctl for victoriametrics", err)
 	}
 
+	pmm.Log("Waiting for VictoriaMetrics to restart")
+	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
+	defer cancel()
+
+	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	if err != nil {
+		t.Fatal("failed to get config for pmm", err)
+	}
+
+	if err := util.RetryOnError(tCtx, func() error {
+		resp, err := http.Get(pmmConfig.VictoriaMetricsURL + "/ready") 
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close() 
+		if resp.StatusCode == http.StatusOK {
+			return nil
+		}
+		return errors.New("not ok")
+	}); err != nil && !errors.Is(err, io.EOF) {
+		t.Fatal("failed to ping victoriametrics", err)
+	}
+	pmm.Log("Exporting dump to check split")
 	stdout, stderr, err = b.Run(
 		"export",
 		"-v",
 		"--dump-path", dumpPath,
 		"--pmm-url", pmm.PMMURL(),
+		"--click-house-url", pmm.ClickhouseURL(),
 		"--dump-core",
 		"--dump-qan",
 		"--ignore-load",

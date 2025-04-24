@@ -68,7 +68,7 @@ func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) e
 	return nil
 }
 
-func (pmm *PMM) DockerGetFromContainer(ctx context.Context, containerName string, path string) (io.ReadCloser, error) {
+func (pmm *PMM) FileReader(ctx context.Context, containerName string, path string) (io.ReadCloser, error) {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create docker client")

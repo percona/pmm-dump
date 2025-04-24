@@ -57,7 +57,7 @@ const requestTimeout = time.Second * 30
 
 func (s Source) splitChunk(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	if m.End.UnixMilli()-m.Start.UnixMilli() <= 1 {
-		return nil, errors.New("Time range is smaller than millisecond, split is impossible, can only be fixed by increasing -search.maxSamplesPerQuery")
+		return nil, errors.New("Time range is smaller than millisecond, split is impossible, can only be fixed by increasing -search.maxSamplesPerQuery or setting it to 0")
 	}
 
 	dur := m.End.Sub(*m.Start) / 2 //nolint:mnd
@@ -91,17 +91,19 @@ func (s Source) splitChunk(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 
 func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	body, status, err := ReadChunk(s.c, m.Start, m.End, s.cfg.NativeData, s.cfg.ConnectionURL, s.cfg.TimeSeriesSelectors)
-	if status == fasthttp.StatusBadRequest && strings.Contains(gzipDecode(body), "cannot select more than -search.maxSamplesPerQuery") {
-		c, err := s.splitChunk(m)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to split VM chunk")
-		}
-		log.Debug().Msg("VM chunk was split into several parts")
-		return c, nil
-	}
-
 	if err != nil {
 		return nil, errors.Wrap(err, "Error getting responce from Victoria Metrics")
+	}
+	if status != fasthttp.StatusOK {
+		if strings.Contains(gzipDecode(body), "cannot select more than -search.maxSamplesPerQuery") {
+			c, err := s.splitChunk(m)
+			if err != nil {
+				return nil, errors.Wrap(err, "Failed to split VM chunk")
+			}
+			log.Debug().Msg("VM chunk was split into several parts")
+			return c, nil
+		}
+		return nil, errors.Errorf("invalid status %d", status)
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
