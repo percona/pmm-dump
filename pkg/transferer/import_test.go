@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
 func TestImport(t *testing.T) {
@@ -127,11 +128,11 @@ func TestImport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         buf,
 				}
-				e := EncryptionOptions{
-					noEncryption: true,
-					justKey:      false,
-					pass:         "",
-					filepath:     "",
+				e := encryption.EncryptionOptions{
+					NoEncryption: true,
+					JustKey:      false,
+					Pass:         "",
+					Filepath:     "",
 				}
 				meta := dump.Meta{}
 				err := tr.Import(ctx, meta, e)

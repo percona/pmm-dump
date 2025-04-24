@@ -25,16 +25,17 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e EncryptionOptions) error {
+func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e encryption.EncryptionOptions) error {
 	log.Info().Msg("Importing metrics...")
-
-	tr, err := e.GetReader(t.file)
+	r := dump.Readers{}
+	tr, err := r.CreateReaders(t.file, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to create reader")
+		return errors.Wrap(err, "failed to create readers")
 	}
-	defer e.closeReaders()
+	defer r.CloseReaders() //nolint:errcheck
 
 	var metafileExists bool
 

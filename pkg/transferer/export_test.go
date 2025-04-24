@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
 func TestExport(t *testing.T) {
@@ -127,11 +128,11 @@ func TestExport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         bytes.NewBuffer(nil),
 				}
-				e := EncryptionOptions{
-					noEncryption: true,
-					justKey:      false,
-					pass:         "",
-					filepath:     "",
+				e := encryption.EncryptionOptions{
+					NoEncryption: true,
+					JustKey:      false,
+					Pass:         "",
+					Filepath:     "",
 				}
 				var meta dump.Meta
 				var chunks []dump.ChunkMeta

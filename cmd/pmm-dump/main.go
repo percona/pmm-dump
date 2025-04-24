@@ -27,6 +27,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 	grafana "pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
@@ -290,7 +291,7 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
-		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
+		e := encryption.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
 		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
@@ -345,7 +346,7 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
+		e := encryption.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
 		if piped { //nolint:nestif
 			if *vmNativeData {
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
@@ -427,7 +428,7 @@ func main() { //nolint:gocyclo,maintidx
 		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
-		e := transferer.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
+		e := encryption.NewEncryptor(*toFile, *pass, *noEncryption, *justKey)
 		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *e)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)

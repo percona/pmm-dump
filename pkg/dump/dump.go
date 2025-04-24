@@ -15,9 +15,15 @@
 package dump
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"crypto/cipher"
 	"fmt"
+	"io"
 	"sync"
 	"time"
+
+	"pmm-dump/pkg/encryption"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -57,6 +63,68 @@ type ChunkMeta struct {
 
 	Index   int
 	RowsLen int
+}
+
+type Writers struct {
+	gzw *gzip.Writer
+	tw  *tar.Writer
+	ew  *cipher.StreamWriter
+}
+
+type Readers struct {
+	gzr *gzip.Reader
+	tr  *tar.Reader
+	er  *cipher.StreamReader
+}
+
+// CreateWriters creates all neccesary writers and returns tar writer. Use CloseWriters to close all writers.
+func (w *Writers) CreateWriters(file io.Writer, e encryption.EncryptionOptions) (*tar.Writer, error) {
+	var err error
+	w.gzw, w.tw, w.ew, err = e.GetWriters(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create writers")
+	}
+
+	return w.tw, nil
+}
+
+// CloseWriters closes all writers in Writers struct.
+func (w *Writers) CloseWriters(e encryption.EncryptionOptions) error {
+	err := w.tw.Close()
+	if err != nil {
+		return err
+	}
+	err = w.gzw.Close()
+	if err != nil {
+		return err
+	}
+	if !e.NoEncryption {
+		err = w.ew.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CreateReaders creates all neccesary readers and returns tar reader. Use CloseReaders to close all readers.
+func (r *Readers) CreateReaders(file io.Reader, e encryption.EncryptionOptions) (*tar.Reader, error) {
+	var err error
+	r.gzr, r.tr, r.er, err = e.GetReaders(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create writers")
+	}
+
+	return r.tr, nil
+}
+
+// CreateReaders creates all neccesary readers and returns tar reader. Use CloseReaders to close all readers.
+func (r *Readers) CloseReaders() error {
+	err := r.gzr.Close()
+	if err != nil {
+		return errors.Wrap(err, "failed to close reader")
+	}
+	return nil
 }
 
 func (c ChunkMeta) String() string {

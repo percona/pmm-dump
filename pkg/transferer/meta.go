@@ -27,12 +27,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool, e EncryptionOptions) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, e encryption.EncryptionOptions) (*dump.Meta, error) {
 	var file *os.File
 	var encpath string
-	if !e.noEncryption {
+	if !e.NoEncryption {
 		encpath = ".enc"
 	}
 	if piped {
@@ -46,11 +47,12 @@ func ReadMetaFromDump(dumpPath string, piped bool, e EncryptionOptions) (*dump.M
 	}
 	defer file.Close() //nolint:errcheck
 
-	tr, err := e.GetReader(file)
+	r := dump.Readers{}
+	tr, err := r.CreateReaders(file, e)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+		return nil, errors.Wrap(err, "failed to create readers")
 	}
-	defer e.closeReaders()
+	defer r.CloseReaders() //nolint:errcheck
 
 	for {
 		log.Debug().Msg("Reading files from dump...")

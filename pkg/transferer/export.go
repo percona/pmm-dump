@@ -28,9 +28,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e EncryptionOptions) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e encryption.EncryptionOptions) error {
 	log.Info().Msg("Exporting metrics...")
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
@@ -132,12 +133,13 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 	}
 }
 
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e EncryptionOptions) error {
-	tw, err := e.GetWriter(t.file)
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e encryption.EncryptionOptions) error {
+	w := dump.Writers{}
+	tw, err := w.CreateWriters(t.file, e)
 	if err != nil {
 		return errors.Wrap(err, "failed to create writer")
 	}
-	defer e.closeWriters()
+	defer w.CloseWriters(e) //nolint:errcheck
 
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
