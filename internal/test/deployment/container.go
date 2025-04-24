@@ -104,15 +104,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 			return errors.Wrap(err, "failed to ping PMM")
 		}
 	}
-	
-	pmm.Log("Ping clickhouse")
-	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		return pmm.PingClickhouse(ctx)
-	}); err != nil {
-		return errors.Wrap(err, "failed to ping clickhouse")
-	}
 
 	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
 		return errors.Wrap(err, "failed to update clickhouse config")
@@ -126,7 +117,14 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
-	
+	pmm.Log("Ping clickhouse")
+	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		return pmm.PingClickhouse(ctx)
+	}); err != nil {
+		return errors.Wrap(err, "failed to ping clickhouse")
+	}
 
 	gc, err := pmm.NewClient()
 	if err != nil {
