@@ -54,10 +54,30 @@ func TestQANWhere(t *testing.T) {
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
 
-	columnTypes, err := getCount(ctx, *pmm)
+	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
+		ConnectionURL: pmm.ClickhouseURL(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
+	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		rowsCount, err := cSource.Count("", nil, nil)
+		if err != nil {
+			return err
+		}
+
+		if rowsCount == 0 {
+			return errors.New("no qan data")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err, "failed to get qan data")
+	}
+
 	tests := []struct {
 		name      string
 		instances []string
@@ -144,34 +164,6 @@ func TestQANWhere(t *testing.T) {
 			}
 		})
 	}
-}
-
-func getCount(ctx context.Context, pmm deployment.PMM) ([]*sql.ColumnType, error) {
-	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
-		ConnectionURL: pmm.ClickhouseURL(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
-	tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		rowsCount, err := cSource.Count("", nil, nil)
-		if err != nil {
-			return err
-		}
-
-		if rowsCount == 0 {
-			return errors.New("no qan data")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return cSource.ColumnTypes(), nil
 }
 
 func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string]string) error {

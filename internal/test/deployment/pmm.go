@@ -249,10 +249,7 @@ func (pmm *PMM) Logf(f string, args ...any) {
 	pmm.t.Logf(f, args...)
 }
 
-var (
-	checkImagesMu sync.Mutex
-	createServer  sync.Mutex
-)
+var checkImagesMu sync.Mutex
 
 func (pmm *PMM) deploy(ctx context.Context) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -373,8 +370,6 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 }
 
 func (pmm *PMM) Restart(ctx context.Context) error {
-	createServer.Lock()
-	defer createServer.Unlock()
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker client")

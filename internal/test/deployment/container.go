@@ -319,8 +319,6 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	cmd []string,
 	memoryLimit int64,
 ) (string, error) {
-	createServer.Lock()
-	defer createServer.Unlock()
 	containerConfig := &container.Config{
 		Cmd:   cmd,
 		Image: image,
@@ -370,6 +368,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
+	// Wait for vm,ch to do some background process
 	time.Sleep(time.Second * 10) //nolint:mnd
 	return resp.ID, nil
 }
