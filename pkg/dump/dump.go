@@ -118,7 +118,7 @@ func (r *Readers) CreateReaders(file io.Reader, e encryption.EncryptionOptions) 
 	return r.tr, nil
 }
 
-// CreateReaders creates all neccesary readers and returns tar reader. Use CloseReaders to close all readers.
+// CloseReaders closes all readers.
 func (r *Readers) CloseReaders() error {
 	err := r.gzr.Close()
 	if err != nil {

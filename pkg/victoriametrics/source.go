@@ -225,7 +225,6 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 	}
 
 	if s.cfg.ContentLimit > 0 && len(chunkContent) > s.cfg.ContentLimit {
-		log.Debug().Msg("Spliting chunk content")
 		chunks, err := s.splitChunkContent(chunkContent, s.cfg.ContentLimit)
 		if err != nil {
 			return errors.Wrap(err, "failed to split chunk content")
