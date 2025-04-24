@@ -85,6 +85,10 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
+
+	pmm.Log("Waiting for pmm server to start")
+	time.Sleep(time.Second * 15) //nolint:mnd
+
 	pmm.setPMMServerContainerID(id)
 
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
@@ -368,7 +372,6 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
-	// Wait for container to start
-	time.Sleep(time.Second * 10) //nolint:mnd
+
 	return resp.ID, nil
 }
