@@ -86,28 +86,13 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to create container")
 	}
 
-	pmm.Log("Waiting for pmm server to start")
-	time.Sleep(time.Second * 15) //nolint:mnd
-
 	pmm.setPMMServerContainerID(id)
 
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set server published ports")
 	}
 
-	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
-		return errors.Wrap(err, "failed to update clickhouse config")
-	}
-
-	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
-	}); err != nil {
-		return errors.Wrap(err, "failed to restart clickhouse")
-	}
-
-	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
+	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 
 	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
@@ -119,6 +104,29 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 			return errors.Wrap(err, "failed to ping PMM")
 		}
 	}
+	
+	pmm.Log("Ping clickhouse")
+	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		return pmm.PingClickhouse(ctx)
+	}); err != nil {
+		return errors.Wrap(err, "failed to ping clickhouse")
+	}
+
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
+		return errors.Wrap(err, "failed to update clickhouse config")
+	}
+
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
+	}); err != nil {
+		return errors.Wrap(err, "failed to restart clickhouse")
+	}
+
+	
 
 	gc, err := pmm.NewClient()
 	if err != nil {

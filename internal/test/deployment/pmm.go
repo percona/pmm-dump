@@ -357,15 +357,6 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to ping clickhouse")
 	}
 
-	pmm.Log("Ping VictoriaMetrics")
-	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
-	if err != nil {
-		return errors.Wrap(err, "failed to get PMM config")
-	}
-	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/ready"); err != nil && !errors.Is(err, io.EOF) {
-		return errors.Wrap(err, "failed to ping VM")
-	}
-
 	return nil
 }
 
