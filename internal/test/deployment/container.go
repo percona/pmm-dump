@@ -368,7 +368,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
-	// Wait for vm,ch to do some background process
-	time.Sleep(time.Second * 5) //nolint:mnd
+	// Wait for container to start
+	time.Sleep(time.Second * 10) //nolint:mnd
 	return resp.ID, nil
 }
