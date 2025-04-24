@@ -169,6 +169,7 @@ func (pmm *PMM) ConfigureClickHouse(ctx context.Context) error {
 	}
 	return nil
 }
+
 func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.Client) error {
 	container, err := dockerCli.ContainerInspect(ctx, *pmm.pmmServerContainerID)
 	if err != nil {
