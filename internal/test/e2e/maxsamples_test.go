@@ -140,11 +140,11 @@ func TestMaxSamples(t *testing.T) {
 	}
 
 	if err := util.RetryOnError(tCtx, func() error {
-		resp, err := http.Get(pmmConfig.VictoriaMetricsURL + "/ready") 
+		resp, err := http.Get(pmmConfig.VictoriaMetricsURL + "/ready")
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close() 
+		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
 			return nil
 		}
