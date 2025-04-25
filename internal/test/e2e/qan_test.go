@@ -74,7 +74,21 @@ func TestQANWhere(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
-		t.Fatal(err, "failed to get qan data")
+		pmm.Log("Getting clickhouse status")
+		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
+		if err != nil {
+			t.Fatal("failed to get file from container", err)
+		}
+		defer reader.Close()
+		tr := tar.NewReader(reader)
+		if _, err := tr.Next(); err != nil {
+			t.Fatal("failed to read from file", err)
+		}
+		buf := &bytes.Buffer{}
+		buf.ReadFrom(tr)
+		status := buf.Bytes()
+		pmm.Log(string(status))
+		t.Fatal(err)
 	}
 
 	columnTypes := cSource.ColumnTypes()
