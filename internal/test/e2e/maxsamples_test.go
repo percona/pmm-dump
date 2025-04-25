@@ -1,5 +1,3 @@
-//go:build e2e
-
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -69,15 +68,41 @@ func TestMaxSamples(t *testing.T) {
 
 	var stdout, stderr string
 
+	// Test will pass if we successfully export dump and at least 1 chunk was splited.
+	// For this we want to get number of rows currently situated in VM.
+	// To do that we need to get into container and check every metadata.json of every part there is.
+	// Metadata.json file has the following fields:
+	// RowsCount - the number of raw samples stored in the part
+	// BlocksCount - the number of blocks stored in the part (see details about blocks below)
+	// MinTimestamp and MaxTimestamp - minimum and maximum timestamps across raw samples stored in the part
+	// MinDedupInterval - the deduplication interval applied to the given part.
+
+	// metadata.json looks like this
+	// {"RowsCount":763025,"BlocksCount":9391,"MinTimestamp":1743756839550,"MaxTimestamp":1743757562317,"MinDedupInterval":0}
+
+	// To get right path for parts we use parts.json which contains all names for big and small parts
+	// parts.json looks like this
+	// {"Small":["1833119B552B7720","1833119B552B7735","1833119B552B7753","1833119B552B7771","1833119B552B7788","1833119B552B779C",
+	// "1833119B552B779D","1833119B552B779E","1833119B552B779F","1833119B552B77A0","1833119B552B77A1"],"Big":[]}
+
+	// So firstly we reading file parts.json to get paths for parts. Then we iterate all of parts to get RowsCount value
+	// from metadata.json , adding this values together gets us total number of rows when we exporting.
+	// After this we deduct 10 from this number and set this value as limit for query.
+	// If we begin export it will encounter error "cannot select more than -search.maxSamplesPerQuery= '*' samples", because number of rows is bigger than query limit.
+	// When this specific error is triggered pmm-dump will try to split chunk by
+	// making 2 different query's with time range spited in two. This will go recursively until time range is lower than 1 millisecond
+	// if this happens export will fail, and test also.
+	// But if export is successful test is passed.
+
 	month := fmt.Sprintf("%02d", time.Now().Month())
-	year := fmt.Sprint(time.Now().Year())
+	year := strconv.Itoa(time.Now().Year())
 	part := parts{}
 	pmm.Log("Getting parts names from /srv/victoriametrics/data/data/small/" + year + "_" + month + "/parts.json")
 	reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/victoriametrics/data/data/small/"+year+"_"+month+"/parts.json")
 	if err != nil {
 		t.Fatal("failed to get file from container", err)
 	}
-	defer reader.Close()
+	defer reader.Close() //nolint:errcheck
 
 	tr := tar.NewReader(reader)
 	if _, err := tr.Next(); err != nil {
@@ -108,14 +133,17 @@ func TestMaxSamples(t *testing.T) {
 			t.Fatal("failed to decode json", err)
 		}
 		rows += metaD.RowsCount
-		meta.Close()
+		err = meta.Close()
+		if err != nil {
+			t.Fatal("failed to close meta", err)
+		}
 	}
 
-	pmm.Log("Number of rows in metadata: " + fmt.Sprint(rows))
-	rows = rows - 10
-	pmm.Log("Subtracting 10 from number of rows and updating victoria metrics with: search.maxSamplesPerQuery = " + fmt.Sprint(rows))
+	pmm.Log("Number of rows in metadata: " + strconv.Itoa(rows))
+	rows -= 10
+	pmm.Log("Subtracting 10 from number of rows and updating victoria metrics with: search.maxSamplesPerQuery = " + strconv.Itoa(rows))
 	from := "1500000000"
-	to := fmt.Sprint(rows)
+	to := strconv.Itoa(rows)
 
 	err = pmm.Exec(ctx, pmm.ServerContainerName(), "bash", "-c", "sed -i -e 's/--search.maxSamplesPerQuery="+from+"/--search.maxSamplesPerQuery="+to+"/g' /etc/supervisord.d/victoriametrics.ini")
 	if err != nil {
@@ -140,11 +168,11 @@ func TestMaxSamples(t *testing.T) {
 	}
 
 	if err := util.RetryOnError(tCtx, func() error {
-		resp, err := http.Get(pmmConfig.VictoriaMetricsURL + "/ready")
+		resp, err := http.Get(pmmConfig.VictoriaMetricsURL + "/ready") //nolint:noctx
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode == http.StatusOK {
 			return nil
 		}
@@ -152,6 +180,7 @@ func TestMaxSamples(t *testing.T) {
 	}); err != nil && !errors.Is(err, io.EOF) {
 		t.Fatal("failed to ping victoriametrics", err)
 	}
+
 	pmm.Log("Exporting dump to check split")
 	stdout, stderr, err = b.Run(
 		"export",
@@ -161,8 +190,7 @@ func TestMaxSamples(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--dump-core",
 		"--dump-qan",
-		"--ignore-load",
-	)
+		"--ignore-load")
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
