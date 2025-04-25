@@ -94,9 +94,9 @@ func TestQANWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
 		}
-		defer reader.Close()
+		defer logs.Close()
 		trL := tar.NewReader(logs)
-		if _, err := tr.Next(); err != nil {
+		if _, err := trL.Next(); err != nil {
 			t.Fatal("failed to read from file", err)
 		}
 		bufs := &bytes.Buffer{}
@@ -127,9 +127,9 @@ func TestQANWhere(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to get file from container", err)
 	}
-	defer reader.Close()
+	defer logs.Close()
 	trL := tar.NewReader(logs)
-	if _, err := tr.Next(); err != nil {
+	if _, err := trL.Next(); err != nil {
 		t.Fatal("failed to read from file", err)
 	}
 	bufs := &bytes.Buffer{}
