@@ -75,9 +75,10 @@ func TestMaxSamples(t *testing.T) {
 	// To do that we need to get into container and check every metadata.json of every part there is.
 	// Metadata.json file has the following fields:
 	// RowsCount - the number of raw samples stored in the part
-	// BlocksCount - the number of blocks stored in the part (see details about blocks below)
+	// BlocksCount - the number of blocks stored in the part
 	// MinTimestamp and MaxTimestamp - minimum and maximum timestamps across raw samples stored in the part
 	// MinDedupInterval - the deduplication interval applied to the given part.
+	// More info: https://docs.victoriametrics.com/#storage
 
 	// metadata.json looks like this
 	// {"RowsCount":763025,"BlocksCount":9391,"MinTimestamp":1743756839550,"MaxTimestamp":1743757562317,"MinDedupInterval":0}
