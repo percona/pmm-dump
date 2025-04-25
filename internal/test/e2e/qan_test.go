@@ -88,8 +88,54 @@ func TestQANWhere(t *testing.T) {
 		buf.ReadFrom(tr)
 		status := buf.Bytes()
 		pmm.Log(string(status))
+
+		pmm.Log("Getting clickhouse logs")
+		logs, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/logs/clickhouse-server.log")
+		if err != nil {
+			t.Fatal("failed to get file from container", err)
+		}
+		defer reader.Close()
+		trL := tar.NewReader(logs)
+		if _, err := tr.Next(); err != nil {
+			t.Fatal("failed to read from file", err)
+		}
+		bufs := &bytes.Buffer{}
+		bufs.ReadFrom(trL)
+		lo := bufs.Bytes()
+		pmm.Log(string(lo))
+
 		t.Fatal(err)
 	}
+
+	pmm.Log("Getting clickhouse status")
+	reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
+	if err != nil {
+		t.Fatal("failed to get file from container", err)
+	}
+	defer reader.Close()
+	tr := tar.NewReader(reader)
+	if _, err := tr.Next(); err != nil {
+		t.Fatal("failed to read from file", err)
+	}
+	buf := &bytes.Buffer{}
+	buf.ReadFrom(tr)
+	status := buf.Bytes()
+	pmm.Log(string(status))
+
+	pmm.Log("Getting clickhouse logs")
+	logs, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/logs/clickhouse-server.log")
+	if err != nil {
+		t.Fatal("failed to get file from container", err)
+	}
+	defer reader.Close()
+	trL := tar.NewReader(logs)
+	if _, err := tr.Next(); err != nil {
+		t.Fatal("failed to read from file", err)
+	}
+	bufs := &bytes.Buffer{}
+	bufs.ReadFrom(trL)
+	lo := bufs.Bytes()
+	pmm.Log(string(lo))
 
 	columnTypes := cSource.ColumnTypes()
 
