@@ -105,35 +105,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 	pmm.Log("VictoriaMetrics is ready")
 
-	err = pmm.ConfigureClickHouse(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure Clickhouse")
-	}
-
-	gc, err := pmm.NewClient()
-	if err != nil {
-		return errors.Wrap(err, "new client")
-	}
-
-	pmmConfig, err = pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
-	if err != nil {
-		return errors.Wrap(err, "get pmm config")
-	}
-	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
-	defer cancel()
-	if err := util.RetryOnError(tCtx, func() error {
-		return victoriametrics.ExportTestRequest(gc, pmmConfig.VictoriaMetricsURL)
-	}); err != nil {
-		return errors.Wrap(err, "failed to check victoriametrics")
-	}
-
-	return nil
-}
-
-func (pmm *PMM) ConfigureClickHouse(ctx context.Context) error {
-	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
-	defer cancel()
-
 	pmm.Log("Pinging Clickhouse inside container before restart")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
@@ -167,6 +138,24 @@ func (pmm *PMM) ConfigureClickHouse(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to ping clickhouse")
 	}
+
+	gc, err := pmm.NewClient()
+	if err != nil {
+		return errors.Wrap(err, "new client")
+	}
+
+	pmmConfig, err = pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	if err != nil {
+		return errors.Wrap(err, "get pmm config")
+	}
+	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		return victoriametrics.ExportTestRequest(gc, pmmConfig.VictoriaMetricsURL)
+	}); err != nil {
+		return errors.Wrap(err, "failed to check victoriametrics")
+	}
+
 	return nil
 }
 

@@ -180,6 +180,7 @@ func (p *PMM) ClickhouseURL() string {
 		u.Host = u.Host[0:strings.Index(u.Host, ":")]
 	}
 	u.Host += ":" + *p.clickhousePort
+
 	return u.String()
 }
 
