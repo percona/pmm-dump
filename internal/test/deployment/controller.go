@@ -15,7 +15,6 @@
 package deployment
 
 import (
-	"context"
 	"os"
 	"strconv"
 	"sync"
@@ -59,7 +58,7 @@ func NewController(t *testing.T) *Controller {
 	t.Helper()
 	t.Parallel()
 
-	if err := testLimitSemaphore.Acquire(context.Background(), 1); err != nil {
+	if err := testLimitSemaphore.Acquire(t.Context(), 1); err != nil {
 		t.Fatal(err)
 	}
 	c := &Controller{t: t}
@@ -70,7 +69,7 @@ func NewController(t *testing.T) *Controller {
 		} else {
 			for _, pmm := range c.deployments {
 				if !pmm.dontCleanup {
-					pmm.Destroy(context.Background())
+					pmm.Destroy(t.Context())
 				}
 			}
 		}

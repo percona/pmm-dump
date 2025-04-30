@@ -41,13 +41,11 @@ import (
 
 const qanWaitTimeout = time.Minute * 5
 
-const qanTestRetryTimeout = time.Minute * 2
-
 var qanPMM = deployment.NewReusablePMM("qan", ".env.test")
 
 func TestQANWhere(t *testing.T) {
-	ctx := context.Background()
 	c := deployment.NewController(t)
+	ctx := t.Context()
 	pmm := c.ReusablePMM(qanPMM)
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
@@ -60,7 +58,7 @@ func TestQANWhere(t *testing.T) {
 		ConnectionURL: pmm.ClickhouseURL(),
 	})
 	if err != nil {
-		t.Fatal("failed to create clickhouse source", err)
+		t.Fatal(err)
 	}
 
 	pmm.Log("Waiting for QAN data for", qanWaitTimeout, "minutes")
@@ -76,7 +74,37 @@ func TestQANWhere(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
-		t.Fatal(err, "failed to get qan data")
+		pmm.Log("Clickhouse status: ")
+		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
+		if err != nil {
+			t.Fatal("failed to get file from container", err)
+		}
+		defer reader.Close()
+		tr := tar.NewReader(reader)
+		if _, err := tr.Next(); err != nil {
+			t.Fatal("failed to read from file", err)
+		}
+		buf := &bytes.Buffer{}
+		buf.ReadFrom(tr)
+		status := buf.Bytes()
+		pmm.Log(string(status))
+
+		pmm.Log("Clickhouse logs: ")
+		logs, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/logs/clickhouse-server.log")
+		if err != nil {
+			t.Fatal("failed to get file from container", err)
+		}
+		defer logs.Close()
+		trL := tar.NewReader(logs)
+		if _, err := trL.Next(); err != nil {
+			t.Fatal("failed to read from file", err)
+		}
+		bufs := &bytes.Buffer{}
+		bufs.ReadFrom(trL)
+		lo := bufs.Bytes()
+		pmm.Log(string(lo))
+
+		t.Fatal(err)
 	}
 
 	columnTypes := cSource.ColumnTypes()
@@ -124,7 +152,6 @@ func TestQANWhere(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		i := i
 		t.Run(tt.name, func(t *testing.T) {
 			dumpName := fmt.Sprintf("dump-%d.tar.gz", i)
 			dumpPath := filepath.Join(testDir, dumpName)
@@ -135,13 +162,13 @@ func TestQANWhere(t *testing.T) {
 				"--dump-qan",
 				"--click-house-url", pmm.ClickhouseURL(),
 				"--where", tt.query,
+				"-v",
 			}
-
+			tCtx, cancel := context.WithTimeout(ctx, qanWaitTimeout)
 			for _, instance := range tt.instances {
 				args = append(args, "--instance="+instance)
 			}
 
-			tCtx, cancel := context.WithTimeout(ctx, qanTestRetryTimeout)
 			defer cancel()
 			if err := util.RetryOnError(tCtx, func() error {
 				pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
@@ -255,7 +282,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 }
 
 func TestQANEmptyChunks(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c := deployment.NewController(t)
 	pmm := c.ReusablePMM(qanPMM)
@@ -288,7 +315,36 @@ func TestQANEmptyChunks(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
-		t.Fatal(err, "failed to get qan data")
+		pmm.Log("Clickhouse status: ")
+		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
+		if err != nil {
+			t.Fatal("failed to get file from container", err)
+		}
+		defer reader.Close()
+		tr := tar.NewReader(reader)
+		if _, err := tr.Next(); err != nil {
+			t.Fatal("failed to read from file", err)
+		}
+		buf := &bytes.Buffer{}
+		buf.ReadFrom(tr)
+		status := buf.Bytes()
+		pmm.Log(string(status))
+
+		pmm.Log("Clickhouse logs: ")
+		logs, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/logs/clickhouse-server.log")
+		if err != nil {
+			t.Fatal("failed to get file from container", err)
+		}
+		defer logs.Close()
+		trL := tar.NewReader(logs)
+		if _, err := trL.Next(); err != nil {
+			t.Fatal("failed to read from file", err)
+		}
+		bufs := &bytes.Buffer{}
+		bufs.ReadFrom(trL)
+		lo := bufs.Bytes()
+		pmm.Log(string(lo))
+		t.Fatal(err)
 	}
 
 	pmm.Log("Waiting for QAN data about instance \"pmm-server-postgresql\" for", qanWaitTimeout, "minutes")
@@ -320,6 +376,7 @@ func TestQANEmptyChunks(t *testing.T) {
 		"--start-ts", startTime.Format(time.RFC3339),
 		"--end-ts", time.Now().Format(time.RFC3339),
 		"--chunk-rows", "1",
+		"-v",
 	}
 
 	pmm.Log("Exporting data to", dumpPath)

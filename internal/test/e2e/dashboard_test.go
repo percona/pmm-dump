@@ -17,7 +17,6 @@
 package e2e
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"path"
@@ -33,7 +32,7 @@ import (
 )
 
 func TestDashboard(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c := deployment.NewController(t)
 	pmm := c.NewPMM("dashboard", ".env.test")
