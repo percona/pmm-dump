@@ -94,7 +94,7 @@ func (s Source) Type() dump.SourceType {
 	return dump.ClickHouse
 }
 
-func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
+func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
@@ -134,11 +134,11 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		return nil, err
 	}
 
-	return &dump.Chunk{
+	return []*dump.Chunk{{
 		ChunkMeta: m,
 		Content:   buf.Bytes(),
 		Filename:  fmt.Sprintf("%d.tsv", m.Index),
-	}, err
+	}}, err
 }
 
 func toStringSlice(iSlice []interface{}) []string {
