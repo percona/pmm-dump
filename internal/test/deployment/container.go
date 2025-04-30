@@ -95,7 +95,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
 
-	pmm.Log("Checking VictoriaMetrics")
+	pmm.Log("Ping VictoriaMetrics")
 	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
 	if err != nil {
 		return errors.Wrap(err, "failed to get PMM config")
@@ -105,7 +105,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 	pmm.Log("VictoriaMetrics is ready")
 
-	pmm.Log("Pinging Clickhouse inside container before restart")
+	pmm.Log("Ping Clickhouse inside container before restart")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
 	}); err != nil {
@@ -123,7 +123,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
-	pmm.Log("Pinging Clickhouse inside container after restart")
+	pmm.Log("Ping Clickhouse inside container after restart")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
 	}); err != nil {

@@ -74,7 +74,7 @@ func TestQANWhere(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
-		pmm.Log("Getting clickhouse status")
+		pmm.Log("Clickhouse status: ")
 		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
@@ -89,7 +89,7 @@ func TestQANWhere(t *testing.T) {
 		status := buf.Bytes()
 		pmm.Log(string(status))
 
-		pmm.Log("Getting clickhouse logs")
+		pmm.Log("Clickhouse logs: ")
 		logs, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/logs/clickhouse-server.log")
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
@@ -315,7 +315,7 @@ func TestQANEmptyChunks(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
-		pmm.Log("Getting clickhouse status")
+		pmm.Log("Clickhouse status: ")
 		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
@@ -330,7 +330,7 @@ func TestQANEmptyChunks(t *testing.T) {
 		status := buf.Bytes()
 		pmm.Log(string(status))
 
-		pmm.Log("Getting clickhouse logs")
+		pmm.Log("Clickhouse logs: ")
 		logs, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/logs/clickhouse-server.log")
 		if err != nil {
 			t.Fatal("failed to get file from container", err)
