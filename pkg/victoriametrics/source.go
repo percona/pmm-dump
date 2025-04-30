@@ -57,7 +57,7 @@ const requestTimeout = time.Second * 30
 
 func (s Source) splitChunk(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	if m.End.UnixMilli()-m.Start.UnixMilli() <= 1 {
-		return nil, errors.New("Time range is smaller than millisecond, split is impossible, can only be fixed by increasing -search.maxSamplesPerQuery or setting it to 0")
+		return nil, errors.New("Time range is less than milliseconds, split is impossible, can only be fixed by increasing -search.maxSamplesPerQuery in VM or setting it to 0.")
 	}
 
 	dur := m.End.Sub(*m.Start) / 2 //nolint:mnd
@@ -434,7 +434,7 @@ func (s Source) HasMetrics(start, end time.Time) (bool, error) {
 }
 
 func (s Source) splitContainsMetrics(start, end time.Time, body string) (bool, error) {
-	log.Debug().Msg("Too big samples size, trying to split")
+	log.Debug().Msg("Too large sample size, trying to split")
 
 	diff := end.Sub(start) / 2 //nolint:mnd
 	middle := start.Add(diff)

@@ -70,32 +70,33 @@ func TestMaxSamples(t *testing.T) {
 
 	var stdout, stderr string
 
-	// Test will pass if we successfully export dump and at least 1 chunk was splited.
-	// For this we want to get number of rows currently situated in VM.
-	// To do that we need to get into container and check every metadata.json of every part there is.
-	// Metadata.json file has the following fields:
+	// Test will pass if we successfully export dump and at least 1 chunk was split.
+	// For this we want to get the 	number of rows currently situated in the VM.
+	// To do this we need to go into the container and check each metadata.json of each part.
+
+	// The Metadata.json file has the following fields:
 	// RowsCount - the number of raw samples stored in the part
 	// BlocksCount - the number of blocks stored in the part
 	// MinTimestamp and MaxTimestamp - minimum and maximum timestamps across raw samples stored in the part
 	// MinDedupInterval - the deduplication interval applied to the given part.
-	// More info: https://docs.victoriametrics.com/#storage
+	// More information: https://docs.victoriametrics.com/#storage
 
 	// metadata.json looks like this
 	// {"RowsCount":763025,"BlocksCount":9391,"MinTimestamp":1743756839550,"MaxTimestamp":1743757562317,"MinDedupInterval":0}
 
-	// To get right path for parts we use parts.json which contains all names for big and small parts
+	// To get the correct path for parts we use parts.json which contains all the names for big and small parts
 	// parts.json looks like this
 	// {"Small":["1833119B552B7720","1833119B552B7735","1833119B552B7753","1833119B552B7771","1833119B552B7788","1833119B552B779C",
 	// "1833119B552B779D","1833119B552B779E","1833119B552B779F","1833119B552B77A0","1833119B552B77A1"],"Big":[]}
 
-	// So firstly we reading file parts.json to get paths for parts. Then we iterate all of parts to get RowsCount value
-	// from metadata.json , adding this values together gets us total number of rows when we exporting.
-	// After this we deduct 10 from this number and set this value as limit for query.
-	// If we begin export it will encounter error "cannot select more than -search.maxSamplesPerQuery= '*' samples", because number of rows is bigger than query limit.
+	// So first we read the parts.json file to get paths for parts. Then we iterate over all parts to get the RowsCount value
+	// from metadata.json , adding these values together gives us total number of rows when we export.
+	// Then we subtract 10 from this number and set this value as the limit for the query.
+	// When we start the export we get the error "cannot select more than -search.maxSamplesPerQuery= '*' samples", because the number of rows is greater than the query limit.
 	// When this specific error is triggered pmm-dump will try to split chunk by
-	// making 2 different query's with time range spited in two. This will go recursively until time range is lower than 1 millisecond
-	// if this happens export will fail, and test also.
-	// But if export is successful test is passed.
+	// making 2 different queries with time range split into two. This is done recursively until time range is less than 1 millisecond.
+	// If this happens, export will fail, and so will test.
+	// But if the export is successful, the test will pass.
 
 	month := fmt.Sprintf("%02d", time.Now().Month())
 	year := strconv.Itoa(time.Now().Year())
@@ -144,7 +145,7 @@ func TestMaxSamples(t *testing.T) {
 
 	pmm.Log("Number of rows in metadata: " + strconv.Itoa(rows))
 	rows -= 10
-	pmm.Log("Subtracting 10 from number of rows and updating victoria metrics with: search.maxSamplesPerQuery = " + strconv.Itoa(rows))
+	pmm.Log("Subtracting 10 from number of rows and updating Victoria Metrics with: search.maxSamplesPerQuery = " + strconv.Itoa(rows))
 	from := "1500000000"
 	to := strconv.Itoa(rows)
 
