@@ -128,7 +128,7 @@ func TestImport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         buf,
 				}
-				e := encryption.EncryptionOptions{
+				e := encryption.Options{
 					NoEncryption: true,
 					JustKey:      false,
 					Pass:         "",

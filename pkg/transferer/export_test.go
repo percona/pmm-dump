@@ -128,7 +128,7 @@ func TestExport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         bytes.NewBuffer(nil),
 				}
-				e := encryption.EncryptionOptions{
+				e := encryption.Options{
 					NoEncryption: true,
 					JustKey:      false,
 					Pass:         "",

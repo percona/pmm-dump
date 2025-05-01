@@ -65,31 +65,52 @@ type ChunkMeta struct {
 	RowsLen int
 }
 
-type Writers struct {
+type Writer struct {
 	gzw *gzip.Writer
 	tw  *tar.Writer
 	ew  *cipher.StreamWriter
 }
 
-type Readers struct {
+type Reader struct {
 	gzr *gzip.Reader
 	tr  *tar.Reader
 	er  *cipher.StreamReader
 }
 
-// CreateWriters creates all neccesary writers and returns tar writer. Use CloseWriters to close all writers.
-func (w *Writers) CreateWriters(file io.Writer, e encryption.EncryptionOptions) (*tar.Writer, error) {
+// NewWriter creates all neccesary writers and returns writer struct. Use Close to close all writers.
+func NewWriter(file io.Writer, e encryption.Options) (*Writer, error) {
+	w := new(Writer)
 	var err error
-	w.gzw, w.tw, w.ew, err = e.GetWriters(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create writers")
+	if e.NoEncryption {
+		w.gzw, err = gzip.NewWriterLevel(file, gzip.BestCompression)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to create gzip writer")
+		}
+		w.tw = tar.NewWriter(w.gzw)
+		return w, nil // return file<-gzip<-tar
 	}
-
-	return w.tw, nil
+	w.ew, err = e.NewWriter(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create encryption writer")
+	}
+	w.gzw, err = gzip.NewWriterLevel(w.ew, gzip.BestCompression)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create gzip writer")
+	}
+	w.tw = tar.NewWriter(w.gzw)
+	return w, nil // return file<-encryption<-gzip<-tar
 }
 
-// CloseWriters closes all writers in Writers struct.
-func (w *Writers) CloseWriters(e encryption.EncryptionOptions) error {
+func (w *Writer) GetTarWriter() *tar.Writer {
+	return w.tw
+}
+
+func (w *Writer) Write(p []byte) (int, error) {
+	return w.tw.Write(p)
+}
+
+// Close closes all writers in Writer struct.
+func (w *Writer) Close() error {
 	err := w.tw.Close()
 	if err != nil {
 		return err
@@ -98,7 +119,7 @@ func (w *Writers) CloseWriters(e encryption.EncryptionOptions) error {
 	if err != nil {
 		return err
 	}
-	if !e.NoEncryption {
+	if w.ew != nil {
 		err = w.ew.Close()
 		if err != nil {
 			return err
@@ -107,22 +128,44 @@ func (w *Writers) CloseWriters(e encryption.EncryptionOptions) error {
 	return nil
 }
 
-// CreateReaders creates all neccesary readers and returns tar reader. Use CloseReaders to close all readers.
-func (r *Readers) CreateReaders(file io.Reader, e encryption.EncryptionOptions) (*tar.Reader, error) {
+// NewReader creates all neccesary readers and returns reader struct. Use Close to close all readers.
+func NewReader(file io.Reader, e encryption.Options) (*Reader, error) {
 	var err error
-	r.gzr, r.tr, r.er, err = e.GetReaders(file)
+	r := new(Reader)
+	if e.NoEncryption {
+		r.gzr, err = gzip.NewReader(file)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create gzip reader")
+		}
+		r.tr = tar.NewReader(r.gzr)
+		return r, nil // return file->gzip->tar
+	}
+	r.er, err = e.GetReader(file)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create writers")
+		return nil, errors.Wrap(err, "failed to create decryption reader")
+	}
+	r.gzr, err = gzip.NewReader(r.er)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open as gzip")
 	}
 
-	return r.tr, nil
+	r.tr = tar.NewReader(r.gzr)
+	return r, nil // return file->decryption->gzip->tar
 }
 
-// CloseReaders closes all readers.
-func (r *Readers) CloseReaders() error {
+func (r *Reader) GetTarReader() *tar.Reader {
+	return r.tr
+}
+
+func (r *Reader) Read(b []byte) (int, error) {
+	return r.tr.Read(b)
+}
+
+// Close closes all readers.
+func (r *Reader) Close() error {
 	err := r.gzr.Close()
 	if err != nil {
-		return errors.Wrap(err, "failed to close reader")
+		return errors.Wrap(err, "failed to close gzip reader")
 	}
 	return nil
 }

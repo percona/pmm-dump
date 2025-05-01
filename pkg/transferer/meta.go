@@ -30,7 +30,7 @@ import (
 	"pmm-dump/pkg/encryption"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool, e encryption.EncryptionOptions) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.Meta, error) {
 	var file *os.File
 	var encpath string
 	if !e.NoEncryption {
@@ -47,12 +47,12 @@ func ReadMetaFromDump(dumpPath string, piped bool, e encryption.EncryptionOption
 	}
 	defer file.Close() //nolint:errcheck
 
-	r := dump.Readers{}
-	tr, err := r.CreateReaders(file, e)
+	r, err := dump.NewReader(file, e)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create readers")
 	}
-	defer r.CloseReaders() //nolint:errcheck
+	defer r.Close() //nolint:errcheck
+	tr := r.GetTarReader()
 
 	for {
 		log.Debug().Msg("Reading files from dump...")

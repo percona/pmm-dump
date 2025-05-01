@@ -31,7 +31,7 @@ import (
 	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e encryption.EncryptionOptions) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e encryption.Options) error {
 	log.Info().Msg("Exporting metrics...")
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
@@ -133,14 +133,13 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 	}
 }
 
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e encryption.EncryptionOptions) error {
-	w := dump.Writers{}
-	tw, err := w.CreateWriters(t.file, e)
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e encryption.Options) error {
+	w, err := dump.NewWriter(t.file, e)
 	if err != nil {
 		return errors.Wrap(err, "failed to create writer")
 	}
-	defer w.CloseWriters(e) //nolint:errcheck
-
+	defer w.Close() //nolint:errcheck
+	tw := w.GetTarWriter()
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
