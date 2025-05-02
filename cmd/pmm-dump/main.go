@@ -134,10 +134,10 @@ func main() { //nolint:gocyclo,maintidx
 	}
 	switch {
 	case *enableVerboseMode && *justKey:
-		log.Fatal().Msgf("Verbose and justkey are mutually exclusive")
+		log.Fatal().Msgf("Verbose and just-key are mutually exclusive")
 
 	case *noEncryption && (*pass != "" || *justKey || *toFile != ""):
-		log.Fatal().Msgf("No encryption and other encryptions parametrs are mutually exclusive")
+		log.Fatal().Msgf("No encryption and other encryptions parameters are mutually exclusive")
 
 	case *enableVerboseMode:
 		log.Logger = log.Logger.
