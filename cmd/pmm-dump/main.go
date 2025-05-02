@@ -27,6 +27,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 	grafana "pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
@@ -97,6 +98,11 @@ func main() { //nolint:gocyclo,maintidx
 				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
+		// encryption related
+		noEncryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
+		pass         = cli.Flag("pass", "Password for encryption/decryption").Default("").String()
+		justKey      = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
+		toFile       = cli.Flag("pass-filepath", "Filepath to output pass").Default("").String()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
@@ -126,13 +132,23 @@ func main() { //nolint:gocyclo,maintidx
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
 	}
+	switch {
+	case *enableVerboseMode && *justKey:
+		log.Fatal().Msgf("Verbose and just-key are mutually exclusive")
 
-	if *enableVerboseMode {
+	case *noEncryption && (*pass != "" || *justKey || *toFile != ""):
+		log.Fatal().Msgf("No encryption and other encryptions parameters are mutually exclusive")
+
+	case *enableVerboseMode:
 		log.Logger = log.Logger.
 			With().Caller().Logger().
 			Hook(goroutineLoggingHook{}).
 			Level(zerolog.DebugLevel)
-	} else {
+
+	case *justKey:
+		log.Logger = log.Logger.Level(zerolog.Disabled)
+
+	default:
 		log.Logger = log.Logger.
 			Level(zerolog.InfoLevel)
 	}
@@ -265,7 +281,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msgf("Failed to create a dump. No data was found")
 		}
 
-		file, err := createFile(*dumpPath, *stdout)
+		file, err := createFile(*dumpPath, *stdout, noEncryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
@@ -275,7 +291,12 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
-
+		e := &encryption.Options{
+			Filepath:     *toFile,
+			Pass:         *pass,
+			NoEncryption: *noEncryption,
+			JustKey:      *justKey,
+		}
 		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
@@ -296,7 +317,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool, &dumpLog); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool, &dumpLog, *e); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -330,7 +351,12 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-
+		e := &encryption.Options{
+			Filepath:     *toFile,
+			Pass:         *pass,
+			NoEncryption: *noEncryption,
+			JustKey:      *justKey,
+		}
 		if piped { //nolint:nestif
 			if *vmNativeData {
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
@@ -338,7 +364,7 @@ func main() { //nolint:gocyclo,maintidx
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' JSON export format")
 			}
 		} else {
-			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false)
+			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, *e)
 			if err != nil {
 				log.Warn().Msgf("Can't show meta: %v", err)
 				*vmNativeData = true
@@ -379,7 +405,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		file, err := getFile(*dumpPath, piped)
+		file, err := getFile(*dumpPath, piped, noEncryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
@@ -395,7 +421,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
 
-		if err = t.Import(ctx, *meta); err != nil {
+		if err = t.Import(ctx, *meta, *e); err != nil {
 			var additionalInfo string
 			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
 				additionalInfo = ". Consider to use \"vm-content-limit\" option. Also, you can decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
@@ -412,8 +438,13 @@ func main() { //nolint:gocyclo,maintidx
 		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
-
-		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped)
+		e := &encryption.Options{
+			Filepath:     *toFile,
+			Pass:         *pass,
+			NoEncryption: *noEncryption,
+			JustKey:      *justKey,
+		}
+		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *e)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)
 		}

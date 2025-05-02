@@ -18,6 +18,7 @@ TEST_CFG_DIR=test
 ADMIN_MONGO_USERNAME?=admin
 ADMIN_MONGO_PASSWORD?=admin
 DUMP_FILENAME=dump.tar.gz
+ENCRYPTED_DUMP_FILENAME=dump.tar.gz.enc
 
 BRANCH:=$(shell git branch --show-current)
 COMMIT:=$(shell git rev-parse --short HEAD)
@@ -71,7 +72,19 @@ mongo-insert:
 
 export-all:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
+
+export-all-to-file:
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt
+
+export-all-just-key:
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --just-key  
+
+export-all-no-encryption:
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
 
 export-vm:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
@@ -82,10 +95,17 @@ export-ch:
 
 import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass
 
+import-all-no-encryption:
+	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
+		
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(DUMP_FILENAME)"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(ENCRYPTED_DUMP_FILENAME)"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(ENCRYPTED_DUMP_FILENAME)
 	rm -rf $(TEST_CFG_DIR)/pmm $(TEST_CFG_DIR)/tmp
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
