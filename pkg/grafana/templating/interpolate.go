@@ -15,6 +15,8 @@
 package templating
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -22,7 +24,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/experimental/macros"
 	"github.com/grafana/grafana/pkg/apis/query/v0alpha1/template"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -41,9 +42,9 @@ func FormatVar(format template.VariableFormat, input []string) (string, error) {
 	case template.FormatCSV, template.FormatJSON, template.FormatDoubleQuote, template.FormatSingleQuote, template.FormatPipe, template.FormatRaw:
 		return template.FormatVariables(format, input), nil
 	case FormatDistributed, FormatGlob, FormatLucene, FormatPercentencode, FormatRegex, FormatSqlstring, FormatText, FormatQueryparameters:
-		return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
+		return "", fmt.Errorf("unsupported format by pmm-dump: %s", format)
 	}
-	return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
+	return "", fmt.Errorf("unsupported format by pmm-dump: %s", format)
 }
 
 func InterpolateQuery(query string, from time.Time, to time.Time, vars []TemplatingVariable) (string, error) {
@@ -55,7 +56,7 @@ func InterpolateQuery(query string, from time.Time, to time.Time, vars []Templat
 		To:   to,
 	}, backend.PluginContext{})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to apply macros")
+		return "", fmt.Errorf("failed to apply macros: %w", err)
 	}
 
 	for _, v := range vars {
@@ -122,7 +123,7 @@ func (v TemplatingVariable) Interpolate(format template.VariableFormat) (string,
 		pattern = strings.TrimSpace(pattern[firstSlash+1 : lastSlash])
 		r, err := regexp.Compile(pattern)
 		if err != nil {
-			return "", errors.Errorf("failed to compile regexp: %s", *v.Model.Regex)
+			return "", fmt.Errorf("failed to compile regexp: %s", *v.Model.Regex)
 		}
 
 		var filteredValues []string

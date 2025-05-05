@@ -18,13 +18,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 
@@ -90,13 +90,13 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 	resp, err := s.c.DoWithTimeout(req, requestTimeout)
 	defer fasthttp.ReleaseResponse(resp)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to send HTTP request to victoria metrics")
+		return nil, fmt.Errorf("failed to send HTTP request to victoria metrics: %w", err)
 	}
 
 	body := copyBytesArr(resp.Body())
 
 	if status := resp.StatusCode(); status != fasthttp.StatusOK {
-		return nil, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, gzipDecode(body))
+		return nil, fmt.Errorf("non-OK response from victoria metrics: %d: %s", status, gzipDecode(body))
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
@@ -135,13 +135,13 @@ const (
 func decompressChunk(content []byte) ([]Metric, error) {
 	r, err := gzip.NewReader(bytes.NewReader(content))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create gzip reader")
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer r.Close() //nolint:errcheck
 
 	metrics, err := ParseMetrics(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse chunk content")
+		return nil, fmt.Errorf("failed to parse chunk content: %w", err)
 	}
 	return metrics, nil
 }
@@ -152,14 +152,14 @@ func compressChunk(chunk []Metric) ([]byte, error) {
 	for _, metric := range chunk {
 		metricData, err := json.Marshal(metric)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to marshal metric")
+			return nil, fmt.Errorf("failed to marshal metric: %w", err)
 		}
 		if _, err := w.Write(metricData); err != nil {
-			return nil, errors.Wrap(err, "failed to write gzip data")
+			return nil, fmt.Errorf("failed to write gzip data: %w", err)
 		}
 	}
 	if err := w.Close(); err != nil {
-		return nil, errors.Wrap(err, "failed to close gzip writer")
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 	return buf.Bytes(), nil
 }
@@ -167,19 +167,19 @@ func compressChunk(chunk []Metric) ([]byte, error) {
 func (s Source) splitChunkContent(chunkContent []byte, limit int) ([][]byte, error) {
 	metrics, err := decompressChunk(chunkContent)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse chunk content")
+		return nil, fmt.Errorf("failed to parse chunk content: %w", err)
 	}
 
 	chunks, err := s.splitMetrics([][]Metric{metrics}, limit)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to split metrics")
+		return nil, fmt.Errorf("failed to split metrics: %w", err)
 	}
 
 	data := make([][]byte, 0, len(chunks))
 	for _, chunk := range chunks {
 		compressedContent, err := compressChunk(chunk)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to compress chunk content")
+			return nil, fmt.Errorf("failed to compress chunk content: %w", err)
 		}
 		data = append(data, compressedContent)
 	}
@@ -206,7 +206,7 @@ func (s Source) splitMetrics(metricChunks [][]Metric, limit int) ([][]Metric, er
 	for _, chunk := range newMetricChunks {
 		compressedData, err := compressChunk(chunk)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to compress metrics")
+			return nil, fmt.Errorf("failed to compress metrics: %w", err)
 		}
 		if len(compressedData) > limit {
 			return s.splitMetrics(newMetricChunks, limit)
@@ -221,17 +221,17 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 	}
 	chunkContent, err := io.ReadAll(r)
 	if err != nil {
-		return errors.Wrap(err, "failed to read chunk content")
+		return fmt.Errorf("failed to read chunk content: %w", err)
 	}
 
 	if s.cfg.ContentLimit > 0 && len(chunkContent) > s.cfg.ContentLimit {
 		chunks, err := s.splitChunkContent(chunkContent, s.cfg.ContentLimit)
 		if err != nil {
-			return errors.Wrap(err, "failed to split chunk content")
+			return fmt.Errorf("failed to split chunk content: %w", err)
 		}
 		for i, chunk := range chunks {
 			if err := s.sendChunk(chunk); err != nil {
-				return errors.Wrapf(err, "failed to send splitted chunk %s/%d", filename, i+1)
+				return fmt.Errorf("failed to send splitted chunk %s/%d: %w", filename, i+1, err)
 			}
 		}
 
@@ -239,7 +239,7 @@ func (s Source) WriteChunk(filename string, r io.Reader) error {
 	}
 
 	if err := s.sendChunk(chunkContent); err != nil {
-		return errors.Wrapf(err, "failed to send chunk %s", filename)
+		return fmt.Errorf("failed to send chunk %s: %w", filename, err)
 	}
 
 	return nil
@@ -266,14 +266,14 @@ func (s Source) sendChunk(content []byte) error {
 	resp, err := s.c.DoWithTimeout(req, requestTimeout)
 	defer fasthttp.ReleaseResponse(resp)
 	if err != nil {
-		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
+		return fmt.Errorf("failed to send HTTP request to victoria metrics: %w", err)
 	}
 
 	if s := resp.StatusCode(); s != fasthttp.StatusOK && s != fasthttp.StatusNoContent {
 		if s == http.StatusRequestEntityTooLarge {
 			return errors.New(errRequestEntityTooLarge)
 		}
-		return errors.Errorf("non-OK response from victoria metrics: %d: %s", s, gzipDecode(resp.Body()))
+		return fmt.Errorf("non-OK response from victoria metrics: %d: %s", s, gzipDecode(resp.Body()))
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
@@ -281,8 +281,11 @@ func (s Source) sendChunk(content []byte) error {
 }
 
 func ErrIsRequestEntityTooLarge(err error) bool {
-	if err.Error() == errRequestEntityTooLarge || errors.Cause(err).Error() == errRequestEntityTooLarge {
-		return true
+	for err != nil {
+		if err.Error() == errRequestEntityTooLarge {
+			return true
+		}
+		err = errors.Unwrap(err)
 	}
 	return false
 }
@@ -296,11 +299,11 @@ func (s Source) FinalizeWrites() error {
 
 	status, body, err := s.c.GetWithTimeout(url, requestTimeout)
 	if err != nil {
-		return errors.Wrap(err, "failed to send HTTP request to victoria metrics")
+		return fmt.Errorf("failed to send HTTP request to victoria metrics: %w", err)
 	}
 
 	if status != fasthttp.StatusOK {
-		return errors.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
+		return fmt.Errorf("non-OK response from victoria metrics: %d: %s", status, string(body))
 	}
 
 	log.Debug().Msg("Got successful response from Victoria Metrics")
@@ -340,18 +343,18 @@ func (s Source) HasMetrics(start, end time.Time) (bool, error) {
 	resp, err := s.c.DoWithTimeout(req, requestTimeout)
 	defer fasthttp.ReleaseResponse(resp)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to send HTTP request to victoria metrics")
+		return false, fmt.Errorf("failed to send HTTP request to victoria metrics: %w", err)
 	}
 
 	body := gzipDecode(copyBytesArr(resp.Body()))
 	if status := resp.StatusCode(); status != fasthttp.StatusOK {
-		return false, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
+		return false, fmt.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
 	}
 	log.Debug().Msg("Got successful response from Victoria Metrics")
 
 	metricsResp := new(MetricResponse)
 	if err := json.Unmarshal([]byte(body), metricsResp); err != nil {
-		return false, errors.Wrap(err, "failed to unmarshal metrics response")
+		return false, fmt.Errorf("failed to unmarshal metrics response: %w", err)
 	}
 
 	if metricsResp.Stats.SeriesFetched == "0" {

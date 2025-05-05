@@ -15,9 +15,9 @@
 package victoriametrics
 
 import (
+	"errors"
 	"net/http"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/grafana/client"

@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -33,8 +34,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
@@ -135,11 +134,11 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 
 	xChunkMap, err := readChunks(xDump)
 	if err != nil {
-		return 0, 0, errors.Wrapf(err, "failed to read dump %s", xDump)
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", xDump, err)
 	}
 	yChunkMap, err := readChunks(yDump)
 	if err != nil {
-		return 0, 0, errors.Wrapf(err, "failed to read dump %s", yDump)
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", yDump, err)
 	}
 
 	xMissingChunks := make([]string, 0)
@@ -164,7 +163,7 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 	for xFilename, xChunkData := range xChunkMap {
 		yChunkData, ok := yChunkMap[xFilename]
 		if !ok {
-			return 0, 0, errors.Errorf("chunk %s is missing in %s", xFilename, yDump)
+			return 0, 0, fmt.Errorf("chunk %s is missing in %s", xFilename, yDump)
 		}
 		dir, _ := path.Split(xFilename)
 		st := dump.ParseSourceType(dir[:len(dir)-1])
@@ -172,11 +171,11 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 		case dump.VictoriaMetrics:
 			xChunk, err := vmParseChunk(xChunkData)
 			if err != nil {
-				return 0, 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
 			}
 			yChunk, err := vmParseChunk(yChunkData)
 			if err != nil {
-				return 0, 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
 			}
 
 			xValues := vmValuesCount(xChunk)
@@ -189,7 +188,7 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 
 			missingValues, err := vmCompareChunkData(pmm, xChunk, yChunk)
 			if err != nil {
-				return 0, 0, errors.Wrapf(err, "failed to compare chunk %s", xFilename)
+				return 0, 0, fmt.Errorf("failed to compare chunk %s: %w", xFilename, err)
 			}
 
 			totalMissingValues += missingValues
@@ -197,10 +196,10 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 			chCompareChunks(t, pmm, xFilename, xDump, yDump, xChunkData, yChunkData)
 
 			if !reflect.DeepEqual(xChunkData, yChunkData) {
-				return 0, 0, errors.Errorf("chunk %s is different", xFilename)
+				return 0, 0, fmt.Errorf("chunk %s is different", xFilename)
 			}
 		default:
-			return 0, 0, errors.Errorf("unknown source type %s", st)
+			return 0, 0, fmt.Errorf("unknown source type %s", st)
 		}
 	}
 	return float64(totalMissingValues) / float64(totalValues), len(xMissingChunks) + len(yMissingChunks), nil
@@ -246,7 +245,7 @@ func chCompareChunks(t *testing.T, pmm *deployment.PMM, filename string, xDump, 
 		for _, r := range yRecordsMap {
 			pmm.Log(fmt.Sprintf("Missing record in %s of %s dump: [%s]", filename, xDump, strings.Join(r, ";")))
 		}
-		t.Fatal(errors.Errorf("chunk %s is different", filename))
+		t.Fatal(fmt.Errorf("chunk %s is different", filename))
 	}
 }
 
@@ -319,7 +318,7 @@ func readChunks(filename string) (chunkMap, error) {
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+		return nil, fmt.Errorf("failed to open as gzip: %w", err)
 	}
 	defer gzr.Close() //nolint:errcheck
 
@@ -345,17 +344,17 @@ func readChunks(filename string) (chunkMap, error) {
 		}
 
 		if len(dir) == 0 {
-			return nil, errors.Errorf("corrupted dump: found unknown file %s", filename)
+			return nil, fmt.Errorf("corrupted dump: found unknown file %s", filename)
 		}
 
 		st := dump.ParseSourceType(dir[:len(dir)-1])
 		if st == dump.UndefinedSource {
-			return nil, errors.Errorf("corrupted dump: found undefined source: %s", dir)
+			return nil, fmt.Errorf("corrupted dump: found undefined source: %s", dir)
 		}
 
 		content, err := io.ReadAll(tr)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read chunk content")
+			return nil, fmt.Errorf("failed to read chunk content: %w", err)
 		}
 
 		if len(content) == 0 {
@@ -383,14 +382,14 @@ func vmParseChunk(data []byte) ([]vmMetric, error) {
 	if isGzip(data) {
 		gr, err := gzip.NewReader(bytes.NewBuffer(data))
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create reader")
+			return nil, fmt.Errorf("failed to create reader: %w", err)
 		}
 		defer gr.Close() //nolint:errcheck
 		r = gr
 	}
 	metrics, err := victoriametrics.ParseMetrics(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse metrics")
+		return nil, fmt.Errorf("failed to parse metrics: %w", err)
 	}
 	result := make([]vmMetric, len(metrics))
 	for i, v := range metrics {
