@@ -6,8 +6,8 @@ linters-settings:
     rules:
       main:
         deny:
-          - pkg: errors
-            desc: Use "github.com/pkg/errors" instead
+          - pkg: github.com/pkg/errors
+            desc: Use "errors" instead
 
   goimports:
     local-prefixes: github.com/percona/pmm-dump

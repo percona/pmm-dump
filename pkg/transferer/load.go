@@ -17,6 +17,7 @@ package transferer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -25,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/valyala/fasthttp"
@@ -193,7 +193,7 @@ func (c *LoadChecker) getMetricCurrentValue(m Threshold) (float64, error) {
 		Msgf("Sending HTTP request to load checker endpoint")
 	status, body, err := c.c.Get(url)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to send req to load checker endpoint")
+		return 0, fmt.Errorf("failed to send req to load checker endpoint: %w", err)
 	}
 	if status != http.StatusOK {
 		return 0, fmt.Errorf("non-ok response: status %d: %s", status, string(body))
@@ -265,12 +265,12 @@ type Threshold struct {
 func ParseThresholdList(maxStr, criticalStr string) ([]Threshold, error) {
 	maxV, err := parseThresholdValues(maxStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid max load list")
+		return nil, fmt.Errorf("invalid max load list: %w", err)
 	}
 
 	criticalV, err := parseThresholdValues(criticalStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid critical load list")
+		return nil, fmt.Errorf("invalid critical load list: %w", err)
 	}
 
 	keys := AllThresholdKeys()
@@ -320,7 +320,7 @@ func parseThresholdValues(v string) (map[string]float64, error) {
 
 		v, err := strconv.ParseFloat(strings.TrimSpace(values[1]), 64)
 		if err != nil {
-			return nil, errors.Wrap(err, "can't parse number: %w")
+			return nil, fmt.Errorf("can't parse number: %w", err)
 		}
 
 		res[k] = v

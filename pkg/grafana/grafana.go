@@ -16,10 +16,10 @@ package grafana
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 
 	"pmm-dump/pkg/grafana/client"
@@ -33,11 +33,11 @@ func GetSelectorsFromDashboards(c *client.Client, pmmURL string, dashboardNames,
 	for _, name := range dashboardNames {
 		dashboard, err := getDashboard(c, pmmURL, name)
 		if err != nil {
-			return nil, errors.Wrapf(err, "get dashboard: %s", name)
+			return nil, fmt.Errorf("get dashboard: %s: %w", name, err)
 		}
 		sel, err := getSelectorsFromDashboard(c, pmmURL, dashboard, serviceNames, from, to)
 		if err != nil {
-			return nil, errors.Wrap(err, "get selectors from dashboard")
+			return nil, fmt.Errorf("get selectors from dashboard: %w", err)
 		}
 		for _, s := range sel {
 			selectorMap[s] = struct{}{}
@@ -55,7 +55,7 @@ func getSelectorsFromDashboard(c *client.Client, pmmURL string, dashboard types.
 	parser := expr.NewVMParser(dashboard, serviceNames, c, pmmURL, from, to)
 	selectors, err := parser.GetSelectors(dashboard)
 	if err != nil {
-		return nil, errors.Wrap(err, "get selectors")
+		return nil, fmt.Errorf("get selectors: %w", err)
 	}
 
 	return selectors, nil

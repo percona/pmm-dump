@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 
 	"pmm-dump/pkg/grafana/client"
@@ -33,7 +32,7 @@ import (
 func (p *VMExprParser) parseTemplatingQuery(v types.VariableModel) (templating.TemplatingVariable, error) {
 	query, err := templating.GetQueryFromModel(v)
 	if err != nil {
-		return templating.TemplatingVariable{}, errors.Wrap(err, "get query from model")
+		return templating.TemplatingVariable{}, fmt.Errorf("get query from model: %w", err)
 	}
 
 	switch {
@@ -42,7 +41,7 @@ func (p *VMExprParser) parseTemplatingQuery(v types.VariableModel) (templating.T
 	case strings.HasPrefix(query, "query_result("):
 		query, err = templating.InterpolateQuery(query, p.from, p.to, p.allVariables())
 		if err != nil {
-			return templating.TemplatingVariable{}, errors.Wrap(err, "interpolate query")
+			return templating.TemplatingVariable{}, fmt.Errorf("interpolate query: %w", err)
 		}
 		query = strings.TrimPrefix(query, "query_result(")
 		query = strings.TrimSuffix(query, ")")
@@ -90,7 +89,7 @@ func (p *VMExprParser) parseTemplatingQuery(v types.VariableModel) (templating.T
 			Values: values,
 		}, nil
 	}
-	return templating.TemplatingVariable{}, errors.Errorf("invalid query: %s", query)
+	return templating.TemplatingVariable{}, fmt.Errorf("invalid query: %s", query)
 }
 
 func labelValuesSingleLabel(c *client.Client, pmmURL, label string, from, to time.Time) ([]string, error) {
@@ -104,7 +103,7 @@ func labelValuesSingleLabel(c *client.Client, pmmURL, label string, from, to tim
 		return nil, err
 	}
 	if status != fasthttp.StatusOK {
-		return nil, errors.Errorf("non-ok status: %d", status)
+		return nil, fmt.Errorf("non-ok status: %d", status)
 	}
 
 	type VMQueryResp struct {
@@ -124,11 +123,11 @@ func labelValues(c *client.Client, pmmURL, label, metric string, from, to time.T
 	defer fasthttp.ReleaseArgs(q)
 	metric, err := templating.InterpolateQuery(metric, from, to, vars)
 	if err != nil {
-		return nil, errors.Wrap(err, "interpolate query")
+		return nil, fmt.Errorf("interpolate query: %w", err)
 	}
 	label, err = templating.InterpolateQuery(label, from, to, vars)
 	if err != nil {
-		return nil, errors.Wrap(err, "interpolate query")
+		return nil, fmt.Errorf("interpolate query: %w", err)
 	}
 
 	q.Add("match[]", metric)
@@ -140,7 +139,7 @@ func labelValues(c *client.Client, pmmURL, label, metric string, from, to time.T
 		return nil, err
 	}
 	if status != fasthttp.StatusOK {
-		return nil, errors.Errorf("non-ok status: %d", status)
+		return nil, fmt.Errorf("non-ok status: %d", status)
 	}
 	type VMQueryResp struct {
 		Status string              `json:"status"`
@@ -179,7 +178,7 @@ func queryResult(c *client.Client, pmmURL, query string) ([]string, error) {
 		return nil, err
 	}
 	if status != fasthttp.StatusOK {
-		return nil, errors.Errorf("non-ok status: %d", status)
+		return nil, fmt.Errorf("non-ok status: %d", status)
 	}
 	resp := new(victoriametrics.MetricResponse)
 	if err := json.Unmarshal(data, resp); err != nil {
@@ -187,7 +186,7 @@ func queryResult(c *client.Client, pmmURL, query string) ([]string, error) {
 	}
 	value, err := resp.GetValidValue()
 	if err != nil {
-		return nil, errors.Wrap(err, "get valid value")
+		return nil, fmt.Errorf("get valid value: %w", err)
 	}
 	return []string{value}, nil
 }

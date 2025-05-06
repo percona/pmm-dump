@@ -19,13 +19,13 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 
 	"pmm-dump/pkg/grafana/client"
@@ -136,7 +136,7 @@ func generateFakeChunk(size int) ([]byte, error) {
 		Timestamps: []int64{time.Now().Unix()},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "marshal metrics")
+		return nil, fmt.Errorf("marshal metrics: %w", err)
 	}
 	var data []byte
 	for range size {
@@ -149,10 +149,10 @@ func compressData(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	if _, err := gw.Write(data); err != nil {
-		return nil, errors.Wrap(err, "write gzip")
+		return nil, fmt.Errorf("write gzip: %w", err)
 	}
 	if err := gw.Close(); err != nil {
-		return nil, errors.Wrap(err, "close gzip")
+		return nil, fmt.Errorf("close gzip: %w", err)
 	}
 	return buf.Bytes(), nil
 }

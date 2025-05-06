@@ -22,6 +22,7 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -29,8 +30,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
@@ -147,19 +146,19 @@ func TestQANWhere(t *testing.T) {
 				pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
 				stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
 				if err != nil {
-					return errors.Wrapf(err, "failed to export: stdout %s; stderr %s", stdout, stderr)
+					return fmt.Errorf("failed to export: stdout %s; stderr %s: %w", stdout, stderr, err)
 				}
 				chunkMap, err := getQANChunks(dumpPath)
 				if err != nil {
-					return errors.Wrap(err, "failed to get qan chunks")
+					return fmt.Errorf("failed to get qan chunks: %w", err)
 				}
 				if len(chunkMap) == 0 {
-					return errors.Wrap(err, "qan chunks not found")
+					return fmt.Errorf("qan chunks not found: %w", err)
 				}
 				for chunkName, chunkData := range chunkMap {
 					err := validateQAN(chunkData, columnTypes, tt.equalMap)
 					if err != nil {
-						return errors.Wrapf(err, "failed to validate qan chunk %s", chunkName)
+						return fmt.Errorf("failed to validate qan chunk %s: %w", chunkName, err)
 					}
 				}
 				return nil
@@ -178,10 +177,10 @@ func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return errors.Wrap(err, "failed to read tsv")
+			return fmt.Errorf("failed to read tsv: %w", err)
 		}
 		if len(values) != len(columnTypes) {
-			return errors.Errorf("invalid number of values: expected %d, got %d", len(columnTypes), len(values))
+			return fmt.Errorf("invalid number of values: expected %d, got %d", len(columnTypes), len(values))
 		}
 
 		for k, v := range equalMap {
@@ -189,13 +188,13 @@ func validateQAN(data []byte, columnTypes []*sql.ColumnType, equalMap map[string
 			for i, ct := range columnTypes {
 				if ct.Name() == k {
 					if values[i] != v {
-						return errors.Errorf("invalid value in column %s: expected %s, got %s", ct.Name(), v, values[i])
+						return fmt.Errorf("invalid value in column %s: expected %s, got %s", ct.Name(), v, values[i])
 					}
 					found = true
 				}
 			}
 			if !found {
-				return errors.Errorf("column %s not found", k)
+				return fmt.Errorf("column %s not found", k)
 			}
 		}
 	}
@@ -211,7 +210,7 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+		return nil, fmt.Errorf("failed to open as gzip: %w", err)
 	}
 	defer gzr.Close() //nolint:errcheck
 
@@ -235,17 +234,17 @@ func getQANChunks(filename string) (map[string][]byte, error) {
 		}
 
 		if len(dir) == 0 {
-			return nil, errors.Errorf("corrupted dump: found unknown file %s", filename)
+			return nil, fmt.Errorf("corrupted dump: found unknown file %s", filename)
 		}
 
 		st := dump.ParseSourceType(dir[:len(dir)-1])
 		if st == dump.UndefinedSource {
-			return nil, errors.Errorf("corrupted dump: found undefined source: %s", dir)
+			return nil, fmt.Errorf("corrupted dump: found undefined source: %s", dir)
 		}
 		if st == dump.ClickHouse {
 			content, err := io.ReadAll(tr)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to read chunk content")
+				return nil, fmt.Errorf("failed to read chunk content: %w", err)
 			}
 
 			chunkMap[header.Name] = content

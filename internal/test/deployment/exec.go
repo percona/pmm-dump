@@ -16,18 +16,19 @@ package deployment
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"github.com/pkg/errors"
 )
 
 func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return errors.Wrap(err, "failed to create docker client")
+		return fmt.Errorf("failed to create docker client: %w", err)
 	}
 	defer dockerCli.Close() //nolint:errcheck
 	resp, err := dockerCli.ContainerExecCreate(ctx, containerName, container.ExecOptions{
@@ -37,11 +38,11 @@ func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) e
 		Cmd:          cmd,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create exec")
+		return fmt.Errorf("failed to create exec: %w", err)
 	}
 	attach, err := dockerCli.ContainerExecAttach(ctx, resp.ID, container.ExecAttachOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to attach exec")
+		return fmt.Errorf("failed to attach exec: %w", err)
 	}
 	defer attach.Close()
 
@@ -49,19 +50,19 @@ func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) e
 	defer cancel()
 	inspect, err := dockerCli.ContainerExecInspect(ctx, resp.ID)
 	if err != nil {
-		return errors.Wrap(err, "failed to inspect exec")
+		return fmt.Errorf("failed to inspect exec: %w", err)
 	}
 	for inspect.Running {
 		time.Sleep(1 * time.Second)
 		inspect, err = dockerCli.ContainerExecInspect(ctx, resp.ID)
 		if err != nil {
-			return errors.Wrap(err, "failed to inspect exec")
+			return fmt.Errorf("failed to inspect exec: %w", err)
 		}
 	}
 	if inspect.ExitCode != 0 {
 		output, err := io.ReadAll(attach.Reader)
 		if err != nil {
-			return errors.Wrap(err, "failed to read exec output")
+			return fmt.Errorf("failed to read exec output: %w", err)
 		}
 		return errors.New("exit code is not 0:" + string(output))
 	}

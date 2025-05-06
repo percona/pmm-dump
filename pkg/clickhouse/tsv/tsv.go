@@ -17,14 +17,13 @@ package tsv
 import (
 	"database/sql"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 type Reader struct {
@@ -55,7 +54,7 @@ func (r *Reader) Read() ([]any, error) {
 		return nil, err
 	}
 	if len(r.columnTypes) != len(records) {
-		return nil, errors.Errorf("amount of columns mismatch: expected %d, got %d", len(r.columnTypes), len(records))
+		return nil, fmt.Errorf("amount of columns mismatch: expected %d, got %d", len(r.columnTypes), len(records))
 	}
 
 	values := make([]any, 0, len(records))

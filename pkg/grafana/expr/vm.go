@@ -15,11 +15,12 @@
 package expr
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/grafana/grafana/pkg/kinds/dashboard"
-	"github.com/pkg/errors"
 
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/grafana/templating"
@@ -130,7 +131,7 @@ func (p *VMExprParser) GetSelectors(dashboard types.DashboardPanel) ([]string, e
 
 	err := p.parseTemplatingVars(dashboard.Templating.List)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse templating vars")
+		return nil, fmt.Errorf("parse templating vars: %w", err)
 	}
 
 	for _, target := range dashboard.Targets {
@@ -141,11 +142,11 @@ func (p *VMExprParser) GetSelectors(dashboard types.DashboardPanel) ([]string, e
 		query := target.Expr
 		query, err := templating.InterpolateQuery(query, p.from, p.to, p.allVariables())
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to interpolate query")
+			return nil, fmt.Errorf("failed to interpolate query: %w", err)
 		}
 		s, err := p.parseQuery(query)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parse query: %s", s)
+			return nil, fmt.Errorf("parse query: %s: %w", s, err)
 		}
 		for _, v := range s {
 			selectorMap[v] = struct{}{}
@@ -155,7 +156,7 @@ func (p *VMExprParser) GetSelectors(dashboard types.DashboardPanel) ([]string, e
 	for _, panel := range dashboard.Panels {
 		s, err := p.GetSelectors(panel)
 		if err != nil {
-			return nil, errors.Wrapf(err, "get selectors from dashboard")
+			return nil, fmt.Errorf("get selectors from dashboard: %w", err)
 		}
 		for _, v := range s {
 			selectorMap[v] = struct{}{}
@@ -178,7 +179,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 		if v.Datasource != nil {
 			uid, err := templating.InterpolateQuery(v.Datasource.UID, p.from, p.to, p.allVariables())
 			if err != nil {
-				return templating.TemplatingVariable{}, errors.Wrap(err, "interpolate query")
+				return templating.TemplatingVariable{}, fmt.Errorf("interpolate query: %w", err)
 			}
 
 			if v.Datasource.Name != VMDatasourceName && uid != VMDatasourceName && v.Datasource.Type != "prometheus" {
@@ -187,7 +188,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 		}
 		pv, err := p.parseTemplatingQuery(v)
 		if err != nil {
-			return templating.TemplatingVariable{}, errors.Wrap(err, "parse templating query")
+			return templating.TemplatingVariable{}, fmt.Errorf("parse templating query: %w", err)
 		}
 		return pv, nil
 	case dashboard.VariableTypeCustom:
@@ -195,7 +196,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 		for _, opt := range v.Options {
 			s, ok := opt.Value.(string)
 			if !ok {
-				return templating.TemplatingVariable{}, errors.Errorf("variable option %s is not string", opt.Text)
+				return templating.TemplatingVariable{}, fmt.Errorf("variable option %s is not string", opt.Text)
 			}
 			vals = append(vals, s)
 		}
@@ -206,7 +207,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 	case dashboard.VariableTypeConstant:
 		val, err := templating.GetQueryFromModel(v)
 		if err != nil {
-			return templating.TemplatingVariable{}, errors.Wrap(err, "get query from model")
+			return templating.TemplatingVariable{}, fmt.Errorf("get query from model: %w", err)
 		}
 		return templating.TemplatingVariable{
 			Model:  v,
@@ -217,7 +218,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 	case dashboard.VariableTypeDatasource:
 		query, err := templating.GetQueryFromModel(v)
 		if err != nil {
-			return templating.TemplatingVariable{}, errors.Wrap(err, "get query from model")
+			return templating.TemplatingVariable{}, fmt.Errorf("get query from model: %w", err)
 		}
 		if query != "prometheus" {
 			return templating.TemplatingVariable{}, errShouldIgnoreQuery
@@ -232,7 +233,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			Values: []string{durationToStr(defaultInterval, "m")},
 		}, nil
 	}
-	return templating.TemplatingVariable{}, errors.Errorf("not supported type by pmm-dump: %s", string(v.Type))
+	return templating.TemplatingVariable{}, fmt.Errorf("not supported type by pmm-dump: %s", string(v.Type))
 }
 
 func (p *VMExprParser) parseTemplatingVars(list []types.VariableModel) error {
@@ -243,7 +244,7 @@ func (p *VMExprParser) parseTemplatingVars(list []types.VariableModel) error {
 				p.ignoredVars[templVar.Name] = struct{}{}
 				continue
 			}
-			return errors.Wrap(err, "parse templating var")
+			return fmt.Errorf("parse templating var: %w", err)
 		}
 		p.varOrder = append(p.varOrder, pv.Name())
 		p.vars[pv.Name()] = pv

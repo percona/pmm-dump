@@ -16,9 +16,8 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 func RetryOnError(ctx context.Context, f func() error) error {
@@ -33,7 +32,7 @@ func RetryOnError(ctx context.Context, f func() error) error {
 				return nil
 			}
 		case <-ctx.Done():
-			return errors.Wrap(err, "timeout")
+			return fmt.Errorf("timeout: %w", err)
 		}
 	}
 }

@@ -15,11 +15,11 @@
 package dump
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
