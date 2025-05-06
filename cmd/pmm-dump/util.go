@@ -231,7 +231,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if err != nil {
 		log.Err(err).Msg("failed to get PMM timezone")
 		pmmTz = nil
-	} else if len(pmmTzRaw) == 0 || pmmTzRaw == "browser" {
+	} else if pmmTzRaw == "" || pmmTzRaw == "browser" {
 		pmmTz = nil
 	} else {
 		pmmTz = &pmmTzRaw
