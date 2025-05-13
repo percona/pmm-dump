@@ -239,7 +239,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, v
 	return agentsIDs, nil
 }
 
-// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings.
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server Grafana settings.
 func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 	type tzResp struct {
 		Timezone string `json:"timezone"`
@@ -269,12 +269,13 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get major PMM version")
 	}
+
+	var pmmTz *string
 	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get PMM timezone")
-	}
-	var pmmTz *string
-	if len(pmmTzRaw) == 0 || pmmTzRaw == "browser" {
+		log.Err(err).Msg("failed to get PMM timezone")
+		pmmTz = nil
+	} else if pmmTzRaw == "" || pmmTzRaw == "browser" {
 		pmmTz = nil
 	} else {
 		pmmTz = &pmmTzRaw
