@@ -5,11 +5,11 @@ go 1.23.5
 toolchain go1.24.1
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.33.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.35.0
 	github.com/VictoriaMetrics/metricsql v0.84.3
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
-	github.com/docker/docker v28.0.1+incompatible
+	github.com/docker/docker v28.1.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
 	github.com/grafana/grafana-plugin-sdk-go v0.269.1
@@ -19,13 +19,13 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.59.0
 	go.mongodb.org/mongo-driver v1.17.3
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.14.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/ClickHouse/ch-go v0.65.1 // indirect
+	github.com/ClickHouse/ch-go v0.66.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/metrics v1.34.0 // indirect
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9 // indirect
@@ -94,7 +94,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
@@ -136,15 +136,15 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.27.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.36.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
