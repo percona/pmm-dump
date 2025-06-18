@@ -1,8 +1,6 @@
 module pmm-dump
 
-go 1.23.5
-
-toolchain go1.24.1
+go 1.24.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.33.0
@@ -15,7 +13,7 @@ require (
 	github.com/grafana/grafana-plugin-sdk-go v0.269.1
 	github.com/hashicorp/go-version v1.7.0
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.59.0
 	go.mongodb.org/mongo-driver v1.17.3

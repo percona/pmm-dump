@@ -16,7 +16,6 @@ package transferer
 
 import (
 	"bytes"
-	"context"
 	"testing"
 	"time"
 
@@ -24,7 +23,7 @@ import (
 )
 
 func TestExport(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	type lsOpts struct {
 		status          LoadStatus
