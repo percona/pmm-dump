@@ -17,7 +17,6 @@
 package e2e
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +31,7 @@ func TestExportImport(t *testing.T) {
 	pmm := c.NewPMM("export-import", ".env.test")
 	newPMM := c.NewPMM("export-import-2", ".env2.test")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	g, gCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return pmm.Deploy(gCtx)
@@ -49,22 +48,21 @@ func TestExportImport(t *testing.T) {
 	testDir := t.TempDir()
 
 	pmm.Log("Checking filtering with `--instance` flag")
-	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-server"}
+	args := []string{"-d", filepath.Join(testDir, "filter-dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "--instance", "pmm-server", "-v"}
 	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
 	checkDumpFiltering(t, filepath.Join(testDir, "filter-dump.tar.gz"), "pmm-server")
 
-	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL()}
+	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "-v"}
 
 	pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
 	stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
-
-	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL()}
+	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", newPMM.PMMURL(), "--dump-qan", "--click-house-url", newPMM.ClickhouseURL(), "-v"}
 	pmm.Log("Importing data from", filepath.Join(testDir, "dump.tar.gz"))
 	stdout, stderr, err = b.Run(append([]string{"import", "--no-encryption"}, args...)...)
 	if err != nil {

@@ -85,35 +85,58 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
+
 	pmm.setPMMServerContainerID(id)
 
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
 		return errors.Wrap(err, "failed to set server published ports")
 	}
 
+	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
+	defer cancel()
+
+	pmm.Log("Ping VictoriaMetrics")
+	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	if err != nil {
+		return errors.Wrap(err, "failed to get PMM config")
+	}
+	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/ready"); err != nil && !errors.Is(err, io.EOF) {
+		return errors.Wrap(err, "failed to ping VM")
+	}
+	pmm.Log("VictoriaMetrics is ready")
+
+	pmm.Log("Ping Clickhouse inside container before restart")
+	if err := util.RetryOnError(tCtx, func() error {
+		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
+	}); err != nil {
+		return errors.Wrap(err, "failed to ping clickhouse")
+	}
+
 	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
-	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
-	defer cancel()
+	pmm.Log("Restarting Clickhouse after config change")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
 	}); err != nil {
 		return errors.Wrap(err, "failed to restart clickhouse")
 	}
 
+	pmm.Log("Ping Clickhouse inside container after restart")
+	if err := util.RetryOnError(tCtx, func() error {
+		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
+	}); err != nil {
+		return errors.Wrap(err, "failed to ping clickhouse")
+	}
+
+	pmm.Log("Ping Clickhouse with driver")
 	tCtx, cancel = context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-
-	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
-		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
-			return errors.Wrap(err, "failed to ping PMM")
-		}
-	} else {
-		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/server/version"); err != nil && !errors.Is(err, io.EOF) {
-			return errors.Wrap(err, "failed to ping PMM")
-		}
+	if err := util.RetryOnError(tCtx, func() error {
+		return pmm.PingClickhouse(ctx)
+	}); err != nil {
+		return errors.Wrap(err, "failed to ping clickhouse")
 	}
 
 	gc, err := pmm.NewClient()
@@ -121,7 +144,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "new client")
 	}
 
-	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
+	pmmConfig, err = pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "")
 	if err != nil {
 		return errors.Wrap(err, "get pmm config")
 	}
@@ -330,6 +353,17 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		AttachStdout: true,
 		AttachStderr: true,
 	}
+
+	s := nat.PortMap{}
+	for _, port := range ports {
+		containerPort, err := nat.NewPort("tcp", port)
+		if err != nil {
+			return "", err
+		}
+		containerConfig.ExposedPorts[containerPort] = struct{}{}
+		s[containerPort] = []nat.PortBinding{{HostIP: "0.0.0.0"}}
+	}
+
 	hostConfig := &container.HostConfig{
 		NetworkMode:     container.NetworkMode(pmm.NetworkName()),
 		Mounts:          mounts,
@@ -337,14 +371,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 		Resources: container.Resources{
 			Memory: memoryLimit,
 		},
-	}
-
-	for _, port := range ports {
-		containerPort, err := nat.NewPort("tcp", port)
-		if err != nil {
-			return "", err
-		}
-		containerConfig.ExposedPorts[containerPort] = struct{}{}
+		PortBindings: s,
 	}
 
 	networkConfig := &network.NetworkingConfig{
@@ -364,5 +391,6 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start container")
 	}
+
 	return resp.ID, nil
 }
