@@ -75,7 +75,7 @@ func TestValidate(t *testing.T) {
 		"--start-ts", start.Format(time.RFC3339),
 		"--end-ts", end.Format(time.RFC3339),
 		"--chunk-time-range", chunkTimeRange.String(),
-		"--no-encryption")
+		"--no-encryption",
 		"-v")
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
@@ -95,7 +95,7 @@ func TestValidate(t *testing.T) {
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
-		"--no-encryption")
+		"--no-encryption",
 		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
@@ -114,7 +114,7 @@ func TestValidate(t *testing.T) {
 		"--click-house-url", newPMM.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
 		"--chunk-time-range", chunkTimeRange.String(),
-		"--no-encryption")
+		"--no-encryption",
 		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
