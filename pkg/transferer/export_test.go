@@ -130,9 +130,9 @@ func TestExport(t *testing.T) {
 				}
 				e := encryption.Options{
 					Encryption: false,
-					JustKey:      false,
-					Pass:         "",
-					Filepath:     "",
+					JustKey:    false,
+					Pass:       "",
+					Filepath:   "",
 				}
 				var meta dump.Meta
 				var chunks []dump.ChunkMeta

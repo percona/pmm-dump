@@ -130,9 +130,9 @@ func TestImport(t *testing.T) {
 				}
 				e := encryption.Options{
 					Encryption: false,
-					JustKey:      false,
-					Pass:         "",
-					Filepath:     "",
+					JustKey:    false,
+					Pass:       "",
+					Filepath:   "",
 				}
 				meta := dump.Meta{}
 				err := tr.Import(ctx, meta, e)

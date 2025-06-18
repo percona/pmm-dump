@@ -38,9 +38,9 @@ const (
 
 type Options struct {
 	Encryption bool
-	JustKey      bool
-	Pass         string
-	Filepath     string
+	JustKey    bool
+	Pass       string
+	Filepath   string
 }
 
 func (e *Options) NewWriter(file io.Writer) (*cipher.StreamWriter, error) {
