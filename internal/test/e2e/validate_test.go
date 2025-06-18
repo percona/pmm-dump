@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -44,7 +43,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c := deployment.NewController(t)
 	pmm := c.NewPMM("validate", ".env.test")
@@ -75,7 +74,8 @@ func TestValidate(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339),
 		"--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String())
+		"--chunk-time-range", chunkTimeRange.String(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
@@ -93,7 +93,8 @@ func TestValidate(t *testing.T) {
 		"-d", xDumpPath,
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
-		"--click-house-url", newPMM.ClickhouseURL())
+		"--click-house-url", newPMM.ClickhouseURL(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -110,7 +111,8 @@ func TestValidate(t *testing.T) {
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String())
+		"--chunk-time-range", chunkTimeRange.String(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -371,7 +373,10 @@ func isGzip(data []byte) bool {
 	reader := bytes.NewReader(data)
 	r, err := gzip.NewReader(reader)
 	if r != nil {
-		r.Close()
+		err = r.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return err == nil
 }

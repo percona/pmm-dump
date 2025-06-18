@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -47,7 +46,7 @@ func TestContentLimit(t *testing.T) {
 		t.Skip("skipping test because existing deployment is used")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	var b util.Binary
 	tmpDir := util.CreateTestDir(t, "content-limit-test")
@@ -137,7 +136,7 @@ func generateFakeDump(filepath string) error {
 		return errors.Wrap(err, "failed to write dump meta content")
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		content, err := generateFakeChunk(100000)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate fake chunk")
@@ -166,7 +165,7 @@ func generateFakeDump(filepath string) error {
 func generateFakeChunk(size int) ([]byte, error) {
 	r := rand.New(rand.NewSource(time.Now().Unix())) //nolint:gosec
 	var data []byte
-	for i := 0; i < size; i++ {
+	for i := range size {
 		metricsData, err := json.Marshal(victoriametrics.Metric{
 			Metric: map[string]string{
 				"__name__": "test",
