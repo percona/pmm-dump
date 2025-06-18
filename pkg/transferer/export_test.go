@@ -129,7 +129,7 @@ func TestExport(t *testing.T) {
 					file:         bytes.NewBuffer(nil),
 				}
 				e := encryption.Options{
-					NoEncryption: true,
+					Encryption: false,
 					JustKey:      false,
 					Pass:         "",
 					Filepath:     "",

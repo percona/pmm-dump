@@ -129,7 +129,7 @@ func TestImport(t *testing.T) {
 					file:         buf,
 				}
 				e := encryption.Options{
-					NoEncryption: true,
+					Encryption: false,
 					JustKey:      false,
 					Pass:         "",
 					Filepath:     "",

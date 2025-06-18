@@ -33,7 +33,7 @@ import (
 func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.Meta, error) {
 	var file *os.File
 	var encpath string
-	if !e.NoEncryption {
+	if e.Encryption {
 		encpath = ".enc"
 	}
 	if piped {
@@ -47,7 +47,7 @@ func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.
 	}
 	defer file.Close() //nolint:errcheck
 
-	r, err := dump.NewReader(file, e)
+	r, err := dump.NewReader(file, &e)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create readers")
 	}

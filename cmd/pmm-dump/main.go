@@ -27,7 +27,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/encryption"
+	enc "pmm-dump/pkg/encryption"
 	grafana "pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
@@ -98,11 +98,12 @@ func main() { //nolint:gocyclo,maintidx
 				Default(fmt.Sprintf("%v=90,%v=90,%v=30", transferer.ThresholdCPU, transferer.ThresholdRAM, transferer.ThresholdMYRAM)).String()
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
+
 		// encryption related
-		noEncryption = cli.Flag("no-encryption", "Disable encryption").Default("false").Bool()
-		pass         = cli.Flag("pass", "Password for encryption/decryption").Default("").String()
-		justKey      = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
-		toFile       = cli.Flag("pass-filepath", "Filepath to output pass").Default("").String()
+		encryption = cli.Flag("encryption", "Disable encryption").Default("true").Bool()
+		pass       = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM-DUMP-PASS").String()
+		justKey    = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
+		toFile     = cli.Flag("pass-filepath", "Filepath to output pass").Envar("PMM-DUMP-PASS-FILEPATH").String()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
@@ -136,7 +137,7 @@ func main() { //nolint:gocyclo,maintidx
 	case *enableVerboseMode && *justKey:
 		log.Fatal().Msgf("Verbose and just-key are mutually exclusive")
 
-	case *noEncryption && (*pass != "" || *justKey || *toFile != ""):
+	case !*encryption && (*pass != "" || *justKey || *toFile != ""):
 		log.Fatal().Msgf("No encryption and other encryptions parameters are mutually exclusive")
 
 	case *enableVerboseMode:
@@ -281,7 +282,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msgf("Failed to create a dump. No data was found")
 		}
 
-		file, err := createFile(*dumpPath, *stdout, noEncryption)
+		file, err := createFile(*dumpPath, *stdout, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
@@ -291,11 +292,11 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
-		e := &encryption.Options{
-			Filepath:     *toFile,
-			Pass:         *pass,
-			NoEncryption: *noEncryption,
-			JustKey:      *justKey,
+		e := &enc.Options{
+			Filepath:   *toFile,
+			Pass:       *pass,
+			Encryption: *encryption,
+			JustKey:    *justKey,
 		}
 		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
@@ -351,11 +352,11 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-		e := &encryption.Options{
-			Filepath:     *toFile,
-			Pass:         *pass,
-			NoEncryption: *noEncryption,
-			JustKey:      *justKey,
+		e := &enc.Options{
+			Filepath:   *toFile,
+			Pass:       *pass,
+			Encryption: *encryption,
+			JustKey:    *justKey,
 		}
 		if piped { //nolint:nestif
 			if *vmNativeData {
@@ -405,7 +406,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		file, err := getFile(*dumpPath, piped, noEncryption)
+		file, err := getFile(*dumpPath, piped, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}
@@ -438,11 +439,11 @@ func main() { //nolint:gocyclo,maintidx
 		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
-		e := &encryption.Options{
-			Filepath:     *toFile,
-			Pass:         *pass,
-			NoEncryption: *noEncryption,
-			JustKey:      *justKey,
+		e := &enc.Options{
+			Filepath:   *toFile,
+			Pass:       *pass,
+			Encryption: *encryption,
+			JustKey:    *justKey,
 		}
 		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *e)
 		if err != nil {

@@ -37,7 +37,7 @@ const (
 )
 
 type Options struct {
-	NoEncryption bool
+	Encryption bool
 	JustKey      bool
 	Pass         string
 	Filepath     string
@@ -116,7 +116,7 @@ func (e *Options) writeSaltToFile(w io.Writer, salt []byte) {
 }
 
 func (e *Options) OutputPass() error {
-	if e.NoEncryption {
+	if !e.Encryption {
 		return nil
 	}
 
@@ -154,6 +154,8 @@ func (e *Options) generatePassword() error {
 	if err != nil {
 		return err
 	}
+	log.Debug().Msg(string(buffer))
 	e.Pass = hex.EncodeToString(buffer)[:passwordSize]
+	log.Debug().Msg(e.Pass)
 	return nil
 }

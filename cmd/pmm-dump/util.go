@@ -486,7 +486,7 @@ func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
 func getFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
 	var file io.ReadWriteCloser
 	var encpath string
-	if !*encrypted {
+	if *encrypted {
 		encpath = ".enc"
 	}
 	if piped {
@@ -533,7 +533,7 @@ func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteClose
 
 func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, error) {
 	var encpath string
-	if !*encrypted {
+	if *encrypted {
 		encpath = ".enc"
 	}
 	autoFilename := fmt.Sprintf("pmm-dump.tar.gz-%v"+encpath, ts.Unix())

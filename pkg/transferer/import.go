@@ -30,7 +30,7 @@ import (
 
 func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e encryption.Options) error {
 	log.Info().Msg("Importing metrics...")
-	r, err := dump.NewReader(t.file, e)
+	r, err := dump.NewReader(t.file, &e)
 	if err != nil {
 		return errors.Wrap(err, "failed to create readers")
 	}

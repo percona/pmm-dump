@@ -134,7 +134,7 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 }
 
 func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e encryption.Options) error {
-	w, err := dump.NewWriter(t.file, e)
+	w, err := dump.NewWriter(t.file, &e)
 	if err != nil {
 		return errors.Wrap(err, "failed to create writer")
 	}

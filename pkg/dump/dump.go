@@ -78,10 +78,10 @@ type Reader struct {
 }
 
 // NewWriter creates all neccesary writers and returns writer struct. Use Close to close all writers.
-func NewWriter(file io.Writer, e encryption.Options) (*Writer, error) {
+func NewWriter(file io.Writer, e *encryption.Options) (*Writer, error) {
 	w := new(Writer)
 	var err error
-	if e.NoEncryption {
+	if !e.Encryption {
 		w.gzw, err = gzip.NewWriterLevel(file, gzip.BestCompression)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to create gzip writer")
@@ -129,10 +129,10 @@ func (w *Writer) Close() error {
 }
 
 // NewReader creates all neccesary readers and returns reader struct. Use Close to close all readers.
-func NewReader(file io.Reader, e encryption.Options) (*Reader, error) {
+func NewReader(file io.Reader, e *encryption.Options) (*Reader, error) {
 	var err error
 	r := new(Reader)
-	if e.NoEncryption {
+	if !e.Encryption {
 		r.gzr, err = gzip.NewReader(file)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create gzip reader")
