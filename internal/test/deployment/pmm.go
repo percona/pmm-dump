@@ -348,7 +348,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return errors.Wrap(err, "failed to add mongo to PMM")
 	}
 
-	pmm.Log("Ping clickhouse")
+	pmm.Log("Ping clickhouse with driver")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := util.RetryOnError(tCtx, func() error {
