@@ -116,6 +116,15 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
+	// change password from sha256 to plaintext
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<password_sha256_hex>[^<]*</password_sha256_hex>#<password></password>#g", "/etc/clickhouse-server/users.xml"); err != nil {
+		return errors.Wrap(err, "failed to update clickhouse config")
+	}
+	// change config to allow plaintext passwords
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<allow_plaintext_password>0</allow_plaintext_password>#<allow_plaintext_password>1</allow_plaintext_password>#g", "/etc/clickhouse-server/config.xml"); err != nil {
+		return errors.Wrap(err, "failed to update clickhouse config")
+	}
+
 	pmm.Log("Restarting Clickhouse after config change")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
