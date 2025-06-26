@@ -173,7 +173,11 @@ func (p *PMM) ClickhouseURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	u.User = nil
+
+	u.User = url.UserPassword("default", "password")
+	if pkgUtil.CheckIsVer2(p.GetVersion()) {
+		u.User = nil
+	}
 	u.Scheme = "clickhouse"
 	u.Path = "pmm"
 	if strings.Contains(u.Host, ":") {

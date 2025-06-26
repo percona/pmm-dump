@@ -74,6 +74,7 @@ func TestQANWhere(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
+		pmm.Log("Error: ", err)
 		pmm.Log("Clickhouse status: ")
 		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
 		if err != nil {
