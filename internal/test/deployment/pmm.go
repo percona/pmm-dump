@@ -175,7 +175,7 @@ func (p *PMM) ClickhouseURL() string {
 	}
 
 	u.User = url.UserPassword("default", "password")
-	if pkgUtil.CheckIsVer2(p.GetVersion()) {
+	if pkgUtil.CheckVer(p.GetVersion(), "<= 3.1.0") {
 		u.User = nil
 	}
 	u.Scheme = "clickhouse"
@@ -382,7 +382,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
+	if pkgUtil.CheckVer(pmm.GetVersion(), "< 3.0.0") {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return errors.Wrap(err, "failed to ping PMM")
 		}

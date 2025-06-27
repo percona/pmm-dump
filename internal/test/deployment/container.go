@@ -78,14 +78,16 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	var ports []string
 	var env []string
-	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
+	if pkgUtil.CheckVer(pmm.GetVersion(), "< 3.0.0") {
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
-		env = append(env, []string{
-			"PMM_CLICKHOUSE_USER=default",
-			"PMM_CLICKHOUSE_PASSWORD=password",
-		}...)
+		if !pkgUtil.CheckVer(pmm.GetVersion(), "<= 3.1.0") {
+			env = append(env, []string{
+				"PMM_CLICKHOUSE_USER=default",
+				"PMM_CLICKHOUSE_PASSWORD=password",
+			}...)
+		}
 	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, env, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
@@ -122,7 +124,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 
-	if !pkgUtil.CheckIsVer2(pmm.GetVersion()) {
+	if !pkgUtil.CheckVer(pmm.GetVersion(), "<= 3.1.0") {
 		// change password to "password"
 		if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<password_sha256_hex>[^<]*</password_sha256_hex>#<password_sha256_hex>5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8</password_sha256_hex>#g", "/etc/clickhouse-server/users.xml"); err != nil {
 			return errors.Wrap(err, "failed to update clickhouse config")
@@ -178,7 +180,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.Client) error {
 	var httpPort, httpsPort, defaultHTTPPort, defaultHTTPSPort, clickhousePort, clickhouseHTTPPort string
-	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
+	if pkgUtil.CheckVer(pmm.GetVersion(), "< 3.0.0") {
 		defaultHTTPPort = defaultHTTPPortv2
 		defaultHTTPSPort = defaultHTTPSPortv2
 	} else {
@@ -231,7 +233,7 @@ func getPublishedPort(container container.InspectResponse, port string) (string,
 
 func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, networkID string) error {
 	var port string
-	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
+	if pkgUtil.CheckVer(pmm.GetVersion(), "< 3.0.0") {
 		port = "443"
 	} else {
 		port = "8443"

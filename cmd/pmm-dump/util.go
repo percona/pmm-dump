@@ -126,7 +126,7 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
@@ -179,7 +179,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -210,7 +210,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, v
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")

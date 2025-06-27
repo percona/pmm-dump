@@ -66,8 +66,8 @@ func composeClickHouseURL(u url.URL) string {
 	return u.String()
 }
 
-func CheckIsVer2(ver *version.Version) bool {
-	constraints, err := version.NewConstraint("< 3.0.0")
+func CheckVer(ver *version.Version, constrain string) bool {
+	constraints, err := version.NewConstraint(constrain)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create constraint: %v", err))
 	}
