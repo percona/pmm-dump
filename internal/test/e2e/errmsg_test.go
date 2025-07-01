@@ -108,6 +108,7 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 
 			_, stderr, err := b.Run(
 				"import",
+				"--no-encryption",
 				"-d", "some-dumppath",
 				"--pmm-url", server.URL,
 				"--pmm-user", "some-user",
