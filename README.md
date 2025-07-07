@@ -55,7 +55,7 @@ Here are main commands/flags:
 | no-encryption   | -                    | Disables encryption                                                                                      | -                                                                                                          |
 | pass   | -                    | Password for encryption/decryption                                                                                      | `somepass`                                                                                                          |
 | just-key   | -                    | Disable logging and only leave key                                                                                    | -                                                                                                          |
-| pass-filepath   | -                    | Filepath to output pass                                                                                      | `pass.txt`                                                                                                          |
+| pass-filepath   | -                    | Filepath to output encryption password                                                                                      | `pass.txt`                                                                                                          |
 
 If you didn't add flag `no-encryption`, dump will be encrypted using aes256-ctr algorithm, deriving key and iv from passphrase using pbkdf2.
 If passphrase wasn't provided during export it will automatically generated.

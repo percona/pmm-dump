@@ -100,10 +100,10 @@ func main() { //nolint:gocyclo,maintidx
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
 		// encryption related
-		encryption = cli.Flag("encryption", "Disable encryption").Default("true").Bool()
+		encryption = cli.Flag("encryption", "Enable encryption").Default("true").Bool()
 		pass       = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM_DUMP_PASS").String()
 		justKey    = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
-		toFile     = cli.Flag("pass-filepath", "Filepath to output pass").Envar("PMM_DUMP_PASS_FILEPATH").String()
+		toFile     = cli.Flag("pass-filepath", "Filepath to output encryption password").Envar("PMM_DUMP_PASS_FILEPATH").String()
 
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
