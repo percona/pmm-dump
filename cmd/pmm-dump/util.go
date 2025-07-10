@@ -126,7 +126,7 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
@@ -179,7 +179,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -210,7 +210,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, v
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
@@ -503,14 +503,14 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 
 const dirPermission = 0o777
 
-func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
 	var file *os.File
 	if piped {
 		file = os.Stdout
 	} else {
 		exportTS := time.Now().UTC()
 		log.Debug().Msgf("Trying to determine filepath")
-		filepath, err := getDumpFilepath(dumpPath, exportTS)
+		filepath, err := getDumpFilepath(dumpPath, exportTS, encrypted)
 		if err != nil {
 			return nil, err
 		}
@@ -527,8 +527,12 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
-func getDumpFilepath(customPath string, ts time.Time) (string, error) {
-	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz", ts.Unix())
+func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, error) {
+	var encpath string
+	if *encrypted {
+		encpath = ".enc"
+	}
+	autoFilename := fmt.Sprintf("pmm-dump.tar.gz-%v"+encpath, ts.Unix())
 	if customPath == "" {
 		return autoFilename, nil
 	}
@@ -542,6 +546,6 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
-
+	customPath += encpath
 	return customPath, nil
 }
