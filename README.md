@@ -57,28 +57,6 @@ Here are main commands/flags:
 | just-key   | -                    | Disable logging and only leave key                                                                                    | -                                                                                                          |
 | pass-filepath   | -                    | Filepath to output encryption password                                                                                      | `pass.txt`                                                                                                          |
 
-## Encryption
-By default pmm-dump will encrypts everything using the AES-256-CTR algorithm and derives the key and IV from the passphrase using PBKDF2.
-If a passphrase is not provided during export, one will be generated automatically.
-To disable encryption, set the "no-encryption" flag for both export and import.
-When exporting without the `no-encryption` flag, pmm-dump will add `.enc` to the filename of the dump. For example:
-1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. The export will result in a non-encrypted `dump.tar.gz` file.
-2. The flag `dump-path` is set to `dump.tar.gz`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc` file.
-3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The export will result in a non-encrypted `dump.tar.gz.enc` file.
-4. The flag `dump-path` is set to `dump.tar.gz.enc`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc.enc` file.
-
-However, the file name will not be modified during import.  For example:
-1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. . The import will treat the file as if it's not encrypted.
-2. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is not set.    The file will be imported as if it were encrypted.
-3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The file will be imported as if it were not encrypted, even if the file name suggests otherwise.
-4. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is not set. The file will be imported as if it were encrypted.
-
-You must specify the password when importing an encrypted dump. Otherwise, an error will occur.
-You can decrypt dump yourself using openssl with this command.
-``` 
-openssl enc -d -aes-256-ctr -pbkdf2 -in dump.tar.gz.enc -out dump.tar.gz
-```
-
 For filtering you could use the following commands (will be improved in the future):
 
 | Command | Flag        | Description                       | Example                      |
@@ -126,6 +104,28 @@ In some cases you would need to override default configuration for VM/CH process
 | any     | click-house-url      | URL of Click House                                  | `http://localhost:9000?database=pmm`           |
 | export  | chunk-time-range     | Time range to be fit into a single chunk (VM only)  | `45s`, `5m`, `1h`                              |
 | export  | chunk-rows           | Amount of rows to fit into a single chunk (CH only) | `1000`                                         |
+
+## Encryption
+By default pmm-dump encrypts everything using the AES-256-CTR algorithm and derives the key and IV from the passphrase using PBKDF2.
+If a passphrase is not provided during export, one will be generated automatically.
+To disable encryption, set the "no-encryption" flag for both export and import.
+When exporting without the `no-encryption` flag, pmm-dump will add `.enc` to the filename of the dump. For example:
+1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. The export will result in a non-encrypted `dump.tar.gz` file.
+2. The flag `dump-path` is set to `dump.tar.gz`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc` file.
+3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The export will result in a non-encrypted `dump.tar.gz.enc` file.
+4. The flag `dump-path` is set to `dump.tar.gz.enc`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc.enc` file.
+
+However, the file name will not be modified during import.  For example:
+1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. . The import will treat the file as if it's not encrypted.
+2. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is not set.    The file will be imported as if it were encrypted.
+3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The file will be imported as if it were not encrypted, even if the file name suggests otherwise.
+4. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is not set. The file will be imported as if it were encrypted.
+
+You must specify the password when importing an encrypted dump. Otherwise, an error will occur.
+You can decrypt dump yourself using openssl with this command.
+``` 
+openssl enc -d -aes-256-ctr -pbkdf2 -in dump.tar.gz.enc -out dump.tar.gz
+```
 
 ### Using in pipelines
 You can redirect output to STDOUT with --stdout option. It's useful to redirect output to another pmm-dump in a pipeline:
@@ -176,12 +176,17 @@ You will need to have Go 1.21+ and Docker installed.
 | mongo-insert        | Executes MongoDB insert      |
 | make down           | Shuts down docker containers |
 | make re             | Shortcut for `down up`       |
-| make export-all     | Runs export from local PMM   |
-| make export-all-to-file     | Runs export from local PMM and writes passphrase to file|
-| make export-all-just-key     | Runs export from local PMM and dissables logging except passphrase|
-| make export-all-no-encryption     | Runs export from local PMM with disabled encryption|
-| make import-all    | Runs import to local PMM      |
-| make import-all-no-encryption     | Runs export from local PMM with disabled encryption |
+| make export-all-random | Runs an export from the local PMM with a randomly generated password |
+| make export-all-random-to-file | Runs an export from the local PMM with a randomly generated password and writes it to a file |
+| make export-all-random-just-key | Runs an export from the local PMM with a randomly generated password and disables logging except for the password |
+| make export-all | Runs an export from the local PMM with a provided password |
+| make export-all-to-file | Runs an export from the local PMM with a provided password and writes it to a file |
+| make export-all-just-key | Runs an export from the local PMM with a provided password and disables logging except for the password |
+| make export-all-no-encryption | Runs an export from the local PMM without encryption |
+| make export-vm | Runs an export from the local PMM with only VM metrics and a randomly generated password. |
+| make export-ch | Runs an export from the local PMM with only CH metrics and a randomly generated password |
+| make import-all | Runs import with the provided password |
+| make import-all-no-encryption | Runs import without encryption |
 | make run-tests      | Runs all tests               |
 | make run-e2e-tests  | Runs all e2e tests           |
 | make run-e2e-tests-v2| Runs all e2e tests for version 2|
