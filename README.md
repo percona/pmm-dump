@@ -52,10 +52,10 @@ Here are main commands/flags:
 | show-meta | -                    | Shows dump meta in human readable format                                                                  | -                                                                                                          |
 | show-meta | no-prettify          | Shows raw dump meta                                                                                       | -                                                                                                          |
 | version   | -                    | Shows binary version                                                                                      | -                                                                                                          |
-| encryption   | -                    | Enables encryption (default)                                                                                     | -                                                                                                          |
-| pass   | -                    | Password for encryption/decryption                                                                                      | `somepass`                                                                                                          |
-| just-key   | -                    | Disable logging and only leave key                                                                                    | -                                                                                                          |
-| pass-filepath   | -                    | Filepath to output encryption password                                                                                      | `pass.txt`                                                                                                          |
+| any       | encryption           | Enables encryption (default)                                                                              | -                                                                                                          |
+| any       | pass                 | Password for encryption/decryption                                                                        | `somepass`                                                                                                 |
+| export    | just-key             | Disable logging and only leave key                                                                        | -                                                                                                          |
+| export    | pass-filepath        | Filepath to output encryption password                                                                    | `pass.txt`                                                                                                       |
 
 For filtering you could use the following commands (will be improved in the future):
 
@@ -105,7 +105,7 @@ In some cases you would need to override default configuration for VM/CH process
 | export  | chunk-time-range     | Time range to be fit into a single chunk (VM only)  | `45s`, `5m`, `1h`                              |
 | export  | chunk-rows           | Amount of rows to fit into a single chunk (CH only) | `1000`                                         |
 
-## Encryption
+### Encryption
 By default pmm-dump encrypts everything using the AES-256-CTR algorithm and derives the key and IV from the passphrase using PBKDF2.
 If a passphrase is not provided during export, one will be generated automatically.
 To disable encryption, set the "no-encryption" flag for both export and import.
