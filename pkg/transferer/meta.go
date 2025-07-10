@@ -32,15 +32,11 @@ import (
 
 func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.Meta, error) {
 	var file *os.File
-	var encpath string
-	if e.Encryption {
-		encpath = ".enc"
-	}
 	if piped {
 		file = os.Stdin
 	} else {
 		var err error
-		file, err = os.Open(dumpPath + encpath) //nolint:gosec
+		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open file")
 		}

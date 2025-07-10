@@ -52,17 +52,33 @@ Here are main commands/flags:
 | show-meta | -                    | Shows dump meta in human readable format                                                                  | -                                                                                                          |
 | show-meta | no-prettify          | Shows raw dump meta                                                                                       | -                                                                                                          |
 | version   | -                    | Shows binary version                                                                                      | -                                                                                                          |
-| no-encryption   | -                    | Disables encryption                                                                                      | -                                                                                                          |
+| encryption   | -                    | Enables encryption (default)                                                                                     | -                                                                                                          |
 | pass   | -                    | Password for encryption/decryption                                                                                      | `somepass`                                                                                                          |
 | just-key   | -                    | Disable logging and only leave key                                                                                    | -                                                                                                          |
 | pass-filepath   | -                    | Filepath to output encryption password                                                                                      | `pass.txt`                                                                                                          |
 
-If you didn't add flag `no-encryption`, dump will be encrypted using aes256-ctr algorithm, deriving key and iv from passphrase using pbkdf2.
-If passphrase wasn't provided during export it will automatically generated.
+## Encryption
+By default pmm-dump will encrypts everything using the AES-256-CTR algorithm and derives the key and IV from the passphrase using PBKDF2.
+If a passphrase is not provided during export, one will be generated automatically.
+To disable encryption, set the "no-encryption" flag for both export and import.
+When exporting without the `no-encryption` flag, pmm-dump will add `.enc` to the filename of the dump. For example:
+1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. The export will result in a non-encrypted `dump.tar.gz` file.
+2. The flag `dump-path` is set to `dump.tar.gz`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc` file.
+3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The export will result in a non-encrypted `dump.tar.gz.enc` file.
+4. The flag `dump-path` is set to `dump.tar.gz.enc`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc.enc` file.
+
+However, the file name will not be modified during import.  For example:
+1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. . The import will treat the file as if it's not encrypted.
+2. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is not set.    The file will be imported as if it were encrypted.
+3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The file will be imported as if it were not encrypted, even if the file name suggests otherwise.
+4. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is not set. The file will be imported as if it were encrypted.
+
+You must specify the password when importing an encrypted dump. Otherwise, an error will occur.
 You can decrypt dump yourself using openssl with this command.
 ``` 
 openssl enc -d -aes-256-ctr -pbkdf2 -in dump.tar.gz.enc -out dump.tar.gz
 ```
+
 For filtering you could use the following commands (will be improved in the future):
 
 | Command | Flag        | Description                       | Example                      |

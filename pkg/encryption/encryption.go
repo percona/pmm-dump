@@ -119,31 +119,36 @@ func (e *Options) OutputPass() error {
 	if !e.Encryption {
 		return nil
 	}
-
-	if e.JustKey {
-		wr := zerolog.ConsoleWriter{
-			Out:     os.Stderr,
-			NoColor: true,
+	switch {
+	case e.JustKey:
+		{
+			wr := zerolog.ConsoleWriter{
+				Out:     os.Stderr,
+				NoColor: true,
+			}
+			wr.PartsOrder = []string{
+				zerolog.MessageFieldName,
+			}
+			lo := log.Output(wr)
+			lo.Info().Msg("Password: " + e.Pass)
 		}
-		wr.PartsOrder = []string{
-			zerolog.MessageFieldName,
+	case e.Filepath != "":
+		{
+			log.Info().Msg("Exporting password to file " + e.Filepath)
+			file, err := os.Create(e.Filepath)
+			if err != nil {
+				return errors.Wrap(err, "failed to open password file")
+			}
+			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+			if err != nil {
+				return errors.Wrap(err, "failed to write to file")
+			}
+			defer file.Close() //nolint:errcheck
 		}
-		lo := log.Output(wr)
-		lo.Info().Msg("Pass: " + e.Pass)
-	} else {
-		log.Info().Msg("Pass: " + e.Pass)
-	}
-	if e.Filepath != "" {
-		log.Info().Msg("Exporting pass to file")
-		file, err := os.Create(e.Filepath)
-		if err != nil {
-			return errors.Wrap(err, "failed to open password file")
+	default:
+		{
+			log.Info().Msg("Password: " + e.Pass)
 		}
-		_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-		if err != nil {
-			return errors.Wrap(err, "failed to write to file")
-		}
-		defer file.Close() //nolint:errcheck
 	}
 	return nil
 }
@@ -154,8 +159,6 @@ func (e *Options) generatePassword() error {
 	if err != nil {
 		return err
 	}
-	log.Debug().Msg(string(buffer))
 	e.Pass = hex.EncodeToString(buffer)[:passwordSize]
-	log.Debug().Msg(e.Pass)
 	return nil
 }

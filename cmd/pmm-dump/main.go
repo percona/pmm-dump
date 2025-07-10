@@ -406,7 +406,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
 
-		file, err := getFile(*dumpPath, piped, encryption)
+		file, err := getFile(*dumpPath, piped)
 		if err != nil {
 			log.Fatal().Msgf("Failed to get file: %v", err)
 		}

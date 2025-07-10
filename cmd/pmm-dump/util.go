@@ -483,12 +483,8 @@ func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {
 	*pmmURL = parsedURL.String()
 }
 
-func getFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
+func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 	var file io.ReadWriteCloser
-	var encpath string
-	if *encrypted {
-		encpath = ".enc"
-	}
 	if piped {
 		file = os.Stdin
 	} else {
@@ -497,7 +493,7 @@ func getFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, 
 			Str("path", dumpPath).
 			Msg("Opening dump file...")
 
-		file, err = os.Open(dumpPath + encpath) //nolint:gosec
+		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
 		}
