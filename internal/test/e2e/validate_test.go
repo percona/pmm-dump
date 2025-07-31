@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path"
@@ -100,6 +101,47 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
+
+	// vmurl := util.VMURL(t, pmm.PMMURL())
+	// pmm.Log("FORCE FLUSH")
+	// flush := vmurl + "/internal/force_flush"
+	// err = util.RetryOnError(t.Context(), func() error {
+	// 	resp, err := http.Get(flush) //nolint:gosec,noctx
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	defer resp.Body.Close() //nolint:errcheck
+	// 	if resp.StatusCode == http.StatusOK {
+	// 		return nil
+	// 	}
+	// 	return errors.New("not ok")
+	// })
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// pmm.Log("END OF FORCE FLUSH")
+	// pmm.Log("ResetCache")
+	// cache := vmurl + "/internal/resetRollupResultCache"
+	// err = util.RetryOnError(t.Context(), func() error {
+	// 	resp, err := http.Get(cache) //nolint:gosec,noctx
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	defer resp.Body.Close() //nolint:errcheck
+	// 	if resp.StatusCode == http.StatusOK {
+	// 		return nil
+	// 	}
+	// 	return errors.New("not ok")
+	// })
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+
+	// pmm.Log("END OF ResetCache")
+
+	// tCtx, vmurl+"/internal/force_flush"); err != nil && !errors.Is(err, io.EOF) {
+	// t.Fatal("failed to force flush")
+	// }
 
 	pmm.Log("Sleeping for 10 seconds")
 	time.Sleep(time.Second * 10)
@@ -431,19 +473,42 @@ func (vm vmMetric) MetricHash() string {
 }
 
 func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) int {
+	f, err := os.OpenFile("pmm_dump.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	f2, err := os.OpenFile("pmm_dump2.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer f2.Close()
+
+	l := log.New(f, "", 0)
+	//l2 := log.New(f2, "", 0)
+
 	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]
+		// if strings.Contains(vm.Metric["__name__"], "pg") {
+		// 	l.Printf("Metric name: %s , value:%v timestamp:%d ", vm.Metric["__name__"], vm.Values[i], v)
+		// }
 	}
 	yMap := make(map[int64]float64)
 	for i, v := range with.Timestamps {
 		yMap[v] = with.Values[i]
+		// if strings.Contains(vm.Metric["__name__"], "pg") {
+		// 	l2.Printf("Metric name: %s , value:%v timestamp:%d ", vm.Metric["__name__"], vm.Values[i], v)
+		// }
 	}
 
 	for timestamp, xValue := range xMap {
+
 		yValue, ok := yMap[timestamp]
 		if !ok {
 			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
+			l.Printf("Metric name: %s", vm.Metric["__name__"])
 			continue
 		}
 		if xValue != yValue {

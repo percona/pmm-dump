@@ -42,6 +42,14 @@ run_e2e_tests_v2() {
 	PMM_CLIENT_IMAGE="percona/pmm-client"  PMM_SERVER_IMAGE="percona/pmm-server" PMM_VERSION=$pmm2 ./setup/test/init-test-configs.sh test
 	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v  
 }
+run_e2e_tests_validate() {
+	rm -f test/.env.test 
+	rm -f test/.env2.test
+	./support-files/destroy-test-resources
+
+	PMM_CLIENT_IMAGE="percona/pmm-client"  PMM_SERVER_IMAGE="percona/pmm-server" PMM_VERSION="3.3.0" ./setup/test/init-test-configs.sh test
+	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/validate_test.go -v  
+}
 run_unit_tests() {
 	rm -f test/.env.test 
 	rm -f test/.env2.test
@@ -51,6 +59,8 @@ run_unit_tests() {
 
 if [[ ${build_tag} == "v2"  ]]; then
 	run_e2e_tests_v2
+elif [[ ${build_tag} == "validate"  ]]; then
+	run_e2e_tests_validate
 elif [[ -n $build_tag ]]; then
 	run_e2e_tests
 else
