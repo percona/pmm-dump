@@ -1,5 +1,3 @@
-//go:build e2e
-
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,10 +24,12 @@ import (
 	"io"
 	"log"
 	"math"
+	"math/big"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -511,7 +511,7 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 			l.Printf("Metric name: %s", vm.Metric["__name__"])
 			continue
 		}
-		if xValue != yValue {
+		if !roundFloatAndCheck(xValue, yValue, pmm) {
 			pmm.Log(fmt.Sprintf("Values for timestamp %d in metric %s are not the same: %v and %v", timestamp, vm.MetricString(), xValue, yValue))
 			continue
 		}
@@ -528,4 +528,39 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	}
 
 	return int(math.Abs(float64(len(xMap) - len(yMap))))
+}
+
+const precision = 20
+const bits = 64
+
+// Go usually can't handle floats with 16+ digits.
+// For example, when comparing them, the dump has the same numbers, but Go's float64 can interpret them as two different numbers:
+// 1) 0.00999923005927 and 0.00999923005928.
+// 2) 1.7540397181656854e+09 and 1.7540397181656857e+09.
+// 3) 9.223372036854776e+18 and 9.223372036854775e+18.
+// So, we convert them to Big.Float, round them, and then compare them.
+
+func roundFloatAndCheck(f1, f2 float64, pmm *deployment.PMM) bool {
+	// stop rounding and just compare if f1 has 1 digit only
+	s := strconv.FormatFloat(f1, 'e', precision, bits)
+	dotIndex := strings.Index(s, "e")
+	if dotIndex == -1 {
+		return f1 == f2
+	}
+
+	// round and compare
+	n1 := big.NewFloat(f1)
+	n2 := big.NewFloat(f2)
+	n1Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).Set(n1)
+	n2Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).Set(n2)
+
+	result := n1Rounded.Cmp(n2Rounded) == 0
+	if !result {
+		pmm.Log("Original 1: %s\n", n1.Text('f', precision))
+		pmm.Log("Original 2: %s\n", n2.Text('f', precision))
+		pmm.Log("Rounded 1:  %s (precision=%d)\n", n1Rounded.Text('f', precision), precision)
+		pmm.Log("Rounded 2:  %s (precision=%d)\n", n2Rounded.Text('f', precision), precision)
+	}
+
+	return result
 }
