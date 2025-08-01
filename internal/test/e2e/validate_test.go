@@ -509,7 +509,7 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 			// l.Printf("Metric name: %s", vm.Metric["__name__"])
 			continue
 		}
-		if !roundFloatAndCheck(xValue, yValue, pmm) {
+		if !roundFloatAndCheck(xValue, yValue) {
 			pmm.Log(fmt.Sprintf("Values for timestamp %d in metric %s are not the same: %v and %v", timestamp, vm.MetricString(), xValue, yValue))
 			continue
 		}
@@ -540,7 +540,7 @@ const (
 // 3) 9.223372036854776e+18 and 9.223372036854775e+18.
 // So, we convert them to Big.Float, round them, and then compare them.
 
-func roundFloatAndCheck(f1, f2 float64, pmm *deployment.PMM) bool {
+func roundFloatAndCheck(f1, f2 float64) bool {
 	// stop rounding and just compare if f1 has 1 digit only
 	s := strconv.FormatFloat(f1, 'e', precision, bits)
 	dotIndex := strings.Index(s, "e")
@@ -549,18 +549,8 @@ func roundFloatAndCheck(f1, f2 float64, pmm *deployment.PMM) bool {
 	}
 
 	// round and compare
-	n1 := big.NewFloat(f1)
-	n2 := big.NewFloat(f2)
-	n1Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).Set(n1)
-	n2Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).Set(n2)
+	n1Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).SetFloat64(f1)
+	n2Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).SetFloat64(f2)
 
-	result := n1Rounded.Cmp(n2Rounded) == 0
-	if !result {
-		pmm.Log("Original 1: %s\n", n1.Text('f', precision))
-		pmm.Log("Original 2: %s\n", n2.Text('f', precision))
-		pmm.Log("Rounded 1:  %s (precision=%d)\n", n1Rounded.Text('f', precision), precision)
-		pmm.Log("Rounded 2:  %s (precision=%d)\n", n2Rounded.Text('f', precision), precision)
-	}
-
-	return result
+	return n1Rounded.Cmp(n2Rounded) == 0
 }
