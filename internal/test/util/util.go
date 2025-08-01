@@ -48,6 +48,7 @@ func CreateTestDir(t *testing.T, dirName string) string {
 }
 
 func VMURL(t *testing.T, pmm string) string {
+	t.Helper()
 	u, err := url.Parse(pmm)
 	if err != nil {
 		t.Fatal(err)
@@ -56,4 +57,3 @@ func VMURL(t *testing.T, pmm string) string {
 	u.RawQuery = ""
 	return u.String()
 }
-

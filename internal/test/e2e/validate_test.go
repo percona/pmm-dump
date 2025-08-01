@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"math/big"
 	"os"
@@ -473,20 +472,20 @@ func (vm vmMetric) MetricHash() string {
 }
 
 func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) int {
-	f, err := os.OpenFile("pmm_dump.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
+	// f, err := os.OpenFile("pmm_dump.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer f.Close()
 
-	f2, err := os.OpenFile("pmm_dump2.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-	defer f2.Close()
+	// f2, err := os.OpenFile("pmm_dump2.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer f2.Close()
 
-	l := log.New(f, "", 0)
-	//l2 := log.New(f2, "", 0)
+	// l := log.New(f, "", 0)
+	// l2 := log.New(f2, "", 0)
 
 	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
@@ -504,11 +503,10 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	}
 
 	for timestamp, xValue := range xMap {
-
 		yValue, ok := yMap[timestamp]
 		if !ok {
 			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
-			l.Printf("Metric name: %s", vm.Metric["__name__"])
+			// l.Printf("Metric name: %s", vm.Metric["__name__"])
 			continue
 		}
 		if !roundFloatAndCheck(xValue, yValue, pmm) {
@@ -530,8 +528,10 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	return int(math.Abs(float64(len(xMap) - len(yMap))))
 }
 
-const precision = 20
-const bits = 64
+const (
+	precision = 20
+	bits      = 64
+)
 
 // Go usually can't handle floats with 16+ digits.
 // For example, when comparing them, the dump has the same numbers, but Go's float64 can interpret them as two different numbers:
