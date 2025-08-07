@@ -15,9 +15,7 @@
 package transferer
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"io"
 	"path"
@@ -27,17 +25,17 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
+func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e encryption.Options) error {
 	log.Info().Msg("Importing metrics...")
-	gzr, err := gzip.NewReader(t.file)
+	r, err := dump.NewReader(t.file, &e)
 	if err != nil {
-		return errors.Wrap(err, "failed to open as gzip")
+		return errors.Wrap(err, "failed to create readers")
 	}
-	defer gzr.Close() //nolint:errcheck
-
-	tr := tar.NewReader(gzr)
+	defer r.Close() //nolint:errcheck
+	tr := r.GetTarReader()
 
 	var metafileExists bool
 
