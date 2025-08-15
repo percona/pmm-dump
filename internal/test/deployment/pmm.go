@@ -17,6 +17,7 @@ package deployment
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -173,7 +174,9 @@ func (p *PMM) ClickhouseURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	u.User = nil
+
+	u.User = pkgUtil.GetClickhouseUser(p.GetFullVersionString())
+
 	u.Scheme = "clickhouse"
 	u.Path = "pmm"
 	if strings.Contains(u.Host, ":") {
@@ -229,6 +232,42 @@ func (pmm *PMM) GetVersion() *version.Version {
 	} else {
 		return v1
 	}
+}
+
+// Return the full version asking it to the PMM server itself
+func (pmm *PMM) GetFullVersionString() string {
+
+	type versionResp struct {
+		Version string `json:"version"`
+		Server  struct {
+			Version string `json:"version"`
+		}
+	}
+
+	client, err := pmm.NewClient()
+
+	pmmVersionURL := pmm.PMMURL() + "/v1/version"
+
+	if err != nil {
+		pmm.t.Fatal(err)
+	}
+
+	response_code, response, err := client.Get(pmmVersionURL)
+
+	if err != nil {
+		pmm.t.Fatal(err)
+	}
+
+	if response_code != fasthttp.StatusOK {
+		pmm.t.Fatal(fmt.Errorf("non-ok status: %d", response_code))
+	}
+
+	var versionInfo versionResp
+	if err := json.Unmarshal(response, &versionInfo); err != nil {
+		pmm.t.Fatal(err)
+	}
+
+	return versionInfo.Server.Version
 }
 
 func (pmm *PMM) SetVersion(version string) {
