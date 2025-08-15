@@ -130,11 +130,6 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 			}
 
 			for _, c := range chunks {
-				log.Debug().
-					Stringer("source", c.Source).
-					Str("filename", c.Filename).
-					Msg("Successfully read chunk. Sending to chunks channel...")
-
 				chunkC <- c
 			}
 		}

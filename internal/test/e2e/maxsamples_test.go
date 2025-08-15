@@ -35,7 +35,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-const getTimeout = 60
+const (
+	getTimeout     = 60
+	rowsToSubtract = 10
+)
 
 func TestMaxSamples(t *testing.T) {
 	type metadata struct {
@@ -92,9 +95,12 @@ func TestMaxSamples(t *testing.T) {
 	// So first we read the parts.json file to get paths for parts. Then we iterate over all parts to get the RowsCount value
 	// from metadata.json , adding these values together gives us total number of rows when we export.
 	// Then we subtract 10 from this number and set this value as the limit for the query.
-	// When we start the export we get the error "cannot select more than -search.maxSamplesPerQuery= '*' samples", because the number of rows is greater than the query limit.
+	// When we start the export we get the error "cannot select more than -search.maxSamplesPerQuery= '*' samples",
+	// because the number of rows is greater than the query limit.
 	// When this specific error is triggered pmm-dump will try to split chunk by
-	// making 2 different queries with time range split into two. This is done recursively until time range is less than 1 millisecond.
+	// making 2 different queries with time range split into two.
+
+	// This is done recursively until time range is less than 1 millisecond.
 	// If this happens, export will fail, and so will test.
 	// But if the export is successful, the test will pass.
 
@@ -144,7 +150,7 @@ func TestMaxSamples(t *testing.T) {
 	}
 
 	pmm.Log("Number of rows in metadata: " + strconv.Itoa(rows))
-	rows -= 10
+	rows -= rowsToSubtract
 	pmm.Log("Subtracting 10 from number of rows and updating Victoria Metrics with: search.maxSamplesPerQuery = " + strconv.Itoa(rows))
 	from := "1500000000"
 	to := strconv.Itoa(rows)
@@ -201,7 +207,7 @@ func TestMaxSamples(t *testing.T) {
 
 	if !strings.Contains(stderr, "VM chunk was split into several parts") {
 		t.Fatal("No chunk was split", err, stdout, stderr)
-	} else {
-		pmm.Log("Succesfuly splited big chunks into smaller one")
 	}
+
+	pmm.Log("Succesfuly splited big chunks into smaller one")
 }

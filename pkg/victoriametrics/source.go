@@ -55,6 +55,15 @@ func (s Source) Type() dump.SourceType {
 
 const requestTimeout = time.Second * 30
 
+// While exporting chunks from the VM, we may encounter an error: `cannot select more than -search.maxSamplesPerQuery=1500000000 samples;
+// possible solutions: to increase the -search.maxSamplesPerQuery;
+// to reduce time range for the query;
+// to use more specific label filters in order to select lower number of series`.
+// To solve this error, we need to split the time range of the chunk into two parts.
+// This function will split the time range and then try to export the chunk.
+// This process will recurse until the error disappears or the time range is lower than one millisecond.
+// For example, the time range chunk is 5 minutes by default. In the first iteration, each part will be 2.5 minutes. And so on.
+// If splitting the chunks fails, the only way to export is to increase or remove(set it to 0) `search.maxSamplesPerQuery`/.
 func (s Source) splitChunk(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	if m.End.UnixMilli()-m.Start.UnixMilli() <= 1 {
 		return nil, errors.New("Time range is less than milliseconds, split is impossible, can only be fixed by increasing -search.maxSamplesPerQuery in VM or setting it to 0.")
@@ -414,11 +423,9 @@ func (s Source) HasMetrics(start, end time.Time) (bool, error) {
 	if status := resp.StatusCode(); status != fasthttp.StatusOK {
 		if strings.Contains(body, "cannot select more than -search.maxSamplesPerQuery") {
 			return s.splitContainsMetrics(start, end, body)
-		} else {
-			return false, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
 		}
+		return false, errors.Errorf("non-OK response from victoria metrics: %d: %s", status, body)
 	}
-
 	log.Debug().Msg("Got successful response from Victoria Metrics")
 
 	metricsResp := new(MetricResponse)
