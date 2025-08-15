@@ -172,7 +172,6 @@ type GenericNode struct {
 	Name string `json:"node_name"`
 }
 
-
 type GenericNodeList []GenericNode
 
 // Custom function to unmarshal the response of the /inventory/nodes

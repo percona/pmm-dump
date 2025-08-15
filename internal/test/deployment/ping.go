@@ -45,6 +45,7 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 
 func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
+
 	if err != nil {
 		return err
 	}

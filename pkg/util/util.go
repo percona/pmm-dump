@@ -28,7 +28,7 @@ type PMMConfig struct {
 	VictoriaMetricsURL string
 }
 
-func GetPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
+func GetPMMConfig(pmmLink, vmLink, chLink string, pmmShortVer string) (PMMConfig, error) {
 	pmmURL, err := url.Parse(pmmLink)
 	if err != nil {
 		return PMMConfig{}, fmt.Errorf("failed to parse pmm-url: %w", err)
@@ -40,7 +40,7 @@ func GetPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
 	}
 
 	if conf.ClickHouseURL == "" {
-		conf.ClickHouseURL = composeClickHouseURL(*pmmURL)
+		conf.ClickHouseURL = composeClickHouseURL(*pmmURL, pmmShortVer)
 	}
 	if conf.VictoriaMetricsURL == "" {
 		conf.VictoriaMetricsURL = composeVictoriaMetricsURL(*pmmURL)
@@ -54,13 +54,13 @@ func composeVictoriaMetricsURL(u url.URL) string {
 	return u.String()
 }
 
-func composeClickHouseURL(u url.URL) string {
+func composeClickHouseURL(u url.URL, pmmShortVer string) string {
 	u.Scheme = "clickhouse"
 	i := strings.LastIndex(u.Host, ":")
 	if i != -1 {
 		u.Host = u.Host[:i]
 	}
-	u.User = nil
+	u.User = GetClickhouseUser(pmmShortVer) // Default user for PMM 3.x
 	u.Host += ":9000"
 	u.Path = "pmm"
 	return u.String()
@@ -73,4 +73,17 @@ func CheckIsVer2(ver *version.Version) bool {
 	}
 	resConst := ver
 	return constraints.Check(resConst)
+}
+
+func GetClickhouseUser(ver string) *url.Userinfo {
+	// V2 and V3 of the PMM set different default user credentials for Clickhouse
+	// so to maintain compatibility we need to distinguish the two main cases here
+	clickhouseCredentialsSetMinVersion, _ := version.NewVersion("3.1.0")
+
+	pmmVersion, _ := version.NewVersion(ver)
+
+	if pmmVersion.LessThan(clickhouseCredentialsSetMinVersion) {
+		return nil // v2 comes with a default user that has no password set
+	}
+	return url.UserPassword("default", "clickhouse")
 }

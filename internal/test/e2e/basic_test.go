@@ -18,8 +18,8 @@ package e2e
 
 import (
 	"path/filepath"
+	"regexp"
 	"testing"
-	"strings"
 
 	"golang.org/x/sync/errgroup"
 
@@ -68,11 +68,14 @@ func TestExportImport(t *testing.T) {
 		t.Fatal(err, stdout, stderr)
 	}
 
-	want :=`Services:
-        - Name: pmm-server-postgresql`
+	pattern := `(?s)Services:
+.*- Name: pmm-server-postgresql
+\s+Node ID: pmm-server
+.*`
+	re := regexp.MustCompile(`(?s)` + pattern)
 
-	if !strings.Contains(stdout, want) {
-		t.Fatalf("want %s, got %s", want, stdout)
+	if !re.MatchString(stdout) {
+		t.Fatalf("pattern %s did not match %s", pattern, stdout)
 	}
 
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "-v"}
