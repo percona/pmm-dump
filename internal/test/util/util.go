@@ -16,7 +16,6 @@ package util
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -45,15 +44,4 @@ func CreateTestDir(t *testing.T, dirName string) string {
 		t.Fatal(err)
 	}
 	return dirPath
-}
-
-func VMURL(t *testing.T, pmm string) string {
-	t.Helper()
-	u, err := url.Parse(pmm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.Path = "/prometheus"
-	u.RawQuery = ""
-	return u.String()
 }

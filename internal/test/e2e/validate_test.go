@@ -1,3 +1,5 @@
+//go:build e2e
+
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,6 +44,13 @@ import (
 	"pmm-dump/pkg/victoriametrics"
 )
 
+const (
+	chunkTimeRange       = time.Second * 30
+	timeRange            = time.Second * 120
+	precisionForRounding = 20
+	bitsForRounding      = 64
+)
+
 func TestValidate(t *testing.T) {
 	ctx := t.Context()
 
@@ -53,15 +62,14 @@ func TestValidate(t *testing.T) {
 	tmpDir := util.CreateTestDir(t, "validate-test")
 	xDumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
-	chunkTimeRange := time.Second * 30
 
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	start := time.Now().UTC()
-	pmm.Log("Sleeping for 120 seconds")
-	time.Sleep(time.Second * 120)
+	pmm.Logf("Sleeping for %d seconds", int(timeRange.Seconds()))
+	time.Sleep(timeRange)
 	end := time.Now().UTC()
 
 	pmm.Log("Exporting data to", xDumpPath, start, end)
@@ -101,47 +109,6 @@ func TestValidate(t *testing.T) {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
 
-	// vmurl := util.VMURL(t, pmm.PMMURL())
-	// pmm.Log("FORCE FLUSH")
-	// flush := vmurl + "/internal/force_flush"
-	// err = util.RetryOnError(t.Context(), func() error {
-	// 	resp, err := http.Get(flush) //nolint:gosec,noctx
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	defer resp.Body.Close() //nolint:errcheck
-	// 	if resp.StatusCode == http.StatusOK {
-	// 		return nil
-	// 	}
-	// 	return errors.New("not ok")
-	// })
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// pmm.Log("END OF FORCE FLUSH")
-	// pmm.Log("ResetCache")
-	// cache := vmurl + "/internal/resetRollupResultCache"
-	// err = util.RetryOnError(t.Context(), func() error {
-	// 	resp, err := http.Get(cache) //nolint:gosec,noctx
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	defer resp.Body.Close() //nolint:errcheck
-	// 	if resp.StatusCode == http.StatusOK {
-	// 		return nil
-	// 	}
-	// 	return errors.New("not ok")
-	// })
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-
-	// pmm.Log("END OF ResetCache")
-
-	// tCtx, vmurl+"/internal/force_flush"); err != nil && !errors.Is(err, io.EOF) {
-	// t.Fatal("failed to force flush")
-	// }
-
 	pmm.Log("Sleeping for 10 seconds")
 	time.Sleep(time.Second * 10)
 
@@ -153,7 +120,8 @@ func TestValidate(t *testing.T) {
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
-		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
+		"--start-ts", start.Format(time.RFC3339),
+		"--end-ts", end.Format(time.RFC3339),
 		"--chunk-time-range", chunkTimeRange.String(),
 		"--no-encryption",
 		"-v")
@@ -326,6 +294,8 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 	}
 
 	loss := 0
+	allMap := make(map[string]float64)
+	dublicateMap := make(map[string]float64)
 
 	for k, xMetric := range xHashMap {
 		yMetric, ok := yHashMap[k]
@@ -333,10 +303,9 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 			continue
 		}
 
-		currentLoss := xMetric.CompareTimestampValues(pmm, yMetric)
+		currentLoss := xMetric.CompareTimestampValues(pmm, yMetric, allMap, dublicateMap)
 		if currentLoss > 0 {
 			loss += currentLoss
-			continue
 		}
 
 		delete(xHashMap, k)
@@ -349,6 +318,41 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 	}
 	for _, v := range yHashMap {
 		missingMetrics = append(missingMetrics, v)
+	}
+
+	// After version 3.3.0, PostgreSQL metrics (pg_stat_activity_count, pg_stat_activity_max_tx_duration,
+	// and pg_stat_activity_max_state_duration from the Grafana and PMM-managed databases)
+	// started showing duplicate metrics with the same timestamp.
+	// The only difference is that the duplicate metrics have a value of 0, and an opposite usename.
+
+	// for example, we have two metrics from the first dump. Metrics with "##" will be missing after import.
+	// 1:
+	// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
+	// ##Metric name: pg_stat_activity_count , value:0 timestamp:2, datname: pmm-managed, state:active, usename:
+	// ##Metric name: pg_stat_activity_count , value:0 timestamp:3, datname: pmm-managed, state:active, usename:
+	// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
+
+	// 2:
+	// ##Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename: pmm-managed
+	// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
+	// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
+	// ##Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename: pmm-managed
+
+	// after importing the dump into another PMM, the metrics will be deduplicated:
+	// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
+	// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
+	// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
+	// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
+
+	// Although these results are two different metrics, they were merged in comment for demonstration.
+	// So, to prevent the test from failing, we also need to deduplicate the metrics here.
+	dublicateCount := cleanDublicate(allMap, dublicateMap)
+	for timestamp, value := range dublicateMap {
+		pmm.Logf("Value and timestamp not found for metric %s in second dump, value:%f", timestamp, value)
+	}
+	if dublicateCount > 0 {
+		pmm.Logf("Found %d dublicates for pg_stat_activity_count, pg_stat_activity_max_tx_duration, pg_stat_activity_max_state_duration in first dump and removed them", dublicateCount)
+		loss -= dublicateCount
 	}
 
 	return loss + len(missingMetrics), nil
@@ -452,7 +456,7 @@ type vmMetric victoriametrics.Metric
 
 func (vm vmMetric) MetricString() string {
 	m := vm.Metric
-	return fmt.Sprintf(`{"__name__": "%s", "job": "%s", "instance": "%s", "agent_id": "%s", "agent_type": "%s"}`, m["__name__"], m["job"], m["instance"], m["agent_id"], m["agent_type"])
+	return fmt.Sprintf(`{"__name__": "%s", "job": "%s", "instance": "%s", "agent_id": "%s", "agent_type": "%s"} (%s)`, m["__name__"], m["job"], m["instance"], m["agent_id"], m["agent_type"], fmt.Sprint(m))
 }
 
 func (vm vmMetric) Hash() string {
@@ -471,42 +475,30 @@ func (vm vmMetric) MetricHash() string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) int {
-	// f, err := os.OpenFile("pmm_dump.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer f.Close()
-
-	// f2, err := os.OpenFile("pmm_dump2.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer f2.Close()
-
-	// l := log.New(f, "", 0)
-	// l2 := log.New(f2, "", 0)
-
+func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric, all, dublicate map[string]float64) int {
 	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]
-		// if strings.Contains(vm.Metric["__name__"], "pg") {
-		// 	l.Printf("Metric name: %s , value:%v timestamp:%d ", vm.Metric["__name__"], vm.Values[i], v)
-		// }
 	}
+
 	yMap := make(map[int64]float64)
 	for i, v := range with.Timestamps {
 		yMap[v] = with.Values[i]
-		// if strings.Contains(vm.Metric["__name__"], "pg") {
-		// 	l2.Printf("Metric name: %s , value:%v timestamp:%d ", vm.Metric["__name__"], vm.Values[i], v)
-		// }
 	}
 
 	for timestamp, xValue := range xMap {
+		switch vm.Metric["__name__"] {
+		case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
+			saveTimestampToMap(timestamp, 0, with, all)
+		}
 		yValue, ok := yMap[timestamp]
 		if !ok {
-			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
-			// l.Printf("Metric name: %s", vm.Metric["__name__"])
+			switch vm.Metric["__name__"] {
+			case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
+				saveTimestampToMap(timestamp, xValue, vm, dublicate)
+			default:
+				pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
+			}
 			continue
 		}
 		if !roundFloatAndCheck(xValue, yValue) {
@@ -528,11 +520,6 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	return int(math.Abs(float64(len(xMap) - len(yMap))))
 }
 
-const (
-	precision = 20
-	bits      = 64
-)
-
 // Go usually can't handle floats with 16+ digits.
 // For example, when comparing them, the dump has the same numbers, but Go's float64 can interpret them as two different numbers:
 // 1) 0.00999923005927 and 0.00999923005928.
@@ -542,15 +529,35 @@ const (
 
 func roundFloatAndCheck(f1, f2 float64) bool {
 	// stop rounding and just compare if f1 has 1 digit only
-	s := strconv.FormatFloat(f1, 'e', precision, bits)
+	s := strconv.FormatFloat(f1, 'e', precisionForRounding, bitsForRounding)
 	dotIndex := strings.Index(s, "e")
 	if dotIndex == -1 {
 		return f1 == f2
 	}
 
 	// round and compare
-	n1Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).SetFloat64(f1)
-	n2Rounded := new(big.Float).SetPrec(precision).SetMode(big.ToNearestAway).SetFloat64(f2)
+	n1Rounded := new(big.Float).SetPrec(precisionForRounding).SetMode(big.ToNearestAway).SetFloat64(f1)
+	n2Rounded := new(big.Float).SetPrec(precisionForRounding).SetMode(big.ToNearestAway).SetFloat64(f2)
 
 	return n1Rounded.Cmp(n2Rounded) == 0
+}
+
+func saveTimestampToMap(timestamp int64, value float64, vm vmMetric, destination map[string]float64) {
+	if vm.Metric["datname"] != "grafana" && vm.Metric["datname"] != "pmm-managed" {
+		return
+	}
+	destination[fmt.Sprintf("%s: Timestamp:%d, Datname:%s, State:%s", vm.Metric["__name__"], timestamp, vm.Metric["datname"], vm.Metric["state"])] = value
+}
+
+func cleanDublicate(allMap, dublicateMap map[string]float64) int {
+	dublicatecount := 0
+	for timestamp, value := range dublicateMap {
+		_, ok := allMap[timestamp]
+		if !ok || value != 0 {
+			continue
+		}
+		dublicatecount++
+		delete(dublicateMap, timestamp)
+	}
+	return dublicatecount
 }
