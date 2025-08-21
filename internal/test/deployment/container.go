@@ -82,12 +82,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
-		if !pkgUtil.CheckVer(pmm.GetVersion(), "<= 3.1.0") {
-			env = append(env, []string{
-				"PMM_CLICKHOUSE_USER=default",
-				"PMM_CLICKHOUSE_PASSWORD=password",
-			}...)
-		}
 	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, env, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
@@ -121,17 +115,6 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 
 	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
-		return errors.Wrap(err, "failed to update clickhouse config")
-	}
-
-	if !pkgUtil.CheckVer(pmm.GetVersion(), "<= 3.1.0") {
-		// change password to "password"
-		if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<password_sha256_hex>[^<]*</password_sha256_hex>#<password_sha256_hex>5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8</password_sha256_hex>#g", "/etc/clickhouse-server/users.xml"); err != nil {
-			return errors.Wrap(err, "failed to update clickhouse config")
-		}
-	}
-	// change config to allow plaintext passwords
-	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<allow_plaintext_password>0</allow_plaintext_password>#<allow_plaintext_password>1</allow_plaintext_password>#g", "/etc/clickhouse-server/config.xml"); err != nil {
 		return errors.Wrap(err, "failed to update clickhouse config")
 	}
 

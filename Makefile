@@ -12,7 +12,7 @@ PMM_URL?="http://admin:admin@localhost:$(PMM_HTTP_PORT)"
 PMM_MONGO_USERNAME?=pmm_mongodb
 PMM_MONGO_PASSWORD?=password
 PMM_MONGO_URL?=mongodb:27017
-CLICKHOUSE_URL=clickhouse://default:password@0.0.0.0:9000/pmm
+CLICKHOUSE_URL=clickhouse://default:clickhouse@0.0.0.0:9000/pmm
 
 TEST_CFG_DIR=test
 
@@ -48,8 +48,6 @@ up: init
 	docker compose up -d
 	sleep 15 # waiting for pmm server to be ready :(
 	docker compose exec pmm-client pmm-agent setup
-	docker compose exec pmm-server sed -i 's#<password_sha256_hex>[^<]*</password_sha256_hex>#<password_sha256_hex>5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8</password_sha256_hex>#g' /etc/clickhouse-server/users.xml
-	docker compose exec pmm-server sed -i 's#<allow_plaintext_password>0</allow_plaintext_password>#<allow_plaintext_password>1</allow_plaintext_password>#g' /etc/clickhouse-server/config.xml
 	docker compose exec pmm-server sed -i 's#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g' /etc/clickhouse-server/config.xml
 	docker compose exec pmm-server supervisorctl restart clickhouse
 
