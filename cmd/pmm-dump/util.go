@@ -174,9 +174,7 @@ type GenericNode struct {
 
 type GenericNodeList []GenericNode
 
-// Custom function to unmarshal the response of the /inventory/nodes
-// endpoint which returns a different type (array vs single object)
-// depending on the api version used (v3 vs v2)
+// Custom function to unmarshal the response of the /inventory/nodes endpoint which returns a different type (array vs single object) depending on the api version used (v3 vs v2).
 func (g *GenericNodeList) UnmarshalJSON(data []byte) error {
 	// Try to unmarshal as array (v3)
 	var arr []GenericNode
@@ -195,7 +193,7 @@ func (g *GenericNodeList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Now the full response struct
+// Now the full response struct.
 type nodeRespStruct struct {
 	Generic GenericNodeList `json:"generic"`
 }
@@ -225,11 +223,10 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 	}
 
 	if len(nodeResp.Generic) == 0 {
-		return "", fmt.Errorf("no nodes found in response")
+		return "", errors.Errorf("no nodes found in response")
 	}
 
 	return nodeResp.Generic[0].Name, nil
-
 }
 
 func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, version *version.Version) ([]string, error) {

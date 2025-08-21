@@ -234,14 +234,15 @@ func (pmm *PMM) GetVersion() *version.Version {
 	}
 }
 
-// Return the full version asking it to the PMM server itself
+// Return the full version asking it to the PMM server itself.
 func (pmm *PMM) GetFullVersionString() string {
+	type ServerVersion struct {
+		Version string `json:"version"`
+	}
 
 	type versionResp struct {
-		Version string `json:"version"`
-		Server  struct {
-			Version string `json:"version"`
-		}
+		Version string        `json:"version"`
+		Server  ServerVersion `json:"server"`
 	}
 
 	client, err := pmm.NewClient()
