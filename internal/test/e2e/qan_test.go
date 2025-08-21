@@ -74,6 +74,7 @@ func TestQANWhere(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
+		pmm.Log("Error: ", err)
 		pmm.Log("Clickhouse status: ")
 		reader, err := pmm.FileReader(ctx, pmm.ServerContainerName(), "/srv/clickhouse/status")
 		if err != nil {
@@ -172,7 +173,7 @@ func TestQANWhere(t *testing.T) {
 			defer cancel()
 			if err := util.RetryOnError(tCtx, func() error {
 				pmm.Log("Exporting data to", filepath.Join(testDir, "dump.tar.gz"))
-				stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+				stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 				if err != nil {
 					return errors.Wrapf(err, "failed to export: stdout %s; stderr %s", stdout, stderr)
 				}
@@ -380,7 +381,7 @@ func TestQANEmptyChunks(t *testing.T) {
 	}
 
 	pmm.Log("Exporting data to", dumpPath)
-	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+	stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
