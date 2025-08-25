@@ -1,5 +1,3 @@
-//go:build e2e
-
 // Copyright 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -133,6 +131,16 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to validate chunks", err)
 	}
+
+	// TODO: This should be a removed and replaced with a better solution.
+	// Investigate why, after PMM 3.3.0,
+	// Postgres began creating duplicate metrics with a value of 0.
+	dublicateLoss, notDuplicateLoss, err := countDuplicateLoss(t, pmm, xDumpPath, yDumpPath)
+	if err != nil {
+		t.Fatal("failed to count duplicate loss", err)
+	}
+	loss -= (dublicateLoss - notDuplicateLoss)
+
 	if loss > 0.001 {
 		t.Fatalf("too much data loss %f%%", loss*100)
 	}
@@ -294,8 +302,6 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 	}
 
 	loss := 0
-	allMap := make(map[string]float64)
-	dublicateMap := make(map[string]float64)
 
 	for k, xMetric := range xHashMap {
 		yMetric, ok := yHashMap[k]
@@ -303,7 +309,7 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 			continue
 		}
 
-		currentLoss := xMetric.CompareTimestampValues(pmm, yMetric, allMap, dublicateMap)
+		currentLoss := xMetric.CompareTimestampValues(pmm, yMetric)
 		if currentLoss > 0 {
 			loss += currentLoss
 		}
@@ -318,41 +324,6 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 	}
 	for _, v := range yHashMap {
 		missingMetrics = append(missingMetrics, v)
-	}
-
-	// After version 3.3.0, PostgreSQL metrics (pg_stat_activity_count, pg_stat_activity_max_tx_duration,
-	// and pg_stat_activity_max_state_duration from the Grafana and PMM-managed databases)
-	// started showing duplicate metrics with the same timestamp.
-	// The only difference is that the duplicate metrics have a value of 0, and an opposite usename.
-
-	// for example, we have two metrics from the first dump. Metrics with "##" will be missing after import.
-	// 1:
-	// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
-	// ##Metric name: pg_stat_activity_count , value:0 timestamp:2, datname: pmm-managed, state:active, usename:
-	// ##Metric name: pg_stat_activity_count , value:0 timestamp:3, datname: pmm-managed, state:active, usename:
-	// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
-
-	// 2:
-	// ##Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename: pmm-managed
-	// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
-	// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
-	// ##Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename: pmm-managed
-
-	// after importing the dump into another PMM, the metrics will be deduplicated:
-	// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
-	// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
-	// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
-	// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
-
-	// Although these results are two different metrics, they were merged in comment for demonstration.
-	// So, to prevent the test from failing, we also need to deduplicate the metrics here.
-	dublicateCount := cleanDublicate(allMap, dublicateMap)
-	for timestamp, value := range dublicateMap {
-		pmm.Logf("Value and timestamp not found for metric %s in second dump, value:%f", timestamp, value)
-	}
-	if dublicateCount > 0 {
-		pmm.Logf("Found %d dublicates for pg_stat_activity_count, pg_stat_activity_max_tx_duration, pg_stat_activity_max_state_duration in first dump and removed them", dublicateCount)
-		loss -= dublicateCount
 	}
 
 	return loss + len(missingMetrics), nil
@@ -475,7 +446,7 @@ func (vm vmMetric) MetricHash() string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric, all, dublicate map[string]float64) int {
+func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) int {
 	xMap := make(map[int64]float64)
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]
@@ -487,18 +458,17 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric, al
 	}
 
 	for timestamp, xValue := range xMap {
-		switch vm.Metric["__name__"] {
-		case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
-			saveTimestampToMap(timestamp, 0, with, all)
-		}
 		yValue, ok := yMap[timestamp]
 		if !ok {
 			switch vm.Metric["__name__"] {
 			case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
-				saveTimestampToMap(timestamp, xValue, vm, dublicate)
-			default:
-				pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
+				if vm.Metric["datname"] == "grafana" || vm.Metric["datname"] == "pmm-managed" {
+					// Temporary fix for duplicates
+					// See [countDuplicateLoss] for details about postgres and duplicates.
+					continue
+				}
 			}
+			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
 			continue
 		}
 		if !roundFloatAndCheck(xValue, yValue) {
@@ -542,22 +512,148 @@ func roundFloatAndCheck(f1, f2 float64) bool {
 	return n1Rounded.Cmp(n2Rounded) == 0
 }
 
-func saveTimestampToMap(timestamp int64, value float64, vm vmMetric, destination map[string]float64) {
-	if vm.Metric["datname"] != "grafana" && vm.Metric["datname"] != "pmm-managed" {
-		return
+// After version 3.3.0, PostgreSQL metrics (pg_stat_activity_count, pg_stat_activity_max_tx_duration,
+// and pg_stat_activity_max_state_duration specifically from the Grafana and PMM-managed databases)
+// started showing duplicate metrics with the same timestamp.
+//
+// The only difference is that the duplicate metrics have a value of 0, and an opposite usename.
+// for example, we have two metrics from the first dump. Metrics with "##" will be missing after import.
+//
+// 1:
+//
+// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:2, datname: pmm-managed, state:active, usename:
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:3, datname: pmm-managed, state:active, usename:
+// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
+//
+// 2:
+//
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename: pmm-managed
+//
+// After importing the dump into another PMM, the metrics will be deduplicated:
+//
+// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
+// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
+//
+// Although these results are two different metrics, they were merged in comment for demonstration.
+// So, to prevent the test from failing, we need to go over two dumps again and calculate loss value of duplicates.
+// And then subtract them from actual value.
+func countDuplicateLoss(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (float64, float64, error) {
+	t.Helper()
+	xChunkMap, err := readChunks(xDump)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", xDump, err)
 	}
-	destination[fmt.Sprintf("%s: Timestamp:%d, Datname:%s, State:%s", vm.Metric["__name__"], timestamp, vm.Metric["datname"], vm.Metric["state"])] = value
-}
+	yChunkMap, err := readChunks(yDump)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", yDump, err)
+	}
 
-func cleanDublicate(allMap, dublicateMap map[string]float64) int {
-	dublicatecount := 0
-	for timestamp, value := range dublicateMap {
-		_, ok := allMap[timestamp]
-		if !ok || value != 0 {
+	totalDuplicate, totalNotDuplicate, totalValues := 0, 0, 0
+
+	duplicateMapX := make(map[string]float64)
+	// only needed to compare metrics later to find the duplicates in the X dump.
+	duplicateMapY := make(map[string]float64)
+
+	checkIfPGMetric := func(vm vmMetric) bool {
+		switch vm.Metric["__name__"] {
+		case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
+			if vm.Metric["datname"] == "grafana" || vm.Metric["datname"] == "pmm-managed" {
+				return true
+			}
+		}
+		return false
+	}
+
+	saveTimestampToMap := func(timestamp int64, value float64, vm vmMetric, destination map[string]float64) {
+		destination[fmt.Sprintf("%s: Timestamp:%d, Datname:%s, State:%s", vm.Metric["__name__"], timestamp, vm.Metric["datname"], vm.Metric["state"])] = value
+	}
+
+	rangeOverChunk := func(xChunk, yChunk []vmMetric) {
+		xHashMap := make(map[string]vmMetric)
+		for _, v := range xChunk {
+			xHashMap[v.MetricHash()] = v
+		}
+
+		yHashMap := make(map[string]vmMetric)
+		for _, v := range yChunk {
+			yHashMap[v.MetricHash()] = v
+		}
+
+		for i, vmX := range xHashMap {
+			if !checkIfPGMetric(vmX) {
+				continue
+			}
+
+			xMap := make(map[int64]float64)
+			for i, v := range vmX.Timestamps {
+				xMap[v] = vmX.Values[i]
+			}
+
+			vmY, ok := yHashMap[i]
+			if !ok {
+				for timestamp, valueX := range xMap {
+					saveTimestampToMap(timestamp, valueX, vmX, duplicateMapX)
+				}
+			}
+
+			yMap := make(map[int64]float64)
+			for i, v := range vmY.Timestamps {
+				yMap[v] = vmY.Values[i]
+			}
+
+			for timestamp, valueX := range xMap {
+				valueY, ok := yMap[timestamp]
+				if !ok {
+					saveTimestampToMap(timestamp, valueX, vmX, duplicateMapX)
+					continue
+				}
+				saveTimestampToMap(timestamp, valueY, vmY, duplicateMapY)
+			}
+		}
+	}
+
+	for xFilename, xChunkData := range xChunkMap {
+		yChunkData := yChunkMap[xFilename]
+		dir, _ := path.Split(xFilename)
+		st := dump.ParseSourceType(dir[:len(dir)-1])
+		if st == dump.VictoriaMetrics {
+			xChunk, err := vmParseChunk(xChunkData)
+			if err != nil {
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
+			}
+			yChunk, err := vmParseChunk(yChunkData)
+			if err != nil {
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
+			}
+
+			xValues := vmValuesCount(xChunk)
+			yValues := vmValuesCount(yChunk)
+			if xValues > yValues {
+				totalValues += xValues
+			} else {
+				totalValues += yValues
+			}
+
+			rangeOverChunk(xChunk, yChunk)
+		}
+	}
+
+	for timestamp, value := range duplicateMapX {
+		_, ok := duplicateMapY[timestamp]
+		if ok {
+			totalDuplicate++
 			continue
 		}
-		dublicatecount++
-		delete(dublicateMap, timestamp)
+		pmm.Logf("Value and timestamp not found for metric %s in second dump, value:%f", timestamp, value)
+		totalNotDuplicate++
 	}
-	return dublicatecount
+
+	pmm.Logf("Found %d dublicates for pg_stat_activity_count, pg_stat_activity_max_tx_duration, pg_stat_activity_max_state_duration in first dump and removed them", totalDuplicate)
+	return float64(totalDuplicate) / float64(totalValues), float64(totalNotDuplicate) / float64(totalValues), nil
 }
