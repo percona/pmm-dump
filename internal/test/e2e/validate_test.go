@@ -451,7 +451,6 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	for i, v := range vm.Timestamps {
 		xMap[v] = vm.Values[i]
 	}
-
 	yMap := make(map[int64]float64)
 	for i, v := range with.Timestamps {
 		yMap[v] = with.Values[i]
