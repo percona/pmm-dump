@@ -174,7 +174,7 @@ func (p *PMM) ClickhouseURL() string {
 		p.t.Fatal(err)
 	}
 
-	u.User = url.UserPassword("default", "password")
+	u.User = url.UserPassword("default", "clickhouse")
 	if pkgUtil.CheckVer(p.GetVersion(), "<= 3.1.0") {
 		u.User = nil
 	}
