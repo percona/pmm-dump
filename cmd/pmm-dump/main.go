@@ -201,7 +201,13 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmShortVer, _, err := getPMMVersion(*pmmURL, grafanaC)
+
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to get PMM version")
+		}
+
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL, pmmShortVer)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
@@ -319,7 +325,13 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmShortVer, _, err := getPMMVersion(*pmmURL, grafanaC)
+
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to get PMM version")
+		}
+
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL, pmmShortVer)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
