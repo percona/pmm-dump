@@ -120,17 +120,18 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 				return errors.New("failed to find source to read chunk")
 			}
 
-			c, err := s.ReadChunk(chMeta)
+			chunks, err := s.ReadChunks(chMeta)
 			if err != nil {
 				return errors.Wrap(err, "failed to read chunk")
 			}
 
-			log.Debug().
-				Stringer("source", c.Source).
-				Str("filename", c.Filename).
-				Msg("Successfully read chunk. Sending to chunks channel...")
+			if len(chunks) > 1 {
+				log.Info().Msgf("Chunk was split into several parts %d", len(chunks))
+			}
 
-			chunkC <- c
+			for _, c := range chunks {
+				chunkC <- c
+			}
 		}
 	}
 }
