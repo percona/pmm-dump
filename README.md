@@ -116,7 +116,7 @@ When exporting without the `no-encryption` flag, pmm-dump will add `.enc` to the
 4. The flag `dump-path` is set to `dump.tar.gz.enc`, but the flag `no-encryption` is not set. The export will result in an encrypted `dump.tar.gz.enc.enc` file.
 
 However, the file name will not be modified during import.  For example:
-1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. . The import will treat the file as if it's not encrypted.
+1. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is also set. The import will treat the file as if it's not encrypted.
 2. The flag `dump-path` is set to `dump.tar.gz`, and the flag `no-encryption` is not set.    The file will be imported as if it were encrypted.
 3. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is also set. The file will be imported as if it were not encrypted, even if the file name suggests otherwise.
 4. The flag `dump-path` is set to `dump.tar.gz.enc`, and the flag `no-encryption` is not set. The file will be imported as if it were encrypted.
