@@ -21,9 +21,9 @@ ADMIN_MONGO_PASSWORD?=admin
 DUMP_FILENAME=dump.tar.gz
 ENCRYPTED_DUMP_FILENAME=dump.tar.gz.enc
 
-BRANCH:=$(shell git branch --show-current)
-COMMIT:=$(shell git rev-parse --short HEAD)
-VERSION:=$(shell git describe --tags --abbrev=0)
+BRANCH?=$(shell git branch --show-current)
+COMMIT?=$(shell git rev-parse --short HEAD)
+VERSION?=$(shell git describe --tags --abbrev=0)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
