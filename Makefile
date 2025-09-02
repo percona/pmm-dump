@@ -12,7 +12,6 @@ PMM_URL?="http://admin:admin@localhost:$(PMM_HTTP_PORT)"
 PMM_MONGO_USERNAME?=pmm_mongodb
 PMM_MONGO_PASSWORD?=password
 PMM_MONGO_URL?=mongodb:27017
-CLICKHOUSE_URL=clickhouse://default:clickhouse@0.0.0.0:9000/pmm
 
 TEST_CFG_DIR=test
 
@@ -73,47 +72,47 @@ mongo-insert:
 
 export-all-random: ## export with random generated password
 	./$(PMMD_BIN_NAME) export --allow-insecure-certs -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
 
 export-all-random-to-file: ## export with random generated password to file
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass-filepath pass.txt --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass-filepath pass.txt 
 
 export-all-random-just-key: ## export with random generated password without logs
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --just-key --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --just-key 
 
 export-all: ## export with provided password
 	./$(PMMD_BIN_NAME) export --allow-insecure-certs -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass 
 
 export-all-to-file: ## export with provided password to file
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt 
 
 export-all-just-key: ## export with providedd password without logs
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --just-key --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --just-key 
 
 export-all-no-encryption: ## export without encryption
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption 
 
 export-vm: ## export vm with random generated password
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core 
 
 export-ch: ## export ch with random generated password
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-qan --no-dump-core --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-qan --no-dump-core 
 
 import-all: ## import with provided password
 	./$(PMMD_BIN_NAME) import -v --dump-path $(ENCRYPTED_DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass 
 
 import-all-no-encryption: ## import without encryption
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption --click-house-url=$(CLICKHOUSE_URL)
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption 
 		
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)

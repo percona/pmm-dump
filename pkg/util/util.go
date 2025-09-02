@@ -28,7 +28,7 @@ type PMMConfig struct {
 	VictoriaMetricsURL string
 }
 
-func GetPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
+func GetPMMConfig(pmmLink, vmLink, chLink string, ver *version.Version) (PMMConfig, error) {
 	pmmURL, err := url.Parse(pmmLink)
 	if err != nil {
 		return PMMConfig{}, fmt.Errorf("failed to parse pmm-url: %w", err)
@@ -40,7 +40,7 @@ func GetPMMConfig(pmmLink, vmLink, chLink string) (PMMConfig, error) {
 	}
 
 	if conf.ClickHouseURL == "" {
-		conf.ClickHouseURL = composeClickHouseURL(*pmmURL)
+		conf.ClickHouseURL = composeClickHouseURL(*pmmURL, ver)
 	}
 	if conf.VictoriaMetricsURL == "" {
 		conf.VictoriaMetricsURL = composeVictoriaMetricsURL(*pmmURL)
@@ -54,19 +54,27 @@ func composeVictoriaMetricsURL(u url.URL) string {
 	return u.String()
 }
 
-func composeClickHouseURL(u url.URL) string {
+func composeClickHouseURL(u url.URL, ver *version.Version) string {
 	u.Scheme = "clickhouse"
 	i := strings.LastIndex(u.Host, ":")
 	if i != -1 {
 		u.Host = u.Host[:i]
 	}
-	u.User = nil
+
+	u.User = url.UserPassword("default", "clickhouse")
+	if CheckVer(ver, "<= 3.1.0") {
+		u.User = nil
+	}
+
 	u.Host += ":9000"
 	u.Path = "pmm"
 	return u.String()
 }
 
 func CheckVer(ver *version.Version, constrain string) bool {
+	if ver == nil {
+		return false
+	}
 	constraints, err := version.NewConstraint(constrain)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create constraint: %v", err))

@@ -105,12 +105,32 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getStructuredVer(vers string) (*version.Version, error) {
+func parseStructuredVer(vers string) (*version.Version, error) {
 	v1, err := version.NewVersion(vers)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get major version")
 	}
 	return v1, nil
+}
+
+func getStructuredVersion(pmmURL string, c *client.Client) *version.Version {
+	shortVer, _, err := getPMMVersion(pmmURL, c)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get PMM version")
+	}
+	if shortVer == "" {
+		log.Fatal().Msg("Could not find server version")
+	}
+
+	if shortVer < minPMMServerVersion {
+		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", shortVer, minPMMServerVersion)
+	}
+
+	structuredVer, err := parseStructuredVer(shortVer)
+	if err != nil {
+		log.Fatal().Msgf("failed to convert pmm version to structured version %v", err)
+	}
+	return structuredVer
 }
 
 func getPMMServices(pmmURL string, c *client.Client, version *version.Version) ([]dump.PMMServerService, error) {
@@ -265,7 +285,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
 	}
-	structuredVer, err := getStructuredVer(pmmShortVer)
+	structuredVer, err := parseStructuredVer(pmmShortVer)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get major PMM version")
 	}
@@ -383,24 +403,12 @@ func (lw LevelWriter) Write(p []byte) (int, error) {
 	return lw.Writer.Write(p)
 }
 
-func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
+func checkVMExportAPI(c *client.Client, victoriaMetricsURL string) {
 	if err := victoriametrics.ExportTestRequest(c, victoriaMetricsURL); err != nil {
 		if !errors.Is(err, victoriametrics.ErrNotFound) {
 			log.Fatal().Err(err).Msg("Failed to make test requests")
 		}
 		log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
-	}
-
-	pmmVer, _, err := getPMMVersion(pmmURL, c)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to get PMM version")
-	}
-	if pmmVer == "" {
-		log.Fatal().Msg("Could not find server version")
-	}
-
-	if pmmVer < minPMMServerVersion {
-		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
 	}
 }
 

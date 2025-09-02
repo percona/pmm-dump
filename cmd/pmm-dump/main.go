@@ -218,12 +218,12 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL, getStructuredVersion(*pmmURL, grafanaC))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
-		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
+		checkVMExportAPI(grafanaC, pmmConfig.VictoriaMetricsURL)
 
 		selectors, err := grafana.GetSelectorsFromDashboards(grafanaC, *pmmURL, *dashboards, *instances, startTime, endTime)
 		if err != nil {
@@ -341,12 +341,12 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL, getStructuredVersion(*pmmURL, grafanaC))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
-		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
+		checkVMExportAPI(grafanaC, pmmConfig.VictoriaMetricsURL)
 
 		piped, err := checkPiped()
 		if err != nil {
