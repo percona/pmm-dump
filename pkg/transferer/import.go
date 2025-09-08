@@ -179,7 +179,7 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 			}
 
 			if c.Source == dump.ClickHouse {
-				err := convertTimeZones(s, c)
+				err := convertTimeToUTC(s, c)
 				if err != nil {
 					return fmt.Errorf("failed to convert timezones for Clickhouse chunks %w", err)
 				}
@@ -194,7 +194,7 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 	}
 }
 
-func convertTimeZones(s dump.Source, c *dump.Chunk) error {
+func convertTimeToUTC(s dump.Source, c *dump.Chunk) error {
 	var columnTypes []*sql.ColumnType
 	switch chS := s.(type) {
 	case clickhouse.Source:
