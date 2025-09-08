@@ -159,7 +159,7 @@ func parseElement(record string, st reflect.Type) (any, error) {
 	default:
 		switch st.Name() {
 		case "Time":
-			value, err = time.Parse("2006-01-02 15:04:05 -0700"+getTimeZone(record), record)
+			value, err = time.Parse("2006-01-02 15:04:05 -0700 UTC", record)
 			if err != nil {
 				return nil, err
 			}
@@ -168,13 +168,4 @@ func parseElement(record string, st reflect.Type) (any, error) {
 		}
 	}
 	return value, nil
-}
-
-func getTimeZone(time string) string {
-	for i := len(time); i > 0; i-- {
-		if time[i-1:i] == " " {
-			return time[i-1:]
-		}
-	}
-	return "UTC"
 }
