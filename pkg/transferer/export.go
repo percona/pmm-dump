@@ -17,7 +17,6 @@ package transferer
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"path"
@@ -29,11 +28,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e encryption.Options) error {
 	log.Info().Msg("Exporting metrics...")
-
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
 		Int("size", maxChunksInMem).
@@ -66,7 +65,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
 	g.Go(func() error {
 		defer log.Debug().Msgf("Exiting from write chunks goroutine")
-		if err := t.writeChunksToFile(meta, chunksCh, logBuffer); err != nil {
+		if err := t.writeChunksToFile(meta, chunksCh, logBuffer, e); err != nil {
 			return errors.Wrap(err, "failed to write chunks to the dump")
 		}
 		return nil
@@ -78,7 +77,6 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	}
 
 	log.Info().Msg("Successfully exported!")
-
 	return nil
 }
 
@@ -136,16 +134,13 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 	}
 }
 
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer) error {
-	gzw, err := gzip.NewWriterLevel(t.file, gzip.BestCompression)
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e encryption.Options) error {
+	w, err := dump.NewWriter(t.file, &e)
 	if err != nil {
-		return errors.Wrap(err, "failed to create gzip writer")
+		return errors.Wrap(err, "failed to create writer")
 	}
-	defer gzw.Close() //nolint:errcheck
-
-	tw := tar.NewWriter(gzw)
-	defer tw.Close() //nolint:errcheck
-
+	defer w.Close() //nolint:errcheck
+	tw := w.GetTarWriter()
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
@@ -159,6 +154,10 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 				return err
 			}
 
+			if err = e.OutputPass(); err != nil {
+				return err
+			}
+
 			log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 			return nil
 		}
@@ -169,7 +168,6 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			Stringer("source", c.Source).
 			Str("filename", c.Filename).
 			Msg("Writing chunk to the dump...")
-
 		chunkSize := int64(len(c.Content))
 		if chunkSize > meta.MaxChunkSize {
 			meta.MaxChunkSize = chunkSize
