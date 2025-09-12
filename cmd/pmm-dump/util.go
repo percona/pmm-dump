@@ -542,7 +542,7 @@ func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, 
 	if *encrypted {
 		encpath = ".enc"
 	}
-	autoFilename := fmt.Sprintf("pmm-dump.tar.gz-%v"+encpath, ts.Unix())
+	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz"+encpath, ts.Unix())
 	if customPath == "" {
 		return autoFilename, nil
 	}
