@@ -7,12 +7,11 @@ toolchain go1.24.1
 require (
 	github.com/apache/skywalking-eyes v0.7.0
 	github.com/golangci/golangci-lint v1.64.8
-	github.com/quasilyte/go-consistent v0.6.1
+	github.com/quasilyte/go-consistent v0.6.2
 	github.com/reviewdog/reviewdog v0.20.3
 	golang.org/x/tools v0.32.0
 	gopkg.in/reform.v1 v1.5.1
 	mvdan.cc/gofumpt v0.8.0
-
 )
 
 require (
