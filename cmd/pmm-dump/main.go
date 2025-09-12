@@ -27,6 +27,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
+	enc "pmm-dump/pkg/encryption"
 	grafana "pmm-dump/pkg/grafana"
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/transferer"
@@ -98,6 +99,12 @@ func main() { //nolint:gocyclo,maintidx
 
 		stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
+		// encryption related
+		encryption = cli.Flag("encryption", "Enable encryption").Default("true").Bool()
+		pass       = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM_DUMP_PASS").String()
+		justKey    = cli.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
+		toFile     = cli.Flag("pass-filepath", "Filepath to output encryption password").Envar("PMM_DUMP_PASS_FILEPATH").String()
+
 		exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 		// import command options
 		importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
@@ -126,13 +133,23 @@ func main() { //nolint:gocyclo,maintidx
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
 	}
+	switch {
+	case *enableVerboseMode && *justKey:
+		log.Fatal().Msgf("Verbose and just-key are mutually exclusive")
 
-	if *enableVerboseMode {
+	case !*encryption && (*pass != "" || *justKey || *toFile != ""):
+		log.Fatal().Msgf("No encryption and other encryptions parameters are mutually exclusive")
+
+	case *enableVerboseMode:
 		log.Logger = log.Logger.
 			With().Caller().Logger().
 			Hook(goroutineLoggingHook{}).
 			Level(zerolog.DebugLevel)
-	} else {
+
+	case *justKey:
+		log.Logger = log.Logger.Level(zerolog.Disabled)
+
+	default:
 		log.Logger = log.Logger.
 			Level(zerolog.InfoLevel)
 	}
@@ -201,12 +218,12 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL, getStructuredVersion(*pmmURL, grafanaC))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
-		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
+		checkVMExportAPI(grafanaC, pmmConfig.VictoriaMetricsURL)
 
 		selectors, err := grafana.GetSelectorsFromDashboards(grafanaC, *pmmURL, *dashboards, *instances, startTime, endTime)
 		if err != nil {
@@ -265,7 +282,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Msgf("Failed to create a dump. No data was found")
 		}
 
-		file, err := createFile(*dumpPath, *stdout)
+		file, err := createFile(*dumpPath, *stdout, encryption)
 		if err != nil {
 			log.Fatal().Msgf("Failed to create file: %v", err)
 		}
@@ -275,7 +292,12 @@ func main() { //nolint:gocyclo,maintidx
 		if err != nil {
 			log.Fatal().Msgf("Failed to setup export: %v", err) //nolint:gocritic //TODO: potential problem here, see muted linter warning
 		}
-
+		e := &enc.Options{
+			Filepath:   *toFile,
+			Pass:       *pass,
+			Encryption: *encryption,
+			JustKey:    *justKey,
+		}
 		meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to compose meta")
@@ -296,7 +318,7 @@ func main() { //nolint:gocyclo,maintidx
 
 		lc := transferer.NewLoadChecker(ctx, grafanaC, pmmConfig.VictoriaMetricsURL, thresholds)
 
-		if err = t.Export(ctx, lc, *meta, pool, &dumpLog); err != nil {
+		if err = t.Export(ctx, lc, *meta, pool, &dumpLog, *e); err != nil {
 			log.Fatal().Msgf("Failed to export: %v", err)
 		}
 	case importCmd.FullCommand():
@@ -319,18 +341,23 @@ func main() { //nolint:gocyclo,maintidx
 
 		var sources []dump.Source
 
-		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL)
+		pmmConfig, err := util.GetPMMConfig(*pmmURL, *victoriaMetricsURL, *clickHouseURL, getStructuredVersion(*pmmURL, grafanaC))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to get PMM config")
 		}
 
-		checkVersionSupport(grafanaC, *pmmURL, pmmConfig.VictoriaMetricsURL)
+		checkVMExportAPI(grafanaC, pmmConfig.VictoriaMetricsURL)
 
 		piped, err := checkPiped()
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to check if a program is piped")
 		}
-
+		e := &enc.Options{
+			Filepath:   *toFile,
+			Pass:       *pass,
+			Encryption: *encryption,
+			JustKey:    *justKey,
+		}
 		if piped { //nolint:nestif
 			if *vmNativeData {
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' native export format because `--vm-native-data` was provided")
@@ -338,7 +365,7 @@ func main() { //nolint:gocyclo,maintidx
 				log.Warn().Msgf("Cannot read meta file during import in a pipeline. Using VictoriaMetrics' JSON export format")
 			}
 		} else {
-			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false)
+			dumpMeta, err := transferer.ReadMetaFromDump(*dumpPath, false, *e)
 			if err != nil {
 				log.Warn().Msgf("Can't show meta: %v", err)
 				*vmNativeData = true
@@ -395,7 +422,7 @@ func main() { //nolint:gocyclo,maintidx
 			log.Fatal().Err(err).Msg("Failed to compose meta")
 		}
 
-		if err = t.Import(ctx, *meta); err != nil {
+		if err = t.Import(ctx, *meta, *e); err != nil {
 			var additionalInfo string
 			if victoriametrics.ErrIsRequestEntityTooLarge(err) {
 				additionalInfo = ". Consider to use \"vm-content-limit\" option. Also, you can decrease \"chunk-time-range\" or \"chunk-rows\" values. " +
@@ -412,8 +439,13 @@ func main() { //nolint:gocyclo,maintidx
 		if *dumpPath == "" && !piped {
 			log.Fatal().Msg("Please, specify path to dump file")
 		}
-
-		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped)
+		e := &enc.Options{
+			Filepath:   *toFile,
+			Pass:       *pass,
+			Encryption: *encryption,
+			JustKey:    *justKey,
+		}
+		meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *e)
 		if err != nil {
 			log.Fatal().Msgf("Can't show meta: %v", err)
 		}
