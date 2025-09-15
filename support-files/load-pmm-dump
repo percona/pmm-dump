@@ -72,7 +72,7 @@ fi
 
 echo "## Using version: $pmm_version"
 
-if [$(echo "$pmm_version" | cut -d. -f1) != "2"]; then 
+if [ $(echo "$pmm_version" | cut -d. -f1) != "2" ]; then
   docker pull perconalab/pmm-server:${pmm_version}
   docker run --detach --publish 443:8443 --name pmm-server-${ticket_number} perconalab/pmm-server:${pmm_version}
 else
