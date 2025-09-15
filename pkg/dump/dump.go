@@ -15,10 +15,16 @@
 package dump
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"crypto/cipher"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
+
+	"pmm-dump/pkg/encryption"
 
 	"github.com/rs/zerolog/log"
 )
@@ -57,6 +63,111 @@ type ChunkMeta struct {
 
 	Index   int
 	RowsLen int
+}
+
+type Writer struct {
+	gzw *gzip.Writer
+	tw  *tar.Writer
+	ew  *cipher.StreamWriter
+}
+
+type Reader struct {
+	gzr *gzip.Reader
+	tr  *tar.Reader
+	er  *cipher.StreamReader
+}
+
+// NewWriter creates all neccesary writers and returns writer struct. Use Close to close all writers.
+func NewWriter(file io.Writer, e *encryption.Options) (*Writer, error) {
+	w := new(Writer)
+	var err error
+	if !e.Encryption {
+		w.gzw, err = gzip.NewWriterLevel(file, gzip.BestCompression)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip writer: %w", err)
+		}
+		w.tw = tar.NewWriter(w.gzw)
+		return w, nil // return file<-gzip<-tar
+	}
+	w.ew, err = e.NewWriter(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encryption writer: %w", err)
+	}
+	w.gzw, err = gzip.NewWriterLevel(w.ew, gzip.BestCompression)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip writer: %w", err)
+	}
+	w.tw = tar.NewWriter(w.gzw)
+	return w, nil // return file<-encryption<-gzip<-tar
+}
+
+func (w *Writer) GetTarWriter() *tar.Writer {
+	return w.tw
+}
+
+func (w *Writer) Write(p []byte) (int, error) {
+	return w.tw.Write(p)
+}
+
+// Close closes all writers in Writer struct.
+func (w *Writer) Close() error {
+	err := w.tw.Close()
+	if err != nil {
+		return err
+	}
+	err = w.gzw.Close()
+	if err != nil {
+		return err
+	}
+	if w.ew != nil {
+		err = w.ew.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// NewReader creates all neccesary readers and returns reader struct. Use Close to close all readers.
+func NewReader(file io.Reader, e *encryption.Options) (*Reader, error) {
+	var err error
+	r := new(Reader)
+	if !e.Encryption {
+		r.gzr, err = gzip.NewReader(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		r.tr = tar.NewReader(r.gzr)
+		return r, nil // return file->gzip->tar
+	}
+	r.er, err = e.GetReader(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create decryption reader: %w", err)
+	}
+	r.gzr, err = gzip.NewReader(r.er)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open as gzip: %w", err)
+	}
+
+	r.tr = tar.NewReader(r.gzr)
+	return r, nil // return file->decryption->gzip->tar
+}
+
+func (r *Reader) GetTarReader() *tar.Reader {
+	return r.tr
+}
+
+func (r *Reader) Read(b []byte) (int, error) {
+	return r.tr.Read(b)
+}
+
+// Close closes all readers.
+func (r *Reader) Close() error {
+	err := r.gzr.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close gzip reader: %w", err)
+	}
+	return nil
 }
 
 func (c ChunkMeta) String() string {

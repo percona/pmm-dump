@@ -105,12 +105,32 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getStructuredVer(vers string) (*version.Version, error) {
+func parseStructuredVer(vers string) (*version.Version, error) {
 	v1, err := version.NewVersion(vers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get major version: %w", err)
 	}
 	return v1, nil
+}
+
+func getStructuredVersion(pmmURL string, c *client.Client) *version.Version {
+	shortVer, _, err := getPMMVersion(pmmURL, c)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get PMM version")
+	}
+	if shortVer == "" {
+		log.Fatal().Msg("Could not find server version")
+	}
+
+	if shortVer < minPMMServerVersion {
+		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", shortVer, minPMMServerVersion)
+	}
+
+	structuredVer, err := parseStructuredVer(shortVer)
+	if err != nil {
+		log.Fatal().Msgf("failed to convert pmm version to structured version %v", err)
+	}
+	return structuredVer
 }
 
 func getPMMServices(pmmURL string, c *client.Client, version *version.Version) ([]dump.PMMServerService, error) {
@@ -126,7 +146,7 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
@@ -179,7 +199,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -210,7 +230,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, v
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
@@ -239,7 +259,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, v
 	return agentsIDs, nil
 }
 
-// getTimeZone returns empty string result if there is no preferred timezone in pmm-server graphana settings.
+// getTimeZone returns empty string result if there is no preferred timezone in pmm-server Grafana settings.
 func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 	type tzResp struct {
 		Timezone string `json:"timezone"`
@@ -265,18 +285,19 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PMM version: %w", err)
 	}
-	structuredVer, err := getStructuredVer(pmmShortVer)
+	structuredVer, err := parseStructuredVer(pmmShortVer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get major PMM version: %w", err)
 	}
-	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PMM timezone: %w", err)
-	}
 	var pmmTz *string
-	if len(pmmTzRaw) == 0 || pmmTzRaw == "browser" {
+	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
+	switch {
+	case err != nil:
+		log.Err(err).Msg("failed to get PMM timezone")
 		pmmTz = nil
-	} else {
+	case pmmTzRaw == "", pmmTzRaw == "browser":
+		pmmTz = nil
+	default:
 		pmmTz = &pmmTzRaw
 	}
 
@@ -381,24 +402,12 @@ func (lw LevelWriter) Write(p []byte) (int, error) {
 	return lw.Writer.Write(p)
 }
 
-func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
+func checkVMExportAPI(c *client.Client, victoriaMetricsURL string) {
 	if err := victoriametrics.ExportTestRequest(c, victoriaMetricsURL); err != nil {
 		if !errors.Is(err, victoriametrics.ErrNotFound) {
 			log.Fatal().Err(err).Msg("Failed to make test requests")
 		}
 		log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
-	}
-
-	pmmVer, _, err := getPMMVersion(pmmURL, c)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to get PMM version")
-	}
-	if pmmVer == "" {
-		log.Fatal().Msg("Could not find server version")
-	}
-
-	if pmmVer < minPMMServerVersion {
-		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
 	}
 }
 
@@ -503,14 +512,14 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 
 const dirPermission = 0o777
 
-func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
 	var file *os.File
 	if piped {
 		file = os.Stdout
 	} else {
 		exportTS := time.Now().UTC()
 		log.Debug().Msgf("Trying to determine filepath")
-		filepath, err := getDumpFilepath(dumpPath, exportTS)
+		filepath, err := getDumpFilepath(dumpPath, exportTS, encrypted)
 		if err != nil {
 			return nil, err
 		}
@@ -527,8 +536,12 @@ func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
-func getDumpFilepath(customPath string, ts time.Time) (string, error) {
-	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz", ts.Unix())
+func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, error) {
+	var encpath string
+	if *encrypted {
+		encpath = ".enc"
+	}
+	autoFilename := fmt.Sprintf("pmm-dump.tar.gz-%v"+encpath, ts.Unix())
 	if customPath == "" {
 		return autoFilename, nil
 	}
@@ -542,6 +555,6 @@ func getDumpFilepath(customPath string, ts time.Time) (string, error) {
 		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
-
+	customPath += encpath
 	return customPath, nil
 }

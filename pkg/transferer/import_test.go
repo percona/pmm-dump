@@ -18,7 +18,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -27,10 +26,11 @@ import (
 	"time"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
 func TestImport(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name          string
@@ -128,8 +128,14 @@ func TestImport(t *testing.T) {
 					workersCount: opt.workersCount,
 					file:         buf,
 				}
+				e := encryption.Options{
+					Encryption: false,
+					JustKey:    false,
+					Pass:       "",
+					Filepath:   "",
+				}
 				meta := dump.Meta{}
-				err := tr.Import(ctx, meta)
+				err := tr.Import(ctx, meta, e)
 				if err != nil {
 					if tt.shouldErr {
 						return

@@ -48,7 +48,7 @@ func (p *AuthParams) Validate() error {
 	}
 
 	if i == 0 {
-		return errors.New("missing authentication credentials. API token, cookie or user/password should be provided.")
+		return errors.New("missing authentication credentials. API token, cookie or user/password should be provided")
 	}
 
 	return nil
@@ -86,14 +86,20 @@ func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
 	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.Do(req, httpResp)
-	return httpResp, fmt.Errorf("failed to make request in network client: %w", err)
+	if err != nil {
+		return httpResp, fmt.Errorf("failed to make request in network client: %w", err)
+	}
+	return httpResp, nil
 }
 
 func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*fasthttp.Response, error) {
 	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.DoTimeout(req, httpResp, timeout)
-	return httpResp, fmt.Errorf("failed to make request in network client: %w", err)
+	if err != nil {
+		return httpResp, fmt.Errorf("failed to make request in network client: %w", err)
+	}
+	return httpResp, nil
 }
 
 func (c *Client) Post(url string) (int, []byte, error) {

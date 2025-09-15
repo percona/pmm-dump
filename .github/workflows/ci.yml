@@ -18,19 +18,20 @@ jobs:
   test:
     if: github.event_name == 'pull_request'
     name: Test
-    timeout-minutes: 20
+    timeout-minutes: 25
     continue-on-error: false
     runs-on: ubuntu-latest
 
 
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go release
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: Download Go modules
         run: |
@@ -48,16 +49,16 @@ jobs:
           go clean -testcache
           PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-unit-tests
 
-      - name: Run e2e tests for V2
-        run: |
-          go clean -testcache
-          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-e2e-tests-v2
-
       - name: Run e2e tests
         run: |
           go clean -testcache
           PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-e2e-tests
 
+      - name: Run e2e tests for V2
+        run: |
+          go clean -testcache
+          PMM_DUMP_MAX_PARALLEL_TESTS=3 make run-e2e-tests-v2
+  
       #   TODO: Add codecoverage
       # - name: Upload coverage results
       #   uses: codecov/codecov-action@v3
@@ -89,16 +90,17 @@ jobs:
     timeout-minutes: 10
     if: github.event_name == 'pull_request'
     continue-on-error: false
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go release
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: Download Go modules
         run: |

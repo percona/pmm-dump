@@ -32,7 +32,10 @@ func RetryOnError(ctx context.Context, f func() error) error {
 				return nil
 			}
 		case <-ctx.Done():
-			return fmt.Errorf("timeout: %w", err)
+			if err != nil {
+				return fmt.Errorf("timeout: %w", err)
+			}
+			return nil
 		}
 	}
 }

@@ -68,3 +68,16 @@ func (pmm *PMM) Exec(ctx context.Context, containerName string, cmd ...string) e
 	}
 	return nil
 }
+
+func (pmm *PMM) FileReader(ctx context.Context, containerName string, path string) (io.ReadCloser, error) {
+	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer dockerCli.Close() //nolint:errcheck
+	reader, _, err := dockerCli.CopyFromContainer(ctx, containerName, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file from container: %w", err)
+	}
+	return reader, nil
+}

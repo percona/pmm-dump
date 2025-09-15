@@ -173,7 +173,11 @@ func (p *PMM) ClickhouseURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	u.User = nil
+
+	u.User = url.UserPassword("default", "clickhouse")
+	if pkgUtil.CheckVer(p.GetVersion(), "<= 3.1.0") {
+		u.User = nil
+	}
 	u.Scheme = "clickhouse"
 	u.Path = "pmm"
 	if strings.Contains(u.Host, ":") {
@@ -348,7 +352,7 @@ func (pmm *PMM) deploy(ctx context.Context) error {
 		return fmt.Errorf("failed to add mongo to PMM: %w", err)
 	}
 
-	pmm.Log("Ping clickhouse")
+	pmm.Log("Ping clickhouse with driver")
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := util.RetryOnError(tCtx, func() error {
@@ -378,7 +382,7 @@ func (pmm *PMM) Restart(ctx context.Context) error {
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
-	if pkgUtil.CheckIsVer2(pmm.GetVersion()) {
+	if pkgUtil.CheckVer(pmm.GetVersion(), "< 3.0.0") {
 		if err := getUntilOk(tCtx, pmm.PMMURL()+"/v1/version"); err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("failed to ping PMM: %w", err)
 		}

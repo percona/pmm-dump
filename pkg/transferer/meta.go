@@ -16,7 +16,6 @@ package transferer
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,9 +27,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
+func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.Meta, error) {
 	var file *os.File
 	if piped {
 		file = os.Stdin
@@ -43,13 +43,12 @@ func ReadMetaFromDump(dumpPath string, piped bool) (*dump.Meta, error) {
 	}
 	defer file.Close() //nolint:errcheck
 
-	gzr, err := gzip.NewReader(file)
+	r, err := dump.NewReader(file, &e)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open as gzip: %w", err)
+		return nil, fmt.Errorf("failed to create readers: %w", err)
 	}
-	defer gzr.Close() //nolint:errcheck
-
-	tr := tar.NewReader(gzr)
+	defer r.Close() //nolint:errcheck
+	tr := r.GetTarReader()
 
 	for {
 		log.Debug().Msg("Reading files from dump...")

@@ -18,10 +18,11 @@ TEST_CFG_DIR=test
 ADMIN_MONGO_USERNAME?=admin
 ADMIN_MONGO_PASSWORD?=admin
 DUMP_FILENAME=dump.tar.gz
+ENCRYPTED_DUMP_FILENAME=dump.tar.gz.enc
 
-BRANCH:=$(shell git branch --show-current)
-COMMIT:=$(shell git rev-parse --short HEAD)
-VERSION:=$(shell git describe --tags --abbrev=0)
+BRANCH?=$(shell git branch --show-current)
+COMMIT?=$(shell git rev-parse --short HEAD)
+VERSION?=$(shell git describe --tags --abbrev=0)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
@@ -69,23 +70,55 @@ mongo-insert:
 	docker compose exec mongodb mongosh -u $(ADMIN_MONGO_USERNAME) -p $(ADMIN_MONGO_PASSWORD) \
 		--eval 'db.getSiblingDB("mydb").mycollection.insertMany( [{ "a": 1 }, { "b": 2 }] )' admin
 
-export-all:
-	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan
+export-all-random: ## export with random generated password
+	./$(PMMD_BIN_NAME) export --allow-insecure-certs -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
 
-export-vm:
+export-all-random-to-file: ## export with random generated password to file
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core
-export-ch:
-	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-qan --no-dump-core
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass-filepath pass.txt 
 
-import-all:
+export-all-random-just-key: ## export with random generated password without logs
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --just-key 
+
+export-all: ## export with provided password
+	./$(PMMD_BIN_NAME) export --allow-insecure-certs -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass 
+
+export-all-to-file: ## export with provided password to file
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt 
+
+export-all-just-key: ## export with providedd password without logs
+	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --just-key 
+
+export-all-no-encryption: ## export without encryption
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption 
+
+export-vm: ## export vm with random generated password
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core 
+
+export-ch: ## export ch with random generated password
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-qan --no-dump-core 
+
+import-all: ## import with provided password
+	./$(PMMD_BIN_NAME) import -v --dump-path $(ENCRYPTED_DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass 
+
+import-all-no-encryption: ## import without encryption
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan
-
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption 
+		
 clean:
 	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(DUMP_FILENAME)
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(DUMP_FILENAME)"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) "$(ENCRYPTED_DUMP_FILENAME)"
+	rm -f $(PMMD_BIN_NAME) $(PMM_DUMP_PATTERN) $(ENCRYPTED_DUMP_FILENAME)
 	rm -rf $(TEST_CFG_DIR)/pmm $(TEST_CFG_DIR)/tmp
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
