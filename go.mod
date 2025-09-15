@@ -3,11 +3,11 @@ module pmm-dump
 go 1.24.1
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.37.2
+	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/VictoriaMetrics/metricsql v0.84.3
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
-	github.com/docker/docker v28.2.2+incompatible
+	github.com/docker/docker v28.4.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
 	github.com/grafana/grafana-plugin-sdk-go v0.269.1
@@ -17,13 +17,13 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.65.0
 	go.mongodb.org/mongo-driver v1.17.3
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/ClickHouse/ch-go v0.66.1 // indirect
+	github.com/ClickHouse/ch-go v0.68.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/metrics v1.34.0 // indirect
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9 // indirect
@@ -46,7 +46,7 @@ require (
 	github.com/getkin/kin-openapi v0.131.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -84,6 +84,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
+	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
@@ -131,21 +132,22 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.34.0 // indirect
 	go.opentelemetry.io/contrib/samplers/jaegerremote v0.28.0 // indirect
-	go.opentelemetry.io/otel v1.36.0 // indirect
+	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.27.0 // indirect
-	go.opentelemetry.io/otel/metric v1.36.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.36.0 // indirect
-	go.opentelemetry.io/otel/trace v1.36.0 // indirect
+	go.opentelemetry.io/otel/metric v1.38.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.37.0 // indirect
+	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect
-	golang.org/x/mod v0.26.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
+	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
