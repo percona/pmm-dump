@@ -1,4 +1,4 @@
-# Exectuing e2e tests
+# Executing e2e tests
 
 ## Preferred method
 

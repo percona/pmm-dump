@@ -17,11 +17,10 @@ package util
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 const defaultTimeout = time.Minute * 5
@@ -45,7 +44,7 @@ func Exec(ctx context.Context, wd string, name string, args ...string) (string, 
 	if wd == "" {
 		cmd.Dir, err = os.Getwd()
 		if err != nil {
-			return "", "", errors.Wrap(err, "failed to get working directory")
+			return "", "", fmt.Errorf("failed to get working directory: %w", err)
 		}
 	} else {
 		cmd.Dir = wd
@@ -70,7 +69,7 @@ func (b *Binary) RunBash(args ...string) (string, string, error) {
 	if RepoPath == "" {
 		cmd.Dir, err = os.Getwd()
 		if err != nil {
-			return "", "", errors.Wrap(err, "failed to get working directory")
+			return "", "", fmt.Errorf("failed to get working directory: %w", err)
 		}
 	} else {
 		cmd.Dir = RepoPath

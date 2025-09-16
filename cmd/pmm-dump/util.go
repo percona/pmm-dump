@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -31,7 +32,6 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/hashicorp/go-version"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -108,7 +108,7 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 func parseStructuredVer(vers string) (*version.Version, error) {
 	v1, err := version.NewVersion(vers)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get major version")
+		return nil, fmt.Errorf("failed to get major version: %w", err)
 	}
 	return v1, nil
 }
@@ -172,13 +172,13 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 
 			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID, version)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to get pmm service node name")
+				return nil, fmt.Errorf("failed to get pmm service node name: %w", err)
 			}
 			newService.NodeName = nodeName
 
 			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID, version)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
+				return nil, fmt.Errorf("failed to get pmm service agents ids: %w", err)
 			}
 			newService.AgentsIDs = agentsIds
 
@@ -283,13 +283,12 @@ func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
 	pmmShortVer, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get PMM version")
+		return nil, fmt.Errorf("failed to get PMM version: %w", err)
 	}
 	structuredVer, err := parseStructuredVer(pmmShortVer)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get major PMM version")
+		return nil, fmt.Errorf("failed to get major PMM version: %w", err)
 	}
-
 	var pmmTz *string
 	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
 	switch {
@@ -326,7 +325,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if exportServices {
 		pmmServices, err = getPMMServices(pmmURL, c, structuredVer)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get PMM services")
+			return nil, fmt.Errorf("failed to get PMM services: %w", err)
 		}
 	}
 
@@ -437,7 +436,7 @@ func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhous
 
 	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create ClickHouse source")
+		return nil, fmt.Errorf("failed to create ClickHouse source: %w", err)
 	}
 
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
@@ -505,7 +504,7 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 
 		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
+			return nil, fmt.Errorf("failed to open dump file %s: %w", dumpPath, err)
 		}
 	}
 	return file, nil
@@ -527,11 +526,11 @@ func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteClose
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
 		if err := os.MkdirAll(path.Dir(filepath), dirPermission); err != nil {
-			return nil, errors.Wrap(err, "failed to create folders for the dump file")
+			return nil, fmt.Errorf("failed to create folders for the dump file: %w", err)
 		}
 		file, err = os.Create(filepath) //nolint:gosec
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create %s", filepath)
+			return nil, fmt.Errorf("failed to create %s: %w", filepath, err)
 		}
 	}
 	return file, nil
@@ -549,7 +548,7 @@ func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, 
 
 	customPathInfo, err := os.Stat(customPath)
 	if err != nil && !os.IsNotExist(err) {
-		return "", errors.Wrap(err, "failed to get custom path info")
+		return "", fmt.Errorf("failed to get custom path info: %w", err)
 	}
 
 	if (err == nil && customPathInfo.IsDir()) || os.IsPathSeparator(customPath[len(customPath)-1]) {

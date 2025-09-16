@@ -18,6 +18,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"crypto/cipher"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -25,7 +26,6 @@ import (
 
 	"pmm-dump/pkg/encryption"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -84,18 +84,18 @@ func NewWriter(file io.Writer, e *encryption.Options) (*Writer, error) {
 	if !e.Encryption {
 		w.gzw, err = gzip.NewWriterLevel(file, gzip.BestCompression)
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to create gzip writer")
+			return nil, fmt.Errorf("failed to create gzip writer: %w", err)
 		}
 		w.tw = tar.NewWriter(w.gzw)
 		return w, nil // return file<-gzip<-tar
 	}
 	w.ew, err = e.NewWriter(file)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to create encryption writer")
+		return nil, fmt.Errorf("failed to create encryption writer: %w", err)
 	}
 	w.gzw, err = gzip.NewWriterLevel(w.ew, gzip.BestCompression)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to create gzip writer")
+		return nil, fmt.Errorf("failed to create gzip writer: %w", err)
 	}
 	w.tw = tar.NewWriter(w.gzw)
 	return w, nil // return file<-encryption<-gzip<-tar
@@ -135,18 +135,18 @@ func NewReader(file io.Reader, e *encryption.Options) (*Reader, error) {
 	if !e.Encryption {
 		r.gzr, err = gzip.NewReader(file)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create gzip reader")
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
 		r.tr = tar.NewReader(r.gzr)
 		return r, nil // return file->gzip->tar
 	}
 	r.er, err = e.GetReader(file)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create decryption reader")
+		return nil, fmt.Errorf("failed to create decryption reader: %w", err)
 	}
 	r.gzr, err = gzip.NewReader(r.er)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+		return nil, fmt.Errorf("failed to open as gzip: %w", err)
 	}
 
 	r.tr = tar.NewReader(r.gzr)
@@ -165,7 +165,7 @@ func (r *Reader) Read(b []byte) (int, error) {
 func (r *Reader) Close() error {
 	err := r.gzr.Close()
 	if err != nil {
-		return errors.Wrap(err, "failed to close gzip reader")
+		return fmt.Errorf("failed to close gzip reader: %w", err)
 	}
 	return nil
 }

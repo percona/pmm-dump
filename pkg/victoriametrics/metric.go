@@ -16,9 +16,9 @@ package victoriametrics
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 type Metric struct {
@@ -37,7 +37,7 @@ func ParseMetrics(r io.Reader) ([]Metric, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, errors.Wrap(err, "failed to decode JSON stream")
+			return nil, fmt.Errorf("failed to decode JSON stream: %w", err)
 		}
 		result = append(result, metric)
 	}
