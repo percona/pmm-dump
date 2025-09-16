@@ -17,11 +17,11 @@
 package e2e
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
 	"pmm-dump/internal/test/deployment"
@@ -83,11 +83,11 @@ func getVersions() ([]string, error) {
 	}
 	data, err := os.ReadFile(filepath.Join(util.RepoPath, "internal", "test", "e2e", "testdata", "versions.yaml"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read versions.yaml")
+		return nil, fmt.Errorf("failed to read versions.yaml: %w", err)
 	}
 	cfg := versionsConfig{}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal versions.yaml")
+		return nil, fmt.Errorf("failed to unmarshal versions.yaml: %w", err)
 	}
 	return cfg.Versions, nil
 }

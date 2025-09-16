@@ -17,7 +17,6 @@
 package e2e
 
 import (
-	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -33,7 +32,7 @@ func TestEncryptionExportImport(t *testing.T) {
 	pmm := c.NewPMM("encryption-export-import", ".env.test")
 	newPMM := c.NewPMM("encryption-export-import-2", ".env2.test")
 
-	ctx := context.Background()
+	ctx := t.Context()
 	g, gCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return pmm.Deploy(gCtx)

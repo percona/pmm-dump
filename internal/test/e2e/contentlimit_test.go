@@ -31,8 +31,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/dump"
@@ -102,12 +100,12 @@ const (
 func generateFakeDump(filepath string) error {
 	file, err := os.Create(filepath) //nolint:gosec
 	if err != nil {
-		return errors.Wrap(err, "failed to open file")
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close() //nolint:errcheck
 	gzw, err := gzip.NewWriterLevel(file, gzip.BestCompression)
 	if err != nil {
-		return errors.Wrap(err, "failed to create gzip writer")
+		return fmt.Errorf("failed to create gzip writer: %w", err)
 	}
 	defer gzw.Close() //nolint:errcheck
 
@@ -131,17 +129,17 @@ func generateFakeDump(filepath string) error {
 		ModTime:  time.Now(),
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to write dump meta")
+		return fmt.Errorf("failed to write dump meta: %w", err)
 	}
 
 	if _, err = tw.Write(metaContent); err != nil {
-		return errors.Wrap(err, "failed to write dump meta content")
+		return fmt.Errorf("failed to write dump meta content: %w", err)
 	}
 
 	for i := range 10 {
 		content, err := generateFakeChunk(100000)
 		if err != nil {
-			return errors.Wrap(err, "failed to generate fake chunk")
+			return fmt.Errorf("failed to generate fake chunk: %w", err)
 		}
 
 		chunkSize := int64(len(content))
@@ -155,10 +153,10 @@ func generateFakeDump(filepath string) error {
 			Uid:      1,
 		})
 		if err != nil {
-			return errors.Wrap(err, "failed to write file header")
+			return fmt.Errorf("failed to write file header: %w", err)
 		}
 		if _, err = tw.Write(content); err != nil {
-			return errors.Wrap(err, "failed to write chunk content")
+			return fmt.Errorf("failed to write chunk content: %w", err)
 		}
 	}
 	return nil
@@ -179,7 +177,7 @@ func generateFakeChunk(size int) ([]byte, error) {
 			Timestamps: []int64{time.Now().UnixNano()},
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "marshal metrics")
+			return nil, fmt.Errorf("marshal metrics: %w", err)
 		}
 		data = append(data, metricsData...)
 	}
@@ -190,10 +188,10 @@ func compressData(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	if _, err := gw.Write(data); err != nil {
-		return nil, errors.Wrap(err, "write gzip")
+		return nil, fmt.Errorf("write gzip: %w", err)
 	}
 	if err := gw.Close(); err != nil {
-		return nil, errors.Wrap(err, "close gzip")
+		return nil, fmt.Errorf("close gzip: %w", err)
 	}
 	return buf.Bytes(), nil
 }

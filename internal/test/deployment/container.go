@@ -16,6 +16,8 @@ package deployment
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -27,7 +29,6 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/util"
 	pkgUtil "pmm-dump/pkg/util"
@@ -65,7 +66,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		},
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create volume")
+		return fmt.Errorf("failed to create volume: %w", err)
 	}
 
 	mounts := []mount.Mount{
@@ -85,13 +86,13 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	}
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, env, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
-		return errors.Wrap(err, "failed to create container")
+		return fmt.Errorf("failed to create container: %w", err)
 	}
 
 	pmm.setPMMServerContainerID(id)
 
 	if err := pmm.SetServerPublishedPorts(ctx, dockerCli); err != nil {
-		return errors.Wrap(err, "failed to set server published ports")
+		return fmt.Errorf("failed to set server published ports: %w", err)
 	}
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
@@ -100,10 +101,10 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	pmm.Log("Ping VictoriaMetrics")
 	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "", nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to get PMM config")
+		return fmt.Errorf("failed to get PMM config: %w", err)
 	}
 	if err := getUntilOk(tCtx, pmmConfig.VictoriaMetricsURL+"/ready"); err != nil && !errors.Is(err, io.EOF) {
-		return errors.Wrap(err, "failed to ping VM")
+		return fmt.Errorf("failed to ping VM: %w", err)
 	}
 	pmm.Log("VictoriaMetrics is ready")
 
@@ -111,25 +112,25 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
 	}); err != nil {
-		return errors.Wrap(err, "failed to ping clickhouse")
+		return fmt.Errorf("failed to ping clickhouse: %w", err)
 	}
 
 	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
-		return errors.Wrap(err, "failed to update clickhouse config")
+		return fmt.Errorf("failed to update clickhouse config: %w", err)
 	}
 
 	pmm.Log("Restarting Clickhouse after config change")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "supervisorctl", "restart", "clickhouse")
 	}); err != nil {
-		return errors.Wrap(err, "failed to restart clickhouse")
+		return fmt.Errorf("failed to restart clickhouse: %w", err)
 	}
 
 	pmm.Log("Ping Clickhouse inside container after restart")
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.Exec(ctx, pmm.ServerContainerName(), "curl", "-f", "http://127.0.0.1:8123/ping")
 	}); err != nil {
-		return errors.Wrap(err, "failed to ping clickhouse")
+		return fmt.Errorf("failed to ping clickhouse: %w", err)
 	}
 
 	pmm.Log("Ping Clickhouse with driver")
@@ -138,24 +139,24 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	if err := util.RetryOnError(tCtx, func() error {
 		return pmm.PingClickhouse(ctx)
 	}); err != nil {
-		return errors.Wrap(err, "failed to ping clickhouse")
+		return fmt.Errorf("failed to ping clickhouse: %w", err)
 	}
 
 	gc, err := pmm.NewClient()
 	if err != nil {
-		return errors.Wrap(err, "new client")
+		return fmt.Errorf("new client: %w", err)
 	}
 
 	pmmConfig, err = pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "", nil)
 	if err != nil {
-		return errors.Wrap(err, "get pmm config")
+		return fmt.Errorf("get pmm config: %w", err)
 	}
 	tCtx, cancel = context.WithTimeout(ctx, execTimeout)
 	defer cancel()
 	if err := util.RetryOnError(tCtx, func() error {
 		return victoriametrics.ExportTestRequest(gc, pmmConfig.VictoriaMetricsURL)
 	}); err != nil {
-		return errors.Wrap(err, "failed to check victoriametrics")
+		return fmt.Errorf("failed to check victoriametrics: %w", err)
 	}
 
 	return nil
@@ -175,23 +176,23 @@ func (pmm *PMM) SetServerPublishedPorts(ctx context.Context, dockerCli *client.C
 	if err := util.RetryOnError(tCtx, func() error {
 		container, err := dockerCli.ContainerInspect(ctx, *pmm.pmmServerContainerID)
 		if err != nil {
-			return errors.Wrap(err, "failed to inspect container")
+			return fmt.Errorf("failed to inspect container: %w", err)
 		}
 		httpPort, err = getPublishedPort(container, defaultHTTPPort)
 		if err != nil {
-			return errors.Wrap(err, "failed to get published http port")
+			return fmt.Errorf("failed to get published http port: %w", err)
 		}
 		httpsPort, err = getPublishedPort(container, defaultHTTPSPort)
 		if err != nil {
-			return errors.Wrap(err, "failed to get published https port")
+			return fmt.Errorf("failed to get published https port: %w", err)
 		}
 		clickhousePort, err = getPublishedPort(container, defaultClickhousePort)
 		if err != nil {
-			return errors.Wrap(err, "failed to get published clickhouse port")
+			return fmt.Errorf("failed to get published clickhouse port: %w", err)
 		}
 		clickhouseHTTPPort, err = getPublishedPort(container, defaultClickhouseHTTPPort)
 		if err != nil {
-			return errors.Wrap(err, "failed to get published clickhouse http port")
+			return fmt.Errorf("failed to get published clickhouse http port: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -237,7 +238,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 		},
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create volume")
+		return fmt.Errorf("failed to create volume: %w", err)
 	}
 	mounts := []mount.Mount{
 		{
@@ -248,7 +249,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 	}
 	_, err = pmm.createContainer(ctx, dockerCli, pmm.ClientContainerName(), pmm.ClientImage(), nil, envs, mounts, networkID, nil, pmmClientMemoryLimit)
 	if err != nil {
-		return errors.Wrap(err, "failed to create container")
+		return fmt.Errorf("failed to create container: %w", err)
 	}
 
 	tCtx, cancel := context.WithTimeout(ctx, execTimeout)
@@ -263,11 +264,11 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 					pmm.Log("failed to start container", err)
 				}
 			}
-			return errors.Wrap(err, "failed to exec")
+			return fmt.Errorf("failed to exec: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return errors.Wrap(err, "failed to check pmm-admin status")
+		return fmt.Errorf("failed to check pmm-admin status: %w", err)
 	}
 
 	return nil
@@ -289,7 +290,7 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 		},
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create volume")
+		return fmt.Errorf("failed to create volume: %w", err)
 	}
 	mounts := []mount.Mount{
 		{
@@ -314,12 +315,12 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 
 	id, err := pmm.createContainer(ctx, dockerCli, pmm.MongoContainerName(), pmm.MongoImage(), ports, envs, mounts, networkID, cmd, mongoMemoryLimit)
 	if err != nil {
-		return errors.Wrap(err, "failed to create container")
+		return fmt.Errorf("failed to create container: %w", err)
 	}
 	pmm.setMongoContainerID(id)
 
 	if err := pmm.SetMongoPublishedPorts(ctx, dockerCli); err != nil {
-		return errors.Wrap(err, "failed to set mongo published ports")
+		return fmt.Errorf("failed to set mongo published ports: %w", err)
 	}
 	return nil
 }
@@ -331,12 +332,12 @@ func (pmm *PMM) SetMongoPublishedPorts(ctx context.Context, dockerCli *client.Cl
 	if err := util.RetryOnError(tCtx, func() error {
 		container, err := dockerCli.ContainerInspect(ctx, *pmm.mongoContainerID)
 		if err != nil {
-			return errors.Wrap(err, "failed to inspect container")
+			return fmt.Errorf("failed to inspect container: %w", err)
 		}
 
 		mongoPort, err = getPublishedPort(container, defaultMongoPort)
 		if err != nil {
-			return errors.Wrap(err, "failed to get published mongo port")
+			return fmt.Errorf("failed to get published mongo port: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -401,11 +402,11 @@ func (pmm *PMM) createContainer(ctx context.Context,
 
 	resp, err := dockerCli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, name)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create container")
+		return "", fmt.Errorf("failed to create container: %w", err)
 	}
 
 	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", errors.Wrap(err, "failed to start container")
+		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 
 	return resp.ID, nil

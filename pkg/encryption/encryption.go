@@ -21,10 +21,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -47,25 +48,25 @@ func (e *Options) NewWriter(file io.Writer) (*cipher.StreamWriter, error) {
 	var err error
 	salt := make([]byte, saltSize)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return nil, errors.Wrap(err, "Failed to generate salt")
+		return nil, fmt.Errorf("failed to generate salt: %w", err)
 	}
 	if e.Pass == "" {
 		log.Debug().Msg("Password not provided, generating new")
 		err := e.generatePassword()
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to generate random password")
+			return nil, fmt.Errorf("failed to generate random password: %w", err)
 		}
 	}
 
 	pbkdf, err := pbkdf2.Key(sha256.New, e.Pass, salt, iteration, split)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to generate key from pass")
+		return nil, fmt.Errorf("failed to generate key from pass: %w", err)
 	}
 	key := pbkdf[:32]
 	iv := pbkdf[32:]
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to generate cipher")
+		return nil, fmt.Errorf("failed to generate cipher: %w", err)
 	}
 
 	stream := cipher.NewCTR(block, iv)
@@ -81,23 +82,23 @@ func (e *Options) GetReader(r io.Reader) (*cipher.StreamReader, error) {
 	salt := make([]byte, saltSize+8) //nolint:mnd
 	_, err = r.Read(salt)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to get salt")
+		return nil, fmt.Errorf("failed to get salt: %w", err)
 	}
 	salt = salt[8:]
 
 	if e.Pass == "" {
-		return nil, errors.New("Password not provided, please provide password")
+		return nil, errors.New("password not provided, please provide password")
 	}
 
 	pbkdf, err := pbkdf2.Key(sha256.New, e.Pass, salt, iteration, split)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to generate key from pass")
+		return nil, fmt.Errorf("failed to generate key from pass: %w", err)
 	}
 	key := pbkdf[:32]
 	iv := pbkdf[32:]
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to generate cipher")
+		return nil, fmt.Errorf("failed to generate cipher: %w", err)
 	}
 
 	stream := cipher.NewCTR(block, iv)
@@ -137,11 +138,11 @@ func (e *Options) OutputPass() error {
 			log.Info().Msg("Exporting password to file " + e.Filepath)
 			file, err := os.Create(e.Filepath)
 			if err != nil {
-				return errors.Wrap(err, "failed to open password file")
+				return fmt.Errorf("failed to open password file: %w", err)
 			}
 			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
 			if err != nil {
-				return errors.Wrap(err, "failed to write to file")
+				return fmt.Errorf("failed to write to file: %w", err)
 			}
 			defer file.Close() //nolint:errcheck
 		}

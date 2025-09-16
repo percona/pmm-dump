@@ -19,6 +19,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,8 +32,6 @@ import (
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	pkgUtil "pmm-dump/pkg/util"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -188,7 +187,7 @@ func TestMaxSamples(t *testing.T) {
 		}
 		return errors.New("not ok")
 	}); err != nil && !errors.Is(err, io.EOF) {
-		t.Fatal("failed to ping victoriametrics", err)
+		t.Fatal("failed to ping victoriametrics: ", err)
 	}
 
 	pmm.Log("Exporting dump to check split")
