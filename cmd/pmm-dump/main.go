@@ -99,7 +99,7 @@ var (
 
 	stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
-	// encryption related
+	// encryption related.
 	encryption = cli.Flag("encryption", "Enable encryption").Default("true").Bool()
 	pass       = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM_DUMP_PASS").String()
 	justKey    = exportCmd.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
