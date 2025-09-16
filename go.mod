@@ -15,7 +15,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/valyala/fasthttp v1.65.0
+	github.com/valyala/fasthttp v1.66.0
 	go.mongodb.org/mongo-driver v1.17.3
 	golang.org/x/sync v0.17.0
 	gopkg.in/yaml.v2 v2.4.0
