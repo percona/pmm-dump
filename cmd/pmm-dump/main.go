@@ -100,12 +100,13 @@ var (
 	stdout = exportCmd.Flag("stdout", "Redirect output to STDOUT").Bool()
 
 	// encryption related.
-	encryption = cli.Flag("encryption", "Enable encryption").Default("true").Bool()
-	pass       = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM_DUMP_PASS").String()
-	justKey    = exportCmd.Flag("just-key", "Disable logging and only leave key").Default("false").Bool()
-	toFile     = exportCmd.Flag("pass-filepath", "Filepath to output encryption password").Envar("PMM_DUMP_PASS_FILEPATH").String()
-
+	encryption         = cli.Flag("encryption", "Enable encryption").Default("true").Bool()
+	pass               = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM_DUMP_PASS").String()
+	justKey            = exportCmd.Flag("just-key", "Disable logging and only leave key").Default("true").Bool()
+	toFile             = exportCmd.Flag("pass-filepath", "Filepath to output encryption password").Envar("PMM_DUMP_PASS_FILEPATH").String()
+	forceToFile        = exportCmd.Flag("force-pass-filepath", "Overwrite the file to where the encrypted password is output.").Default("false").Bool()
 	exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
+	
 	// import command options.
 	importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
@@ -148,7 +149,7 @@ func main() {
 			Level(zerolog.DebugLevel)
 
 	case *justKey:
-		log.Logger = log.Logger.Level(zerolog.Disabled)
+		log.Logger = log.Logger.Level(zerolog.ErrorLevel)
 
 	default:
 		log.Logger = log.Logger.
@@ -192,6 +193,7 @@ func showMetaData() error {
 		Pass:       *pass,
 		Encryption: *encryption,
 		JustKey:    *justKey,
+		Force:      *forceToFile,
 	}
 	meta, err := transferer.ReadMetaFromDump(*dumpPath, piped, *e)
 	if err != nil {
@@ -263,6 +265,7 @@ func importData(ctx context.Context) error {
 		Pass:       *pass,
 		Encryption: *encryption,
 		JustKey:    *justKey,
+		Force:      *forceToFile,
 	}
 	if piped { //nolint:nestif
 		if *vmNativeData {
@@ -484,6 +487,7 @@ func exportData(logConsoleWriter zerolog.ConsoleWriter, ctx context.Context) err
 		Pass:       *pass,
 		Encryption: *encryption,
 		JustKey:    *justKey,
+		Force:      *forceToFile,
 	}
 	meta, err := composeMeta(*pmmURL, grafanaC, *exportServicesInfo, cli, *vmNativeData)
 	if err != nil {

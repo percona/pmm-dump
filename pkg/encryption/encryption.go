@@ -42,6 +42,7 @@ type Options struct {
 	JustKey    bool
 	Pass       string
 	Filepath   string
+	Force      bool
 }
 
 func (e *Options) NewWriter(file io.Writer) (*cipher.StreamWriter, error) {
@@ -121,6 +122,46 @@ func (e *Options) OutputPass() error {
 		return nil
 	}
 	switch {
+	case e.Filepath != "":
+		{
+			log.Info().Msg("Exporting password to file " + e.Filepath)
+			switch e.Force {
+			case true:
+				file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+				if err != nil {
+					return fmt.Errorf("failed to open password file: %w", err)
+				}
+
+				_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+				if err != nil {
+					return fmt.Errorf("failed to write to file: %w", err)
+				}
+				defer file.Close() //nolint:errcheck
+
+			case false:
+				_, err := os.Stat(e.Filepath)
+				if err == nil {
+					return fmt.Errorf("file for exporting password exist: use flag --force-pass-filepath to overwrite file")
+				}
+
+				if !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("falied to get stats of password file: %w", err)
+				}
+
+				file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, 0600)
+				if err != nil {
+					return fmt.Errorf("failed to open password file: %w", err)
+				}
+
+				_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+				if err != nil {
+					return fmt.Errorf("failed to write to file: %w", err)
+				}
+				defer file.Close() //nolint:errcheck
+
+			}
+
+		}
 	case e.JustKey:
 		{
 			wr := zerolog.ConsoleWriter{
@@ -133,19 +174,7 @@ func (e *Options) OutputPass() error {
 			lo := log.Output(wr)
 			lo.Info().Msg("Password: " + e.Pass)
 		}
-	case e.Filepath != "":
-		{
-			log.Info().Msg("Exporting password to file " + e.Filepath)
-			file, err := os.Create(e.Filepath)
-			if err != nil {
-				return fmt.Errorf("failed to open password file: %w", err)
-			}
-			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-			defer file.Close() //nolint:errcheck
-		}
+
 	default:
 		{
 			log.Info().Msg("Password: " + e.Pass)
