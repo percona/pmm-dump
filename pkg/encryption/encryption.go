@@ -124,40 +124,15 @@ func (e *Options) OutputPass() error {
 	}
 	if e.Filepath != "" {
 		log.Info().Msg("Exporting password to file " + e.Filepath)
-		switch e.Force {
-		case true:
-			file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePassPermission)
-			if err != nil {
-				return fmt.Errorf("failed to open password file: %w", err)
-			}
-
-			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-			defer file.Close() //nolint:errcheck
-
-		case false:
-			_, err := os.Stat(e.Filepath)
-			if err == nil {
-				return errors.New("file for exporting password exist: use flag --force-pass-filepath to overwrite file")
-			}
-
-			if !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("falied to get stats of password file: %w", err)
-			}
-
-			file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, filePassPermission)
-			if err != nil {
-				return fmt.Errorf("failed to open password file: %w", err)
-			}
-
-			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-			defer file.Close() //nolint:errcheck
+		file, err := e.getFileToExport()
+		if err != nil {
+			return fmt.Errorf("failed to get file to export password: %w", err)
 		}
+		_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+		defer file.Close() //nolint:errcheck
 	}
 	if e.JustKey {
 		wr := zerolog.ConsoleWriter{
@@ -183,4 +158,33 @@ func (e *Options) generatePassword() error {
 	}
 	e.Pass = hex.EncodeToString(buffer)[:passwordSize]
 	return nil
+}
+
+func (e *Options) getFileToExport() (*os.File, error) {
+	var file *os.File
+
+	if !e.Force {
+		_, err := os.Stat(e.Filepath)
+		if err == nil {
+			return nil, errors.New("file for exporting password exist: use flag --force-pass-filepath to overwrite file")
+		}
+
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("falied to get stats of password file: %w", err)
+		}
+
+		file, err = os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, filePassPermission)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open password file: %w", err)
+		}
+		return file, nil
+	}
+
+	var err error
+	file, err = os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePassPermission)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open password file: %w", err)
+	}
+
+	return file, nil
 }
