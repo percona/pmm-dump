@@ -106,7 +106,7 @@ var (
 	toFile             = exportCmd.Flag("pass-filepath", "Filepath to output encryption password").Envar("PMM_DUMP_PASS_FILEPATH").String()
 	forceToFile        = exportCmd.Flag("force-pass-filepath", "Overwrite the file to where the encrypted password is output.").Default("false").Bool()
 	exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
-	
+
 	// import command options.
 	importCmd = cli.Command("import", "Import PMM Server metrics from dump file")
 
@@ -137,10 +137,15 @@ func main() {
 	}
 	switch {
 	case *enableVerboseMode && *justKey:
-		log.Fatal().Msgf("Verbose and just-key are mutually exclusive")
+		log.Warn().Msgf("Verbose and just-key are mutually exclusive, disabling just-key")
+		justKey = ptr(false)
 
-	case !*encryption && (*pass != "" || *justKey || *toFile != ""):
-		log.Fatal().Msgf("No encryption and other encryptions parameters are mutually exclusive")
+	case !*encryption:
+		log.Warn().Msgf("no-encryption flag is set, disabling other encryption flags")
+		pass = ptr("")
+		justKey = ptr(false)
+		toFile = ptr("")
+		forceToFile = ptr(false)
 
 	case *enableVerboseMode:
 		log.Logger = log.Logger.

@@ -31,10 +31,11 @@ import (
 )
 
 const (
-	iteration    int = 10000 // Openssl makes this number of iterations by default when encrypting/decrypting with pbdkf2
-	split        int = 48    // Number of bytes needed to get key and iv from pbkdf2. 32 on key and rest on iv
-	saltSize     int = 8     // Salt size by default in openssl
-	passwordSize int = 16    // Size of password in bytes when generating random password
+	iteration          int = 10000 // Openssl makes this number of iterations by default when encrypting/decrypting with pbdkf2
+	split              int = 48    // Number of bytes needed to get key and iv from pbkdf2. 32 on key and rest on iv
+	saltSize           int = 8     // Salt size by default in openssl
+	passwordSize       int = 16    // Size of password in bytes when generating random password
+	filePassPermission     = 0o600
 )
 
 type Options struct {
@@ -121,64 +122,55 @@ func (e *Options) OutputPass() error {
 	if !e.Encryption {
 		return nil
 	}
-	switch {
-	case e.Filepath != "":
-		{
-			log.Info().Msg("Exporting password to file " + e.Filepath)
-			switch e.Force {
-			case true:
-				file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-				if err != nil {
-					return fmt.Errorf("failed to open password file: %w", err)
-				}
-
-				_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-				if err != nil {
-					return fmt.Errorf("failed to write to file: %w", err)
-				}
-				defer file.Close() //nolint:errcheck
-
-			case false:
-				_, err := os.Stat(e.Filepath)
-				if err == nil {
-					return fmt.Errorf("file for exporting password exist: use flag --force-pass-filepath to overwrite file")
-				}
-
-				if !errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("falied to get stats of password file: %w", err)
-				}
-
-				file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, 0600)
-				if err != nil {
-					return fmt.Errorf("failed to open password file: %w", err)
-				}
-
-				_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-				if err != nil {
-					return fmt.Errorf("failed to write to file: %w", err)
-				}
-				defer file.Close() //nolint:errcheck
-
+	if e.Filepath != "" {
+		log.Info().Msg("Exporting password to file " + e.Filepath)
+		switch e.Force {
+		case true:
+			file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePassPermission)
+			if err != nil {
+				return fmt.Errorf("failed to open password file: %w", err)
 			}
 
-		}
-	case e.JustKey:
-		{
-			wr := zerolog.ConsoleWriter{
-				Out:     os.Stderr,
-				NoColor: true,
+			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+			if err != nil {
+				return fmt.Errorf("failed to write to file: %w", err)
 			}
-			wr.PartsOrder = []string{
-				zerolog.MessageFieldName,
-			}
-			lo := log.Output(wr)
-			lo.Info().Msg("Password: " + e.Pass)
-		}
+			defer file.Close() //nolint:errcheck
 
-	default:
-		{
-			log.Info().Msg("Password: " + e.Pass)
+		case false:
+			_, err := os.Stat(e.Filepath)
+			if err == nil {
+				return errors.New("file for exporting password exist: use flag --force-pass-filepath to overwrite file")
+			}
+
+			if !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("falied to get stats of password file: %w", err)
+			}
+
+			file, err := os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, filePassPermission)
+			if err != nil {
+				return fmt.Errorf("failed to open password file: %w", err)
+			}
+
+			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+			if err != nil {
+				return fmt.Errorf("failed to write to file: %w", err)
+			}
+			defer file.Close() //nolint:errcheck
 		}
+	}
+	if e.JustKey {
+		wr := zerolog.ConsoleWriter{
+			Out:     os.Stderr,
+			NoColor: true,
+		}
+		wr.PartsOrder = []string{
+			zerolog.MessageFieldName,
+		}
+		lo := log.Output(wr)
+		lo.Info().Msg("Password: " + e.Pass)
+	} else {
+		log.Info().Msg("Password: " + e.Pass)
 	}
 	return nil
 }

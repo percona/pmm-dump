@@ -84,7 +84,7 @@ export-all-random-no-just-key: ## export with random generated password with log
 
 export-all: ## export with provided password
 	./$(PMMD_BIN_NAME) export --allow-insecure-certs --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass 
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass
 
 export-all-to-file: ## export with provided password to file 
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
@@ -96,11 +96,11 @@ export-all-to-file-force: ## export with provided password to file with force fl
 
 export-all-no-just-key: ## export with provided password with logs
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass -v --no-just-key 
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass -v 
 
 export-all-no-encryption: ## export without encryption
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption 
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption -v
 
 export-vm: ## export vm with random generated password
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
