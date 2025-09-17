@@ -106,7 +106,7 @@ docker exec pmm-server-${ticket_number} supervisorctl restart nginx
 echo -n "## Waiting for PMM sever to restart"
 while true; do
 
-  if [$(echo "$pmm_version" | cut -d. -f1) != "2"]; then 
+  if [ $(echo "$pmm_version" | cut -d. -f1) != "2" ]; then
     pmm_status=$(docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:${pmm_port_443}/v1/server/readyz)
   else 
     pmm_status=`docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:443/v1/readyz`
