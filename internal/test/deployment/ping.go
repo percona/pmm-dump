@@ -16,7 +16,6 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -45,10 +44,12 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 }
 
 func (pmm *PMM) PingClickhouse(ctx context.Context) error {
-	db, err := sql.Open("clickhouse", pmm.ClickhouseURL())
+	options, err := pmm.ClickhouseOptions(pmm.ClickhouseURL())
 	if err != nil {
 		return err
 	}
+
+	db := clickhouse.OpenDB(options)
 	defer db.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)

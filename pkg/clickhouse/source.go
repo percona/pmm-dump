@@ -40,11 +40,7 @@ type Source struct {
 }
 
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
-	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
-	if err != nil {
-		return nil, fmt.Errorf("sql open: %w", err)
-	}
-
+	db := clickhouse.OpenDB(&cfg.Options)
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 

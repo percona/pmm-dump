@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	click "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/hashicorp/go-version"
 	"github.com/rs/zerolog"
@@ -428,10 +429,31 @@ func prepareVictoriaMetricsSource(grafanaC *client.Client, url string, selectors
 	return victoriametrics.NewSource(grafanaC, c)
 }
 
-func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhouse.Source, error) {
+func prepareClickHouseSource(ctx context.Context, clickUrl, where string, ver *version.Version) (*clickhouse.Source, error) {
+	url, err := url.Parse(clickUrl)
+	if err != nil {
+		return nil, fmt.Errorf("sql open: %w", err)
+	}
+
+	options := &click.Options{
+		Addr: []string{url.Host},
+		Auth: click.Auth{
+			Database: url.Path[1:],
+		},
+		Settings: click.Settings{
+			"session_timezone": "UTC",
+		},
+	}
+
+	if util.CheckVer(ver, "> 3.1.0") {
+		pass, _ := url.User.Password()
+		options.Auth.Password = pass
+		options.Auth.Username = url.User.Username()
+	}
+
 	c := &clickhouse.Config{
-		ConnectionURL: url,
-		Where:         where,
+		Where:   where,
+		Options: *options,
 	}
 
 	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
@@ -439,7 +461,7 @@ func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhous
 		return nil, fmt.Errorf("failed to create ClickHouse source: %w", err)
 	}
 
-	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
+	log.Debug().Msgf("Got ClickHouse URL: %s", clickUrl)
 
 	return clickhouseSource, nil
 }
