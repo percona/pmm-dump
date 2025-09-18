@@ -130,35 +130,45 @@ func main() {
 	}
 
 	log.Logger = log.Output(logConsoleWriter)
+	log.Logger = log.Logger.Level(zerolog.InfoLevel)
 
 	cmd, err := cli.DefaultEnvars().Parse(os.Args[1:])
 	if err != nil {
 		log.Fatal().Msgf("Error parsing parameters: %s", err.Error())
 	}
-	switch {
-	case *enableVerboseMode && *justKey:
-		log.Warn().Msgf("Verbose and just-key are mutually exclusive, disabling just-key")
-		justKey = ptr(false)
 
-	case !*encryption:
+	if !*encryption {
 		log.Warn().Msgf("no-encryption flag is set, disabling other encryption flags")
 		pass = ptr("")
 		justKey = ptr(false)
 		toFile = ptr("")
 		forceToFile = ptr(false)
+	}
 
-	case *enableVerboseMode:
+	if *enableVerboseMode && *justKey {
+		log.Warn().Msgf("Verbose and just-key are mutually exclusive, disabling just-key")
+		justKey = ptr(false)
+	}
+
+	if *enableVerboseMode {
 		log.Logger = log.Logger.
 			With().Caller().Logger().
 			Hook(goroutineLoggingHook{}).
 			Level(zerolog.DebugLevel)
-
-	case *justKey:
+	}
+	if *justKey {
 		log.Logger = log.Logger.Level(zerolog.ErrorLevel)
+	}
 
-	default:
-		log.Logger = log.Logger.
-			Level(zerolog.InfoLevel)
+	if *toFile != "" {
+		_, err := os.Stat(*toFile)
+		if err == nil {
+			if !*forceToFile {
+				log.Fatal().Msg("file for exporting password exists: use flag --force-pass-filepath to overwrite file")
+			} else {
+				log.Warn().Msgf("file for exporting passwords exists and the flag --force-pass-filepath is provided, the file will be overwritten")
+			}
+		}
 	}
 
 	switch cmd {

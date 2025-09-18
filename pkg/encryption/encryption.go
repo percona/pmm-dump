@@ -162,17 +162,8 @@ func (e *Options) generatePassword() error {
 
 func (e *Options) getFileToExport() (*os.File, error) {
 	var file *os.File
-
+	var err error
 	if !e.Force {
-		_, err := os.Stat(e.Filepath)
-		if err == nil {
-			return nil, errors.New("file for exporting password exist: use flag --force-pass-filepath to overwrite file")
-		}
-
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("falied to get stats of password file: %w", err)
-		}
-
 		file, err = os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, filePassPermission)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open password file: %w", err)
@@ -180,7 +171,6 @@ func (e *Options) getFileToExport() (*os.File, error) {
 		return file, nil
 	}
 
-	var err error
 	file, err = os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePassPermission)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open password file: %w", err)
