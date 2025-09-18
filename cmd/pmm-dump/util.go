@@ -429,23 +429,26 @@ func prepareVictoriaMetricsSource(grafanaC *client.Client, url string, selectors
 	return victoriametrics.NewSource(grafanaC, c)
 }
 
-func prepareClickHouseSource(ctx context.Context, clickUrl, where string) (*clickhouse.Source, error) {
+func prepareClickHouseSource(ctx context.Context, clickUrl, where string, ver *version.Version) (*clickhouse.Source, error) {
 	url, err := url.Parse(clickUrl)
 	if err != nil {
 		return nil, fmt.Errorf("sql open: %w", err)
 	}
-	p, _ := url.User.Password()
 
 	options := &click.Options{
 		Addr: []string{url.Host},
 		Auth: click.Auth{
 			Database: url.Path[1:],
-			Username: url.User.Username(),
-			Password: p,
 		},
 		Settings: click.Settings{
 			"session_timezone": "UTC",
 		},
+	}
+
+	if util.CheckVer(ver, "> 3.1.0") {
+		pass, _ := url.User.Password()
+		options.Auth.Password = pass
+		options.Auth.Username = url.User.Username()
 	}
 
 	c := &clickhouse.Config{

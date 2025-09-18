@@ -43,6 +43,7 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db := clickhouse.OpenDB(&cfg.Options)
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
+
 	if err := db.PingContext(ctx); err != nil {
 		var exception *clickhouse.Exception
 		if errors.As(err, &exception) {
@@ -92,7 +93,6 @@ func (s Source) Type() dump.SourceType {
 func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
-
 	query := "SELECT * FROM metrics"
 	query += " " + prepareWhereClause(s.cfg.Where, m.Start, m.End)
 	query += fmt.Sprintf(" ORDER BY period_start, queryid LIMIT %d OFFSET %d", limit, offset)

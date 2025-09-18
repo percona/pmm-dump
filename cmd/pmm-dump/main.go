@@ -301,7 +301,7 @@ func importData(ctx context.Context) error {
 	}
 
 	if *dumpQAN {
-		chSource, err := prepareClickHouseSource(ctx, pmmConfig.ClickHouseURL, *where)
+		chSource, err := prepareClickHouseSource(ctx, pmmConfig.ClickHouseURL, *where, getStructuredVersion(*pmmURL, grafanaC))
 		if err != nil {
 			return fmt.Errorf("failed to connect to ClickHouse: %w", err)
 		}
@@ -447,7 +447,7 @@ func exportData(logConsoleWriter zerolog.ConsoleWriter, ctx context.Context) err
 			}
 		}
 
-		chSource, err := prepareClickHouseSource(ctx, pmmConfig.ClickHouseURL, *where)
+		chSource, err := prepareClickHouseSource(ctx, pmmConfig.ClickHouseURL, *where, getStructuredVersion(*pmmURL, grafanaC))
 		if err != nil {
 			return fmt.Errorf("failed to connect to ClickHouse: %w", err)
 		}
