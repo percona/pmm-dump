@@ -45,6 +45,7 @@ func GetPMMConfig(pmmLink, vmLink, chLink string, ver *version.Version) (PMMConf
 	if conf.VictoriaMetricsURL == "" {
 		conf.VictoriaMetricsURL = composeVictoriaMetricsURL(*pmmURL)
 	}
+
 	return conf, nil
 }
 

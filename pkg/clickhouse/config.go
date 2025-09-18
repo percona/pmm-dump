@@ -14,7 +14,11 @@
 
 package clickhouse
 
+import (
+	"github.com/ClickHouse/clickhouse-go/v2"
+)
+
 type Config struct {
-	ConnectionURL string
 	Where         string
+	Options       clickhouse.Options
 }
