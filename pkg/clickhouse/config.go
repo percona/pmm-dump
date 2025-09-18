@@ -14,11 +14,9 @@
 
 package clickhouse
 
-import (
-	"github.com/ClickHouse/clickhouse-go/v2"
-)
+import "github.com/ClickHouse/clickhouse-go/v2"
 
 type Config struct {
-	Where         string
-	Options       clickhouse.Options
+	Where   string
+	Options clickhouse.Options
 }
