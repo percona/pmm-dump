@@ -17,13 +17,13 @@ package transferer
 import (
 	"archive/tar"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/dump"
@@ -38,14 +38,14 @@ func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.
 		var err error
 		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to open file")
+			return nil, fmt.Errorf("failed to open file: %w", err)
 		}
 	}
 	defer file.Close() //nolint:errcheck
 
 	r, err := dump.NewReader(file, &e)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create readers")
+		return nil, fmt.Errorf("failed to create readers: %w", err)
 	}
 	defer r.Close() //nolint:errcheck
 	tr := r.GetTarReader()
@@ -61,7 +61,7 @@ func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.
 		}
 
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read a file from dump")
+			return nil, fmt.Errorf("failed to read a file from dump: %w", err)
 		}
 
 		_, filename := path.Split(header.Name)
@@ -74,7 +74,7 @@ func ReadMetaFromDump(dumpPath string, piped bool, e encryption.Options) (*dump.
 
 		meta, err := readMetafile(tr)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read meta file")
+			return nil, fmt.Errorf("failed to read meta file: %w", err)
 		}
 
 		return meta, nil
@@ -97,11 +97,11 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 		ModTime:  time.Now(),
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to write dump meta")
+		return fmt.Errorf("failed to write dump meta: %w", err)
 	}
 
 	if _, err = tw.Write(metaContent); err != nil {
-		return errors.Wrap(err, "failed to write dump meta content")
+		return fmt.Errorf("failed to write dump meta content: %w", err)
 	}
 
 	return nil
@@ -110,12 +110,12 @@ func writeMetafile(tw *tar.Writer, meta dump.Meta) error {
 func readMetafile(r io.Reader) (*dump.Meta, error) {
 	metaBytes, err := io.ReadAll(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read bytes")
+		return nil, fmt.Errorf("failed to read bytes: %w", err)
 	}
 
 	var meta dump.Meta
 	if err := json.Unmarshal(metaBytes, &meta); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal")
+		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 
 	return &meta, nil

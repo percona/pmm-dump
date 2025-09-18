@@ -17,10 +17,11 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -30,7 +31,7 @@ const pingTimeout = time.Second * 5
 func (pmm *PMM) PingMongo(ctx context.Context) error {
 	cl, err := mongo.Connect(ctx, options.Client().ApplyURI(pmm.MongoURL()))
 	if err != nil {
-		return errors.Wrap(err, "failed to connect")
+		return fmt.Errorf("failed to connect: %w", err)
 	}
 	defer cl.Disconnect(ctx) //nolint:errcheck
 
@@ -38,7 +39,7 @@ func (pmm *PMM) PingMongo(ctx context.Context) error {
 	defer cancel()
 
 	if err := cl.Ping(ctx, nil); err != nil {
-		return errors.Wrap(err, "failed to ping")
+		return fmt.Errorf("failed to ping: %w", err)
 	}
 	return nil
 }
@@ -56,7 +57,7 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	if err := db.PingContext(ctx); err != nil {
 		var exception *clickhouse.Exception
 		if errors.As(err, &exception) {
-			return errors.Errorf("exception: [%d] %s %s", exception.Code, exception.Message, exception.StackTrace)
+			return fmt.Errorf("exception: [%d] %s %s", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return err
 	}

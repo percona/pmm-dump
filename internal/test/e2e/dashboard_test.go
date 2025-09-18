@@ -55,7 +55,7 @@ func TestDashboard(t *testing.T) {
 			pmm.Log("Exporting data with `--dashboard` flag to", dashboardDumpPath)
 			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 			if err != nil {
-				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+				if strings.Contains(stderr, "failed to create a dump. No data was found") {
 					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
 					return
 				}
@@ -67,7 +67,7 @@ func TestDashboard(t *testing.T) {
 			pmm.Log("Exporting data with `--dashboard` flag and `--instance` to", dashboardDumpPath)
 			stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 			if err != nil {
-				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+				if strings.Contains(stderr, "failed to create a dump. No data was found") {
 					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
 					return
 				}

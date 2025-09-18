@@ -15,12 +15,12 @@
 package deployment
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
 	"testing"
 
-	"github.com/pkg/errors"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -47,7 +47,7 @@ func init() { //nolint:gochecknoinits
 		var err error
 		maxParallelTests, err = strconv.Atoi(maxParallelTestsStr)
 		if err != nil {
-			panic(errors.Wrapf(err, "failed to parse %s", envMaxParallel))
+			panic(fmt.Errorf("failed to parse %s: %w", envMaxParallel, err))
 		}
 	}
 
