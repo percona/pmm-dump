@@ -104,7 +104,7 @@ var (
 	pass               = cli.Flag("pass", "Password for encryption/decryption").Envar("PMM_DUMP_PASS").String()
 	justKey            = exportCmd.Flag("just-key", "Disable logging and only leave key").Default("true").Bool()
 	toFile             = exportCmd.Flag("pass-filepath", "Filepath to output encryption password").Envar("PMM_DUMP_PASS_FILEPATH").String()
-	forceToFile        = exportCmd.Flag("force-pass-filepath", "Overwrite the file to where the encrypted password is output.").Default("false").Bool()
+	forceToFile        = exportCmd.Flag("force-pass-filepath", "Overwrite the file to where the encrypted password is output").Default("false").Bool()
 	exportServicesInfo = exportCmd.Flag("export-services-info", "Export overview info about all the services, that are being monitored").Bool()
 
 	// import command options.
