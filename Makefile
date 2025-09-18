@@ -71,51 +71,51 @@ mongo-insert:
 		--eval 'db.getSiblingDB("mydb").mycollection.insertMany( [{ "a": 1 }, { "b": 2 }] )' admin
 
 export-all-random: ## export with random generated password
-	./$(PMMD_BIN_NAME) export --allow-insecure-certs --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export --allow-insecure-certs -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan 
 
 export-all-random-to-file: ## export with random generated password to file
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass-filepath pass.txt 
 
 export-all-random-no-just-key: ## export with random generated password with logs
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan -v --no-just-key 
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-just-key 
 
 export-all: ## export with provided password
-	./$(PMMD_BIN_NAME) export --allow-insecure-certs --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export  -v --allow-insecure-certs -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass
 
-export-all-to-file: ## export with provided password to file 
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+export-all-to-file: ## export with provided password to file
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt 
 
 export-all-to-file-force: ## export with provided password to file with force flag
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --pass-filepath pass.txt --force-pass-filepath
 
 export-all-no-just-key: ## export with provided password with logs
 	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass -v 
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass --no-just-key 
 
 export-all-no-encryption: ## export without encryption
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption -v
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
+		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption
 
 export-vm: ## export vm with random generated password
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core 
 
 export-ch: ## export ch with random generated password
-	./$(PMMD_BIN_NAME) export --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-qan --no-dump-core 
 
 import-all: ## import with provided password
-	./$(PMMD_BIN_NAME) import --dump-path $(ENCRYPTED_DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) import -v --dump-path $(ENCRYPTED_DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --pass somepass 
 
 import-all-no-encryption: ## import without encryption
-	./$(PMMD_BIN_NAME) import --dump-path $(DUMP_FILENAME) \
+	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
 		--pmm-url=$(PMM_URL) --dump-core --dump-qan --no-encryption 
 		
 clean:
