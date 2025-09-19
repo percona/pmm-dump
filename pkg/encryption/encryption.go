@@ -122,7 +122,8 @@ func (e *Options) OutputPass() error {
 	if !e.Encryption {
 		return nil
 	}
-	if e.Filepath != "" {
+	switch {
+	case e.Filepath != "":
 		log.Info().Msg("Exporting password to file " + e.Filepath)
 		file, err := e.getFileToExport()
 		if err != nil {
@@ -133,8 +134,7 @@ func (e *Options) OutputPass() error {
 			return fmt.Errorf("failed to write to file: %w", err)
 		}
 		defer file.Close() //nolint:errcheck
-	}
-	if e.JustKey {
+	case e.JustKey:
 		wr := zerolog.ConsoleWriter{
 			Out:     os.Stderr,
 			NoColor: true,
@@ -144,7 +144,7 @@ func (e *Options) OutputPass() error {
 		}
 		lo := log.Output(wr)
 		lo.Info().Msg("Password: " + e.Pass)
-	} else {
+	default:
 		log.Info().Msg("Password: " + e.Pass)
 	}
 	return nil

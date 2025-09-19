@@ -150,6 +150,16 @@ func main() {
 		justKey = ptr(false)
 	}
 
+	if *toFile != "" && *justKey {
+		log.Warn().Msgf("pass-filepath and just-key are mutually exclusive, disabling just-key")
+		justKey = ptr(false)
+	}
+
+	if *toFile == "" && *forceToFile {
+		log.Warn().Msgf("force-pass-filepath is set and pass-filepath is empty, dissabling force-pass-filepath")
+		justKey = ptr(false)
+	}
+
 	if *enableVerboseMode {
 		log.Logger = log.Logger.
 			With().Caller().Logger().
