@@ -150,13 +150,8 @@ func main() {
 		justKey = ptr(false)
 	}
 
-	if *toFile != "" && *justKey {
-		log.Warn().Msgf("pass-filepath and just-key are mutually exclusive, disabling just-key")
-		justKey = ptr(false)
-	}
-
 	if *toFile == "" && *forceToFile {
-		log.Warn().Msgf("force-pass-filepath is set and pass-filepath is empty, dissabling force-pass-filepath")
+		log.Warn().Msgf("force-pass-filepath is set and pass-filepath is empty, disabling force-pass-filepath")
 		justKey = ptr(false)
 	}
 
