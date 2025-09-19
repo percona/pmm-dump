@@ -31,10 +31,11 @@ import (
 )
 
 const (
-	iteration    int = 10000 // Openssl makes this number of iterations by default when encrypting/decrypting with pbdkf2
-	split        int = 48    // Number of bytes needed to get key and iv from pbkdf2. 32 on key and rest on iv
-	saltSize     int = 8     // Salt size by default in openssl
-	passwordSize int = 16    // Size of password in bytes when generating random password
+	iteration          int = 10000 // Openssl makes this number of iterations by default when encrypting/decrypting with pbdkf2
+	split              int = 48    // Number of bytes needed to get key and iv from pbkdf2. 32 on key and rest on iv
+	saltSize           int = 8     // Salt size by default in openssl
+	passwordSize       int = 16    // Size of password in bytes when generating random password
+	filePassPermission     = 0o600
 )
 
 type Options struct {
@@ -42,6 +43,7 @@ type Options struct {
 	JustKey    bool
 	Pass       string
 	Filepath   string
+	Force      bool
 }
 
 func (e *Options) NewWriter(file io.Writer) (*cipher.StreamWriter, error) {
@@ -121,35 +123,29 @@ func (e *Options) OutputPass() error {
 		return nil
 	}
 	switch {
-	case e.JustKey:
-		{
-			wr := zerolog.ConsoleWriter{
-				Out:     os.Stderr,
-				NoColor: true,
-			}
-			wr.PartsOrder = []string{
-				zerolog.MessageFieldName,
-			}
-			lo := log.Output(wr)
-			lo.Info().Msg("Password: " + e.Pass)
-		}
 	case e.Filepath != "":
-		{
-			log.Info().Msg("Exporting password to file " + e.Filepath)
-			file, err := os.Create(e.Filepath)
-			if err != nil {
-				return fmt.Errorf("failed to open password file: %w", err)
-			}
-			_, err = file.Write([]byte(e.Pass)) //nolint:mirror
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-			defer file.Close() //nolint:errcheck
+		log.Info().Msg("Exporting password to file " + e.Filepath)
+		file, err := e.getFileToExport()
+		if err != nil {
+			return fmt.Errorf("failed to get file to export password: %w", err)
 		}
+		_, err = file.Write([]byte(e.Pass)) //nolint:mirror
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+		defer file.Close() //nolint:errcheck
+	case e.JustKey:
+		wr := zerolog.ConsoleWriter{
+			Out:     os.Stderr,
+			NoColor: true,
+		}
+		wr.PartsOrder = []string{
+			zerolog.MessageFieldName,
+		}
+		lo := log.Output(wr)
+		lo.Info().Msg("Password: " + e.Pass)
 	default:
-		{
-			log.Info().Msg("Password: " + e.Pass)
-		}
+		log.Info().Msg("Password: " + e.Pass)
 	}
 	return nil
 }
@@ -162,4 +158,23 @@ func (e *Options) generatePassword() error {
 	}
 	e.Pass = hex.EncodeToString(buffer)[:passwordSize]
 	return nil
+}
+
+func (e *Options) getFileToExport() (*os.File, error) {
+	var file *os.File
+	var err error
+	if !e.Force {
+		file, err = os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY, filePassPermission)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open password file: %w", err)
+		}
+		return file, nil
+	}
+
+	file, err = os.OpenFile(e.Filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePassPermission)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open password file: %w", err)
+	}
+
+	return file, nil
 }
