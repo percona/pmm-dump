@@ -103,8 +103,10 @@ func TestEncryptionExportImport(t *testing.T) {
 
 func checkNoEcryption(testDir string, baseArgsTemplate []string) (string, error) {
 	var b util.Binary
-	_, stderr, err := b.Run(append([]string{"export", "--no-encryption", "--pass-filepath",
-		filepath.Join(testDir, "pass.txt"), "--just-key", "--force-pass-filepath", "--pass", "somepass"}, baseArgsTemplate...)...)
+	_, stderr, err := b.Run(append([]string{
+		"export", "--no-encryption", "--pass-filepath",
+		filepath.Join(testDir, "pass.txt"), "--just-key", "--force-pass-filepath", "--pass", "somepass",
+	}, baseArgsTemplate...)...)
 	if err != nil {
 		return stderr, fmt.Errorf("failed to check flag `--no-encryption`: %w", err)
 	}
