@@ -28,7 +28,7 @@ type PMMConfig struct {
 	VictoriaMetricsURL string
 }
 
-func GetPMMConfig(pmmLink, vmLink, chLink string, pmmShortVer string) (PMMConfig, error) {
+func GetPMMConfig(pmmLink, vmLink, chLink string, ver *version.Version) (PMMConfig, error) {
 	pmmURL, err := url.Parse(pmmLink)
 	if err != nil {
 		return PMMConfig{}, fmt.Errorf("failed to parse pmm-url: %w", err)
@@ -40,7 +40,7 @@ func GetPMMConfig(pmmLink, vmLink, chLink string, pmmShortVer string) (PMMConfig
 	}
 
 	if conf.ClickHouseURL == "" {
-		conf.ClickHouseURL = composeClickHouseURL(*pmmURL, pmmShortVer)
+		conf.ClickHouseURL = composeClickHouseURL(*pmmURL, ver)
 	}
 	if conf.VictoriaMetricsURL == "" {
 		conf.VictoriaMetricsURL = composeVictoriaMetricsURL(*pmmURL)
@@ -54,36 +54,31 @@ func composeVictoriaMetricsURL(u url.URL) string {
 	return u.String()
 }
 
-func composeClickHouseURL(u url.URL, pmmShortVer string) string {
+func composeClickHouseURL(u url.URL, ver *version.Version) string {
 	u.Scheme = "clickhouse"
 	i := strings.LastIndex(u.Host, ":")
 	if i != -1 {
 		u.Host = u.Host[:i]
 	}
-	u.User = GetClickhouseUser(pmmShortVer) // Default user for PMM 3.x
+
+	u.User = url.UserPassword("default", "clickhouse")
+	if CheckVer(ver, "<= 3.1.0") {
+		u.User = nil
+	}
+
 	u.Host += ":9000"
 	u.Path = "pmm"
 	return u.String()
 }
 
-func CheckIsVer2(ver *version.Version) bool {
-	constraints, err := version.NewConstraint("< 3.0.0")
+func CheckVer(ver *version.Version, constrain string) bool {
+	if ver == nil {
+		return false
+	}
+	constraints, err := version.NewConstraint(constrain)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create constraint: %v", err))
 	}
 	resConst := ver
 	return constraints.Check(resConst)
-}
-
-func GetClickhouseUser(ver string) *url.Userinfo {
-	// V2 and V3 of the PMM set different default user credentials for Clickhouse
-	// so to maintain compatibility we need to distinguish the two main cases here
-	clickhouseCredentialsSetMinVersion, _ := version.NewVersion("3.1.0")
-
-	pmmVersion, _ := version.NewVersion(ver)
-
-	if pmmVersion.LessThan(clickhouseCredentialsSetMinVersion) {
-		return nil // v2 comes with a default user that has no password set
-	}
-	return url.UserPassword("default", "clickhouse")
 }

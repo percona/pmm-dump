@@ -15,11 +15,12 @@
 package transferer
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -35,18 +36,18 @@ func (s fakeSource) Type() dump.SourceType {
 	return s.sourceType
 }
 
-func (s fakeSource) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
-	return &dump.Chunk{
+func (s fakeSource) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
+	return []*dump.Chunk{{
 		ChunkMeta: m,
 		Content:   []byte("content"),
 		Filename:  m.String() + ".bin",
-	}, nil
+	}}, nil
 }
 
 func (s fakeSource) WriteChunk(_ string, r io.Reader) error {
 	chunkContent, err := io.ReadAll(r)
 	if err != nil {
-		return errors.Wrap(err, "failed to read chunk content")
+		return fmt.Errorf("failed to read chunk content: %w", err)
 	}
 	if len(chunkContent) == 0 {
 		return errors.New("chunk content is empty")

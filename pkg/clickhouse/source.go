@@ -18,13 +18,13 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"pmm-dump/pkg/clickhouse/tsv"
@@ -42,7 +42,7 @@ type Source struct {
 func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	db, err := sql.Open("clickhouse", cfg.ConnectionURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "sql open")
+		return nil, fmt.Errorf("sql open: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -51,23 +51,23 @@ func NewSource(ctx context.Context, cfg Config) (*Source, error) {
 	if err := db.PingContext(ctx); err != nil {
 		var exception *clickhouse.Exception
 		if errors.As(err, &exception) {
-			return nil, errors.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+			return nil, fmt.Errorf("exception: [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
-		return nil, errors.Wrap(err, "ping")
+		return nil, fmt.Errorf("ping: %w", err)
 	}
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, errors.Wrap(err, "begin")
+		return nil, fmt.Errorf("begin: %w", err)
 	}
 
 	ct, err := columnTypes(db)
 	if err != nil {
-		return nil, errors.Wrap(err, "column types")
+		return nil, fmt.Errorf("column types: %w", err)
 	}
 
 	stmt, err := prepareInsertStatement(tx, len(ct))
 	if err != nil {
-		return nil, errors.Wrap(err, "prepare insert statement")
+		return nil, fmt.Errorf("prepare insert statement: %w", err)
 	}
 	return &Source{
 		cfg:  cfg,
@@ -94,7 +94,7 @@ func (s Source) Type() dump.SourceType {
 	return dump.ClickHouse
 }
 
-func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
+func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	offset := m.Index * m.RowsLen
 	limit := m.RowsLen
 	query := "SELECT * FROM metrics"
@@ -134,11 +134,11 @@ func (s Source) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
 		return nil, err
 	}
 
-	return &dump.Chunk{
+	return []*dump.Chunk{{
 		ChunkMeta: m,
 		Content:   buf.Bytes(),
 		Filename:  fmt.Sprintf("%d.tsv", m.Index),
-	}, err
+	}}, err
 }
 
 func toStringSlice(iSlice []interface{}) []string {
@@ -238,12 +238,12 @@ func (s Source) ColumnTypes() []*sql.ColumnType {
 
 func (s Source) SplitIntoChunks(startTime, endTime time.Time, chunkRowsLen int) ([]dump.ChunkMeta, error) {
 	if chunkRowsLen <= 0 {
-		return nil, errors.Errorf("invalid chunk rows len: %v", chunkRowsLen)
+		return nil, fmt.Errorf("invalid chunk rows len: %v", chunkRowsLen)
 	}
 
 	totalRows, err := s.Count(s.cfg.Where, &startTime, &endTime)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get amount of ClickHouse records")
+		return nil, fmt.Errorf("failed to get amount of ClickHouse records: %w", err)
 	}
 
 	rowsCounter := totalRows

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -31,7 +32,6 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/hashicorp/go-version"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -105,12 +105,32 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getStructuredVer(vers string) (*version.Version, error) {
+func parseStructuredVer(vers string) (*version.Version, error) {
 	v1, err := version.NewVersion(vers)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get major version")
+		return nil, fmt.Errorf("failed to get major version: %w", err)
 	}
 	return v1, nil
+}
+
+func getStructuredVersion(pmmURL string, c *client.Client) *version.Version {
+	shortVer, _, err := getPMMVersion(pmmURL, c)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get PMM version")
+	}
+	if shortVer == "" {
+		log.Fatal().Msg("Could not find server version")
+	}
+
+	if shortVer < minPMMServerVersion {
+		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", shortVer, minPMMServerVersion)
+	}
+
+	structuredVer, err := parseStructuredVer(shortVer)
+	if err != nil {
+		log.Fatal().Msgf("failed to convert pmm version to structured version %v", err)
+	}
+	return structuredVer
 }
 
 func getPMMServices(pmmURL string, c *client.Client, version *version.Version) ([]dump.PMMServerService, error) {
@@ -126,7 +146,7 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
@@ -152,13 +172,13 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 
 			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID, version)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to get pmm service node name")
+				return nil, fmt.Errorf("failed to get pmm service node name: %w", err)
 			}
 			newService.NodeName = nodeName
 
 			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID, version)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
+				return nil, fmt.Errorf("failed to get pmm service agents ids: %w", err)
 			}
 			newService.AgentsIDs = agentsIds
 
@@ -204,7 +224,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
 			NodeID string `json:"node_id"`
 		}{nodeID})
@@ -223,7 +243,7 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 	}
 
 	if len(nodeResp.Generic) == 0 {
-		return "", errors.Errorf("no nodes found in response")
+		return "", errors.New("no nodes found in response")
 	}
 
 	return nodeResp.Generic[0].Name, nil
@@ -239,7 +259,7 @@ func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, v
 		body       []byte
 		err        error
 	)
-	if util.CheckIsVer2(version) {
+	if util.CheckVer(version, "< 3.0.0") {
 		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
 	} else {
 		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
@@ -292,13 +312,12 @@ func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
 	pmmShortVer, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get PMM version")
+		return nil, fmt.Errorf("failed to get PMM version: %w", err)
 	}
-	structuredVer, err := getStructuredVer(pmmShortVer)
+	structuredVer, err := parseStructuredVer(pmmShortVer)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get major PMM version")
+		return nil, fmt.Errorf("failed to get major PMM version: %w", err)
 	}
-
 	var pmmTz *string
 	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
 	switch {
@@ -335,7 +354,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 	if exportServices {
 		pmmServices, err = getPMMServices(pmmURL, c, structuredVer)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get PMM services")
+			return nil, fmt.Errorf("failed to get PMM services: %w", err)
 		}
 	}
 
@@ -412,24 +431,12 @@ func (lw LevelWriter) Write(p []byte) (int, error) {
 	return lw.Writer.Write(p)
 }
 
-func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
+func checkVMExportAPI(c *client.Client, victoriaMetricsURL string) {
 	if err := victoriametrics.ExportTestRequest(c, victoriaMetricsURL); err != nil {
 		if !errors.Is(err, victoriametrics.ErrNotFound) {
 			log.Fatal().Err(err).Msg("Failed to make test requests")
 		}
 		log.Error().Msg("There are 404 not-found errors occurred when making test requests. Maybe PMM-server version is not supported!")
-	}
-
-	pmmVer, _, err := getPMMVersion(pmmURL, c)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to get PMM version")
-	}
-	if pmmVer == "" {
-		log.Fatal().Msg("Could not find server version")
-	}
-
-	if pmmVer < minPMMServerVersion {
-		log.Fatal().Msgf("Your PMM-server version %s is lower, than minimum required: %s!", pmmVer, minPMMServerVersion)
 	}
 }
 
@@ -458,7 +465,7 @@ func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhous
 
 	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create ClickHouse source")
+		return nil, fmt.Errorf("failed to create ClickHouse source: %w", err)
 	}
 
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
@@ -526,7 +533,7 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 
 		file, err = os.Open(dumpPath) //nolint:gosec
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to open dump file %s", dumpPath)
+			return nil, fmt.Errorf("failed to open dump file %s: %w", dumpPath, err)
 		}
 	}
 	return file, nil
@@ -534,45 +541,49 @@ func getFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
 
 const dirPermission = 0o777
 
-func createFile(dumpPath string, piped bool) (io.ReadWriteCloser, error) {
+func createFile(dumpPath string, piped bool, encrypted *bool) (io.ReadWriteCloser, error) {
 	var file *os.File
 	if piped {
 		file = os.Stdout
 	} else {
 		exportTS := time.Now().UTC()
 		log.Debug().Msgf("Trying to determine filepath")
-		filepath, err := getDumpFilepath(dumpPath, exportTS)
+		filepath, err := getDumpFilepath(dumpPath, exportTS, encrypted)
 		if err != nil {
 			return nil, err
 		}
 
 		log.Debug().Msgf("Preparing dump file: %s", filepath)
 		if err := os.MkdirAll(path.Dir(filepath), dirPermission); err != nil {
-			return nil, errors.Wrap(err, "failed to create folders for the dump file")
+			return nil, fmt.Errorf("failed to create folders for the dump file: %w", err)
 		}
 		file, err = os.Create(filepath) //nolint:gosec
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create %s", filepath)
+			return nil, fmt.Errorf("failed to create %s: %w", filepath, err)
 		}
 	}
 	return file, nil
 }
 
-func getDumpFilepath(customPath string, ts time.Time) (string, error) {
-	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz", ts.Unix())
+func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, error) {
+	var encpath string
+	if *encrypted {
+		encpath = ".enc"
+	}
+	autoFilename := fmt.Sprintf("pmm-dump-%v.tar.gz"+encpath, ts.Unix())
 	if customPath == "" {
 		return autoFilename, nil
 	}
 
 	customPathInfo, err := os.Stat(customPath)
 	if err != nil && !os.IsNotExist(err) {
-		return "", errors.Wrap(err, "failed to get custom path info")
+		return "", fmt.Errorf("failed to get custom path info: %w", err)
 	}
 
 	if (err == nil && customPathInfo.IsDir()) || os.IsPathSeparator(customPath[len(customPath)-1]) {
 		// file exists and it's directory
 		return path.Join(customPath, autoFilename), nil
 	}
-
+	customPath += encpath
 	return customPath, nil
 }

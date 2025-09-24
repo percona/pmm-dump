@@ -17,23 +17,22 @@ package transferer
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer) error {
+func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.Meta, pool ChunkPool, logBuffer *bytes.Buffer, e encryption.Options) error {
 	log.Info().Msg("Exporting metrics...")
-
 	chunksCh := make(chan *dump.Chunk, maxChunksInMem)
 	log.Debug().
 		Int("size", maxChunksInMem).
@@ -50,7 +49,7 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 			defer readWG.Done()
 
 			if err := t.readChunksFromSource(gCtx, lc, pool, chunksCh); err != nil {
-				return errors.Wrap(err, "failed to read chunks from source")
+				return fmt.Errorf("failed to read chunks from source: %w", err)
 			}
 			return nil
 		})
@@ -66,8 +65,8 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	log.Debug().Msg("Starting single goroutine for writing chunks to the dump...")
 	g.Go(func() error {
 		defer log.Debug().Msgf("Exiting from write chunks goroutine")
-		if err := t.writeChunksToFile(meta, chunksCh, logBuffer); err != nil {
-			return errors.Wrap(err, "failed to write chunks to the dump")
+		if err := t.writeChunksToFile(meta, chunksCh, logBuffer, e); err != nil {
+			return fmt.Errorf("failed to write chunks to the dump: %w", err)
 		}
 		return nil
 	})
@@ -78,7 +77,6 @@ func (t Transferer) Export(ctx context.Context, lc LoadStatusGetter, meta dump.M
 	}
 
 	log.Info().Msg("Successfully exported!")
-
 	return nil
 }
 
@@ -120,31 +118,29 @@ func (t Transferer) readChunksFromSource(ctx context.Context, lc LoadStatusGette
 				return errors.New("failed to find source to read chunk")
 			}
 
-			c, err := s.ReadChunk(chMeta)
+			chunks, err := s.ReadChunks(chMeta)
 			if err != nil {
-				return errors.Wrap(err, "failed to read chunk")
+				return fmt.Errorf("failed to read chunk: %w", err)
 			}
 
-			log.Debug().
-				Stringer("source", c.Source).
-				Str("filename", c.Filename).
-				Msg("Successfully read chunk. Sending to chunks channel...")
+			if len(chunks) > 1 {
+				log.Info().Msgf("Chunk was split into several parts %d", len(chunks))
+			}
 
-			chunkC <- c
+			for _, c := range chunks {
+				chunkC <- c
+			}
 		}
 	}
 }
 
-func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer) error {
-	gzw, err := gzip.NewWriterLevel(t.file, gzip.BestCompression)
+func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk, logBuffer *bytes.Buffer, e encryption.Options) error {
+	w, err := dump.NewWriter(t.file, &e)
 	if err != nil {
-		return errors.Wrap(err, "failed to create gzip writer")
+		return fmt.Errorf("failed to create writer: %w", err)
 	}
-	defer gzw.Close() //nolint:errcheck
-
-	tw := tar.NewWriter(gzw)
-	defer tw.Close() //nolint:errcheck
-
+	defer w.Close() //nolint:errcheck
+	tw := w.GetTarWriter()
 	for {
 		log.Debug().Msg("New chunks writing loop iteration has been started")
 
@@ -158,6 +154,10 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 				return err
 			}
 
+			if err = e.OutputPass(); err != nil {
+				return err
+			}
+
 			log.Debug().Msg("Chunks channel is closed: stopping chunks writing")
 			return nil
 		}
@@ -168,7 +168,6 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			Stringer("source", c.Source).
 			Str("filename", c.Filename).
 			Msg("Writing chunk to the dump...")
-
 		chunkSize := int64(len(c.Content))
 		if chunkSize > meta.MaxChunkSize {
 			meta.MaxChunkSize = chunkSize
@@ -182,11 +181,11 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 			ModTime:  time.Now(),
 		})
 		if err != nil {
-			return errors.Wrap(err, "failed to write file header")
+			return fmt.Errorf("failed to write file header: %w", err)
 		}
 
 		if _, err = tw.Write(c.Content); err != nil {
-			return errors.Wrap(err, "failed to write chunk content")
+			return fmt.Errorf("failed to write chunk content: %w", err)
 		}
 	}
 }
@@ -204,11 +203,11 @@ func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 		ModTime:  time.Now(),
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to write dump log header")
+		return fmt.Errorf("failed to write dump log header: %w", err)
 	}
 
 	if _, err = tw.Write(byteLog); err != nil {
-		return errors.Wrap(err, "failed to write dump log content")
+		return fmt.Errorf("failed to write dump log content: %w", err)
 	}
 
 	return nil

@@ -15,10 +15,9 @@
 package transferer
 
 import (
+	"errors"
 	"io"
 	"runtime"
-
-	"github.com/pkg/errors"
 
 	"pmm-dump/pkg/dump"
 )

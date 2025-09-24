@@ -15,29 +15,28 @@
 package transferer
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"path"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
 	"pmm-dump/pkg/dump"
+	"pmm-dump/pkg/encryption"
 )
 
-func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
+func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta, e encryption.Options) error {
 	log.Info().Msg("Importing metrics...")
-	gzr, err := gzip.NewReader(t.file)
+	r, err := dump.NewReader(t.file, &e)
 	if err != nil {
-		return errors.Wrap(err, "failed to open as gzip")
+		return fmt.Errorf("failed to create readers: %w", err)
 	}
-	defer gzr.Close() //nolint:errcheck
-
-	tr := tar.NewReader(gzr)
+	defer r.Close() //nolint:errcheck
+	tr := r.GetTarReader()
 
 	var metafileExists bool
 
@@ -48,7 +47,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 		g.Go(func() error {
 			defer log.Debug().Msgf("Exiting from write chunks goroutine")
 			if err := t.writeChunksToSource(gCtx, chunksC); err != nil {
-				return errors.Wrap(err, "failed to write chunks to source")
+				return fmt.Errorf("failed to write chunks to source: %w", err)
 			}
 			return nil
 		})
@@ -65,7 +64,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "failed to read file from dump")
+			return fmt.Errorf("failed to read file from dump: %w", err)
 		}
 
 		dir, filename := path.Split(header.Name)
@@ -81,19 +80,19 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 		}
 
 		if len(dir) == 0 {
-			return errors.Errorf("corrupted dump: found unknown file %s", filename)
+			return fmt.Errorf("corrupted dump: found unknown file %s", filename)
 		}
 
 		log.Info().Msgf("Processing chunk '%s'...", header.Name)
 
 		st := dump.ParseSourceType(dir[:len(dir)-1])
 		if st == dump.UndefinedSource {
-			return errors.Errorf("corrupted dump: found undefined source: %s", dir)
+			return fmt.Errorf("corrupted dump: found undefined source: %s", dir)
 		}
 
 		content, err := io.ReadAll(tr)
 		if err != nil {
-			return errors.Wrap(err, "failed to read chunk content")
+			return fmt.Errorf("failed to read chunk content: %w", err)
 		}
 
 		if len(content) == 0 {
@@ -135,7 +134,7 @@ func (t Transferer) Import(ctx context.Context, runtimeMeta dump.Meta) error {
 
 	for _, s := range t.sources {
 		if err = s.FinalizeWrites(); err != nil {
-			return errors.Wrap(err, "failed to finalize import")
+			return fmt.Errorf("failed to finalize import: %w", err)
 		}
 	}
 
@@ -174,7 +173,7 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 
 			log.Debug().Msgf("Writing chunk '%v' to the source...", c.Filename)
 			if err := s.WriteChunk(c.Filename, bytes.NewBuffer(c.Content)); err != nil {
-				return errors.Wrap(err, "failed to write chunk")
+				return fmt.Errorf("failed to write chunk: %w", err)
 			}
 			log.Info().Msgf("Successfully processed '%v'", c.Filename)
 		}

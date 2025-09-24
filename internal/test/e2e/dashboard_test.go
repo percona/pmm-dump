@@ -53,9 +53,9 @@ func TestDashboard(t *testing.T) {
 			args := []string{"-d", dashboardDumpPath, "--pmm-url", pmm.PMMURL(), "--pmm-user", "admin", "--pmm-pass", "admin", "--dashboard", name}
 
 			pmm.Log("Exporting data with `--dashboard` flag to", dashboardDumpPath)
-			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+			stdout, stderr, err := b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 			if err != nil {
-				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+				if strings.Contains(stderr, "failed to create a dump. No data was found") {
 					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
 					return
 				}
@@ -65,9 +65,9 @@ func TestDashboard(t *testing.T) {
 			dashboardDumpPath = filepath.Join(testDir, "dump2.tar.gz")
 			args = []string{"-d", dashboardDumpPath, "--pmm-url", pmm.PMMURL(), "--pmm-user", "admin", "--pmm-pass", "admin", "--dashboard", name, "--instance", "pmm-server"}
 			pmm.Log("Exporting data with `--dashboard` flag and `--instance` to", dashboardDumpPath)
-			stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load"}, args...)...)
+			stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
 			if err != nil {
-				if strings.Contains(stderr, "Failed to create a dump. No data was found") {
+				if strings.Contains(stderr, "failed to create a dump. No data was found") {
 					// If pmm-dump returns this error, it also means that the dashboard selector parsing was successful
 					return
 				}

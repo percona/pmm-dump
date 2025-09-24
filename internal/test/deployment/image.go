@@ -16,33 +16,33 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
-	"pmm-dump/internal/test/util"
-
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/pkg/errors"
+
+	"pmm-dump/internal/test/util"
 )
 
 func PullImage(ctx context.Context, imageName string) error {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return errors.Wrap(err, "failed to create docker client")
+		return fmt.Errorf("failed to create docker client: %w", err)
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
 	out, err := dockerCli.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to pull image")
+		return fmt.Errorf("failed to pull image: %w", err)
 	}
 
 	// Read the output to make sure the image is fully pulled
 	_, err = io.Copy(io.Discard, out)
 	if err != nil {
-		return errors.Wrap(err, "failed to read image pull output")
+		return fmt.Errorf("failed to read image pull output: %w", err)
 	}
 	return nil
 }
@@ -50,13 +50,13 @@ func PullImage(ctx context.Context, imageName string) error {
 func ImageExists(ctx context.Context, imageName string) (bool, error) {
 	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return false, errors.Wrap(err, "failed to create docker client")
+		return false, fmt.Errorf("failed to create docker client: %w", err)
 	}
 	defer dockerCli.Close() //nolint:errcheck
 
 	images, err := dockerCli.ImageList(ctx, image.ListOptions{})
 	if err != nil {
-		return false, errors.Wrap(err, "failed to list images")
+		return false, fmt.Errorf("failed to list images: %w", err)
 	}
 
 	for _, img := range images {
@@ -73,7 +73,7 @@ func ImageExists(ctx context.Context, imageName string) (bool, error) {
 func PullNecessaryImages(ctx context.Context) error {
 	files, err := os.ReadDir(util.TestDir)
 	if err != nil {
-		return errors.Wrap(err, "failed to read test dir")
+		return fmt.Errorf("failed to read test dir: %w", err)
 	}
 
 	configFiles := make([]string, 0)
@@ -86,7 +86,7 @@ func PullNecessaryImages(ctx context.Context) error {
 	for _, configFile := range configFiles {
 		envs, err := GetEnvFromFile(configFile)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get env from %s", configFile)
+			return fmt.Errorf("failed to get env from %s: %w", configFile, err)
 		}
 
 		imagesWithTagsEnvs := map[string]string{
@@ -99,13 +99,13 @@ func PullNecessaryImages(ctx context.Context) error {
 			image := envs[imageEnv] + ":" + envs[tagEnv]
 			exists, err := ImageExists(ctx, image)
 			if err != nil {
-				return errors.Wrap(err, "failed to check image")
+				return fmt.Errorf("failed to check image: %w", err)
 			}
 			if exists {
 				continue
 			}
 			if err := PullImage(ctx, image); err != nil {
-				return errors.Wrapf(err, "failed to pull image %s", image)
+				return fmt.Errorf("failed to pull image %s: %w", image, err)
 			}
 		}
 	}

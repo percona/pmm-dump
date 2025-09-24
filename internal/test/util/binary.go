@@ -17,11 +17,10 @@ package util
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 const defaultTimeout = time.Minute * 5
@@ -45,7 +44,7 @@ func Exec(ctx context.Context, wd string, name string, args ...string) (string, 
 	if wd == "" {
 		cmd.Dir, err = os.Getwd()
 		if err != nil {
-			return "", "", errors.Wrap(err, "failed to get working directory")
+			return "", "", fmt.Errorf("failed to get working directory: %w", err)
 		}
 	} else {
 		cmd.Dir = wd
@@ -57,4 +56,28 @@ func Exec(ctx context.Context, wd string, name string, args ...string) (string, 
 	err = cmd.Run()
 
 	return stdout.String(), stderr.String(), err
+}
+
+func (b *Binary) RunBash(args ...string) (string, string, error) {
+	if b.timeout == 0 {
+		b.timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
+	defer cancel()
+	var err error
+	cmd := exec.CommandContext(ctx, "bash", args...)
+	if RepoPath == "" {
+		cmd.Dir, err = os.Getwd()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get working directory: %w", err)
+		}
+	} else {
+		cmd.Dir = RepoPath
+	}
+	cmd.Stdin = nil
+	var output, outputerr bytes.Buffer
+	cmd.Stderr = &outputerr
+	cmd.Stdout = &output
+	err = cmd.Run()
+	return output.String(), outputerr.String(), err
 }

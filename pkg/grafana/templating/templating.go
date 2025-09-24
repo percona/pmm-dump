@@ -15,7 +15,7 @@
 package templating
 
 import (
-	"github.com/pkg/errors"
+	"errors"
 
 	"pmm-dump/pkg/grafana/types"
 )

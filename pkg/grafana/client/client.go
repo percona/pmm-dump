@@ -17,10 +17,10 @@ package client
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 )
 
@@ -48,7 +48,7 @@ func (p *AuthParams) Validate() error {
 	}
 
 	if i == 0 {
-		return errors.New("missing authentication credentials. API token, cookie or user/password should be provided.")
+		return errors.New("missing authentication credentials. API token, cookie or user/password should be provided")
 	}
 
 	return nil
@@ -86,14 +86,20 @@ func (c *Client) Do(req *fasthttp.Request) (*fasthttp.Response, error) {
 	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.Do(req, httpResp)
-	return httpResp, errors.Wrap(err, "failed to make request in network client")
+	if err != nil {
+		return httpResp, fmt.Errorf("failed to make request in network client: %w", err)
+	}
+	return httpResp, nil
 }
 
 func (c *Client) DoWithTimeout(req *fasthttp.Request, timeout time.Duration) (*fasthttp.Response, error) {
 	c.setAuthHeaders(req)
 	httpResp := fasthttp.AcquireResponse()
 	err := c.client.DoTimeout(req, httpResp, timeout)
-	return httpResp, errors.Wrap(err, "failed to make request in network client")
+	if err != nil {
+		return httpResp, fmt.Errorf("failed to make request in network client: %w", err)
+	}
+	return httpResp, nil
 }
 
 func (c *Client) Post(url string) (int, []byte, error) {
@@ -119,7 +125,7 @@ func (c *Client) PostJSON(url string, reqBody interface{}) (int, []byte, error) 
 
 	reqArgs, err := json.Marshal(reqBody)
 	if err != nil {
-		return 0, nil, errors.Wrap(err, "failed to marshal json body")
+		return 0, nil, fmt.Errorf("failed to marshal json body: %w", err)
 	}
 	req.SetBody(reqArgs)
 

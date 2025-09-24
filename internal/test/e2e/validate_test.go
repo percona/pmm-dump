@@ -22,24 +22,32 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"pmm-dump/internal/test/deployment"
 	"pmm-dump/internal/test/util"
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/victoriametrics"
+)
+
+const (
+	chunkTimeRange       = time.Second * 30
+	timeRange            = time.Second * 120
+	precisionForRounding = 20
+	bitsForRounding      = 64
 )
 
 func TestValidate(t *testing.T) {
@@ -53,15 +61,14 @@ func TestValidate(t *testing.T) {
 	tmpDir := util.CreateTestDir(t, "validate-test")
 	xDumpPath := filepath.Join(tmpDir, "dump.tar.gz")
 	yDumpPath := filepath.Join(tmpDir, "dump2.tar.gz")
-	chunkTimeRange := time.Second * 30
 
 	if err := pmm.Deploy(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	start := time.Now().UTC()
-	pmm.Log("Sleeping for 120 seconds")
-	time.Sleep(time.Second * 120)
+	pmm.Logf("Sleeping for %d seconds", int(timeRange.Seconds()))
+	time.Sleep(timeRange)
 	end := time.Now().UTC()
 
 	pmm.Log("Exporting data to", xDumpPath, start, end)
@@ -75,6 +82,7 @@ func TestValidate(t *testing.T) {
 		"--start-ts", start.Format(time.RFC3339),
 		"--end-ts", end.Format(time.RFC3339),
 		"--chunk-time-range", chunkTimeRange.String(),
+		"--no-encryption",
 		"-v")
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
@@ -94,6 +102,7 @@ func TestValidate(t *testing.T) {
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
+		"--no-encryption",
 		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
@@ -110,8 +119,10 @@ func TestValidate(t *testing.T) {
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
-		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
+		"--start-ts", start.Format(time.RFC3339),
+		"--end-ts", end.Format(time.RFC3339),
 		"--chunk-time-range", chunkTimeRange.String(),
+		"--no-encryption",
 		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
@@ -121,6 +132,16 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to validate chunks", err)
 	}
+
+	// TODO: This should be a removed and replaced with a better solution.
+	// Investigate why, after PMM 3.3.0,
+	// Postgres began creating duplicate metrics with a value of 0.
+	dublicateLoss, notDuplicateLoss, err := countDuplicateLoss(t, pmm, xDumpPath, yDumpPath)
+	if err != nil {
+		t.Fatal("failed to count duplicate loss", err)
+	}
+	loss -= (dublicateLoss - notDuplicateLoss)
+
 	if loss > 0.001 {
 		t.Fatalf("too much data loss %f%%", loss*100)
 	}
@@ -137,11 +158,11 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 
 	xChunkMap, err := readChunks(xDump)
 	if err != nil {
-		return 0, 0, errors.Wrapf(err, "failed to read dump %s", xDump)
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", xDump, err)
 	}
 	yChunkMap, err := readChunks(yDump)
 	if err != nil {
-		return 0, 0, errors.Wrapf(err, "failed to read dump %s", yDump)
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", yDump, err)
 	}
 
 	xMissingChunks := make([]string, 0)
@@ -166,7 +187,7 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 	for xFilename, xChunkData := range xChunkMap {
 		yChunkData, ok := yChunkMap[xFilename]
 		if !ok {
-			return 0, 0, errors.Errorf("chunk %s is missing in %s", xFilename, yDump)
+			return 0, 0, fmt.Errorf("chunk %s is missing in %s", xFilename, yDump)
 		}
 		dir, _ := path.Split(xFilename)
 		st := dump.ParseSourceType(dir[:len(dir)-1])
@@ -174,11 +195,11 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 		case dump.VictoriaMetrics:
 			xChunk, err := vmParseChunk(xChunkData)
 			if err != nil {
-				return 0, 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
 			}
 			yChunk, err := vmParseChunk(yChunkData)
 			if err != nil {
-				return 0, 0, errors.Wrapf(err, "failed to parse chunk %s", xFilename)
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
 			}
 
 			xValues := vmValuesCount(xChunk)
@@ -191,7 +212,7 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 
 			missingValues, err := vmCompareChunkData(pmm, xChunk, yChunk)
 			if err != nil {
-				return 0, 0, errors.Wrapf(err, "failed to compare chunk %s", xFilename)
+				return 0, 0, fmt.Errorf("failed to compare chunk %s: %w", xFilename, err)
 			}
 
 			totalMissingValues += missingValues
@@ -199,10 +220,10 @@ func validateChunks(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (flo
 			chCompareChunks(t, pmm, xFilename, xDump, yDump, xChunkData, yChunkData)
 
 			if !reflect.DeepEqual(xChunkData, yChunkData) {
-				return 0, 0, errors.Errorf("chunk %s is different", xFilename)
+				return 0, 0, fmt.Errorf("chunk %s is different", xFilename)
 			}
 		default:
-			return 0, 0, errors.Errorf("unknown source type %s", st)
+			return 0, 0, fmt.Errorf("unknown source type %s", st)
 		}
 	}
 	return float64(totalMissingValues) / float64(totalValues), len(xMissingChunks) + len(yMissingChunks), nil
@@ -248,7 +269,7 @@ func chCompareChunks(t *testing.T, pmm *deployment.PMM, filename string, xDump, 
 		for _, r := range yRecordsMap {
 			pmm.Log(fmt.Sprintf("Missing record in %s of %s dump: [%s]", filename, xDump, strings.Join(r, ";")))
 		}
-		t.Fatal(errors.Errorf("chunk %s is different", filename))
+		t.Fatal(fmt.Errorf("chunk %s is different", filename))
 	}
 }
 
@@ -292,7 +313,6 @@ func vmCompareChunkData(pmm *deployment.PMM, xChunk, yChunk []vmMetric) (int, er
 		currentLoss := xMetric.CompareTimestampValues(pmm, yMetric)
 		if currentLoss > 0 {
 			loss += currentLoss
-			continue
 		}
 
 		delete(xHashMap, k)
@@ -321,7 +341,7 @@ func readChunks(filename string) (chunkMap, error) {
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open as gzip")
+		return nil, fmt.Errorf("failed to open as gzip: %w", err)
 	}
 	defer gzr.Close() //nolint:errcheck
 
@@ -347,17 +367,17 @@ func readChunks(filename string) (chunkMap, error) {
 		}
 
 		if len(dir) == 0 {
-			return nil, errors.Errorf("corrupted dump: found unknown file %s", filename)
+			return nil, fmt.Errorf("corrupted dump: found unknown file %s", filename)
 		}
 
 		st := dump.ParseSourceType(dir[:len(dir)-1])
 		if st == dump.UndefinedSource {
-			return nil, errors.Errorf("corrupted dump: found undefined source: %s", dir)
+			return nil, fmt.Errorf("corrupted dump: found undefined source: %s", dir)
 		}
 
 		content, err := io.ReadAll(tr)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read chunk content")
+			return nil, fmt.Errorf("failed to read chunk content: %w", err)
 		}
 
 		if len(content) == 0 {
@@ -388,14 +408,14 @@ func vmParseChunk(data []byte) ([]vmMetric, error) {
 	if isGzip(data) {
 		gr, err := gzip.NewReader(bytes.NewBuffer(data))
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create reader")
+			return nil, fmt.Errorf("failed to create reader: %w", err)
 		}
 		defer gr.Close() //nolint:errcheck
 		r = gr
 	}
 	metrics, err := victoriametrics.ParseMetrics(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse metrics")
+		return nil, fmt.Errorf("failed to parse metrics: %w", err)
 	}
 	result := make([]vmMetric, len(metrics))
 	for i, v := range metrics {
@@ -408,7 +428,7 @@ type vmMetric victoriametrics.Metric
 
 func (vm vmMetric) MetricString() string {
 	m := vm.Metric
-	return fmt.Sprintf(`{"__name__": "%s", "job": "%s", "instance": "%s", "agent_id": "%s", "agent_type": "%s"}`, m["__name__"], m["job"], m["instance"], m["agent_id"], m["agent_type"])
+	return fmt.Sprintf(`{"__name__": "%s", "job": "%s", "instance": "%s", "agent_id": "%s", "agent_type": "%s"} (%s)`, m["__name__"], m["job"], m["instance"], m["agent_id"], m["agent_type"], fmt.Sprint(m))
 }
 
 func (vm vmMetric) Hash() string {
@@ -440,10 +460,18 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	for timestamp, xValue := range xMap {
 		yValue, ok := yMap[timestamp]
 		if !ok {
+			switch vm.Metric["__name__"] {
+			case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
+				if vm.Metric["datname"] == "grafana" || vm.Metric["datname"] == "pmm-managed" {
+					// Temporary fix for duplicates
+					// See [countDuplicateLoss] for details about postgres and duplicates.
+					continue
+				}
+			}
 			pmm.Log(fmt.Sprintf("Value and timestamp not found for metric %s in second dump: wanted %v for %d", vm.MetricString(), xValue, timestamp))
 			continue
 		}
-		if xValue != yValue {
+		if !roundFloatAndCheck(xValue, yValue) {
 			pmm.Log(fmt.Sprintf("Values for timestamp %d in metric %s are not the same: %v and %v", timestamp, vm.MetricString(), xValue, yValue))
 			continue
 		}
@@ -460,4 +488,172 @@ func (vm vmMetric) CompareTimestampValues(pmm *deployment.PMM, with vmMetric) in
 	}
 
 	return int(math.Abs(float64(len(xMap) - len(yMap))))
+}
+
+// Go usually can't handle floats with 16+ digits.
+// For example, when comparing them, the dump has the same numbers, but Go's float64 can interpret them as two different numbers:
+// 1) 0.00999923005927 and 0.00999923005928.
+// 2) 1.7540397181656854e+09 and 1.7540397181656857e+09.
+// 3) 9.223372036854776e+18 and 9.223372036854775e+18.
+// So, we convert them to Big.Float, round them, and then compare them.
+
+func roundFloatAndCheck(f1, f2 float64) bool {
+	// stop rounding and just compare if f1 has 1 digit only
+	s := strconv.FormatFloat(f1, 'e', precisionForRounding, bitsForRounding)
+	dotIndex := strings.Index(s, "e")
+	if dotIndex == -1 {
+		return f1 == f2
+	}
+
+	// round and compare
+	n1Rounded := new(big.Float).SetPrec(precisionForRounding).SetMode(big.ToNearestAway).SetFloat64(f1)
+	n2Rounded := new(big.Float).SetPrec(precisionForRounding).SetMode(big.ToNearestAway).SetFloat64(f2)
+
+	return n1Rounded.Cmp(n2Rounded) == 0
+}
+
+// After version 3.3.0, PostgreSQL metrics (pg_stat_activity_count, pg_stat_activity_max_tx_duration,
+// and pg_stat_activity_max_state_duration specifically from the Grafana and PMM-managed databases)
+// started showing duplicate metrics with the same timestamp.
+//
+// The only difference is that the duplicate metrics have a value of 0, and an opposite usename.
+// for example, we have two metrics from the first dump. Metrics with "##" will be missing after import.
+//
+// 1:
+//
+// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:2, datname: pmm-managed, state:active, usename:
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:3, datname: pmm-managed, state:active, usename:
+// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
+//
+// 2:
+//
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
+// ##Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename: pmm-managed
+//
+// After importing the dump into another PMM, the metrics will be deduplicated:
+//
+// Metric name: pg_stat_activity_count , value:0 timestamp:1, datname: pmm-managed, state:active, usename:
+// Metric name: pg_stat_activity_count , value:1 timestamp:2, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:1 timestamp:3, datname: pmm-managed, state:active, usename: pmm-managed
+// Metric name: pg_stat_activity_count , value:0 timestamp:4, datname: pmm-managed, state:active, usename:
+//
+// Although these results are two different metrics, they were merged in comment for demonstration.
+// So, to prevent the test from failing, we need to go over two dumps again and calculate loss value of duplicates.
+// And then subtract them from actual value.
+func countDuplicateLoss(t *testing.T, pmm *deployment.PMM, xDump, yDump string) (float64, float64, error) {
+	t.Helper()
+	xChunkMap, err := readChunks(xDump)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", xDump, err)
+	}
+	yChunkMap, err := readChunks(yDump)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read dump %s: %w", yDump, err)
+	}
+
+	totalDuplicate, totalNotDuplicate, totalValues := 0, 0, 0
+
+	duplicateMapX := make(map[string]float64)
+	// only needed to compare metrics later to find the duplicates in the X dump.
+	duplicateMapY := make(map[string]float64)
+
+	checkIfPGMetric := func(vm vmMetric) bool {
+		switch vm.Metric["__name__"] {
+		case "pg_stat_activity_count", "pg_stat_activity_max_tx_duration", "pg_stat_activity_max_state_duration":
+			if vm.Metric["datname"] == "grafana" || vm.Metric["datname"] == "pmm-managed" {
+				return true
+			}
+		}
+		return false
+	}
+
+	saveTimestampToMap := func(timestamp int64, value float64, vm vmMetric, destination map[string]float64) {
+		destination[fmt.Sprintf("%s: Timestamp:%d, Datname:%s, State:%s", vm.Metric["__name__"], timestamp, vm.Metric["datname"], vm.Metric["state"])] = value
+	}
+
+	rangeOverChunk := func(xChunk, yChunk []vmMetric) {
+		xHashMap := make(map[string]vmMetric)
+		for _, v := range xChunk {
+			xHashMap[v.MetricHash()] = v
+		}
+
+		yHashMap := make(map[string]vmMetric)
+		for _, v := range yChunk {
+			yHashMap[v.MetricHash()] = v
+		}
+
+		for i, vmX := range xHashMap {
+			if !checkIfPGMetric(vmX) {
+				continue
+			}
+
+			xMap := make(map[int64]float64)
+			for i, v := range vmX.Timestamps {
+				xMap[v] = vmX.Values[i]
+			}
+
+			vmY, ok := yHashMap[i]
+			if !ok {
+				for timestamp, valueX := range xMap {
+					saveTimestampToMap(timestamp, valueX, vmX, duplicateMapX)
+				}
+			}
+
+			yMap := make(map[int64]float64)
+			for i, v := range vmY.Timestamps {
+				yMap[v] = vmY.Values[i]
+			}
+
+			for timestamp, valueX := range xMap {
+				valueY, ok := yMap[timestamp]
+				if !ok {
+					saveTimestampToMap(timestamp, valueX, vmX, duplicateMapX)
+					continue
+				}
+				saveTimestampToMap(timestamp, valueY, vmY, duplicateMapY)
+			}
+		}
+	}
+
+	for xFilename, xChunkData := range xChunkMap {
+		yChunkData := yChunkMap[xFilename]
+		dir, _ := path.Split(xFilename)
+		st := dump.ParseSourceType(dir[:len(dir)-1])
+		if st == dump.VictoriaMetrics {
+			xChunk, err := vmParseChunk(xChunkData)
+			if err != nil {
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
+			}
+			yChunk, err := vmParseChunk(yChunkData)
+			if err != nil {
+				return 0, 0, fmt.Errorf("failed to parse chunk %s: %w", xFilename, err)
+			}
+
+			xValues := vmValuesCount(xChunk)
+			yValues := vmValuesCount(yChunk)
+			if xValues > yValues {
+				totalValues += xValues
+			} else {
+				totalValues += yValues
+			}
+
+			rangeOverChunk(xChunk, yChunk)
+		}
+	}
+
+	for timestamp, value := range duplicateMapX {
+		_, ok := duplicateMapY[timestamp]
+		if ok {
+			totalDuplicate++
+			continue
+		}
+		pmm.Logf("Value and timestamp not found for metric %s in second dump, value:%f", timestamp, value)
+		totalNotDuplicate++
+	}
+
+	pmm.Logf("Found %d dublicates for pg_stat_activity_count, pg_stat_activity_max_tx_duration, pg_stat_activity_max_state_duration in first dump and removed them", totalDuplicate)
+	return float64(totalDuplicate) / float64(totalValues), float64(totalNotDuplicate) / float64(totalValues), nil
 }

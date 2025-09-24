@@ -15,12 +15,12 @@
 package deployment
 
 import (
+	"fmt"
 	"path/filepath"
 
-	"pmm-dump/internal/test/util"
-
 	"github.com/compose-spec/compose-go/dotenv"
-	"github.com/pkg/errors"
+
+	"pmm-dump/internal/test/util"
 )
 
 const (
@@ -39,7 +39,7 @@ const defaultPMMURL = "http://admin:admin@localhost" //nolint:gosec
 func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 	envs, err := dotenv.GetEnvFromFile(make(map[string]string), "", []string{filepath})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get env from file")
+		return nil, fmt.Errorf("failed to get env from file: %w", err)
 	}
 
 	requiredEnvs := []string{
