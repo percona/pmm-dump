@@ -30,6 +30,7 @@ import (
 
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/clickhouse/tsv"
+	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/transferer"
 )
 
@@ -54,16 +55,14 @@ func TestClickHouseTime(t *testing.T) {
 	}
 
 	start := time.Now()
+	time.Sleep(time.Second * trytime)
+	end := time.Now()
+	var isEmpty bool
 	for {
-		time.Sleep(time.Second * trytime)
-		end := time.Now()
 		chunkMetas, err := cSource.SplitIntoChunks(start, end, chunkRowLen)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		var buf bytes.Buffer
-		tsvWriter := tsv.NewWriter(&buf)
 
 		for _, meta := range chunkMetas {
 			chunks, err := cSource.ReadChunks(meta)
@@ -71,60 +70,74 @@ func TestClickHouseTime(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			for j, chunk := range chunks {
-				if len(chunk.Content) == 0 {
-					pmm.Log(fmt.Sprintf("Clickhouse chunk content is empty, waiting another %d seconds", trytime))
-					continue
-				}
+			isEmpty = checkClickChunks(t, chunks, pmm, cSource)
+		}
 
-				r := tsv.NewReader(bytes.NewBuffer(chunk.Content), cSource.ColumnTypes())
-				values, err := r.Read()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					t.Fatal(err)
-				}
-
-				for i := range values {
-					time := convertTimeToRandomTimeZone(t, pmm, values[i])
-					if time != nil {
-						values[i] = time
-					}
-				}
-
-				err = tsvWriter.Write(toStringSlice(values))
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				tsvWriter.Flush()
-				if tsvWriter.Error() != nil {
-					t.Fatal(tsvWriter.Error())
-				}
-
-				pmm.Log("Testing the ability to convert clickhouse chunks time")
-				chunks[j].Content = buf.Bytes()
-
-				err = cSource.WriteChunk("", bytes.NewBuffer(chunks[j].Content))
-				if err == nil {
-					t.Fatal("no error when parsing bad time zone")
-				}
-				pmm.Log("Got an intentional time conversion error", err)
-				err = transferer.ConvertTimeToUTC(cSource, chunks[j])
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				err = cSource.WriteChunk("", bytes.NewBuffer(chunks[j].Content))
-				if err != nil {
-					t.Fatal(err)
-				}
-				pmm.Log("Succesfully parsed chunk as UTC")
-				break
-			}
+		if isEmpty {
+			time.Sleep(time.Second * trytime)
+			end = time.Now()
+		} else {
+			break
 		}
 	}
+}
+
+func checkClickChunks(t *testing.T, chunks []*dump.Chunk, pmm *deployment.PMM, cSource *clickhouse.Source) bool {
+	t.Helper()
+	var buf bytes.Buffer
+	tsvWriter := tsv.NewWriter(&buf)
+	for j, chunk := range chunks {
+		if len(chunk.Content) == 0 {
+			pmm.Log(fmt.Sprintf("Clickhouse chunk content is empty, waiting another %d seconds", trytime))
+			return true
+		}
+
+		r := tsv.NewReader(bytes.NewBuffer(chunk.Content), cSource.ColumnTypes())
+		values, err := r.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+
+		for i := range values {
+			time := convertTimeToRandomTimeZone(t, pmm, values[i])
+			if time != nil {
+				values[i] = time
+			}
+		}
+
+		err = tsvWriter.Write(toStringSlice(values))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tsvWriter.Flush()
+		if tsvWriter.Error() != nil {
+			t.Fatal(tsvWriter.Error())
+		}
+
+		pmm.Log("Testing the ability to convert clickhouse chunks time")
+		chunks[j].Content = buf.Bytes()
+
+		err = cSource.WriteChunk("", bytes.NewBuffer(chunks[j].Content))
+		if err == nil {
+			t.Fatal("no error when parsing bad time zone")
+		}
+		pmm.Log("Got an intentional time conversion error", err)
+		err = transferer.ConvertTimeToUTC(cSource, chunks[j])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cSource.WriteChunk("", bytes.NewBuffer(chunks[j].Content))
+		if err != nil {
+			t.Fatal(err)
+		}
+		pmm.Log("Succesfully parsed chunk as UTC")
+	}
+	return false
 }
 
 func convertTimeToRandomTimeZone(t *testing.T, pmm *deployment.PMM, cont any) any {

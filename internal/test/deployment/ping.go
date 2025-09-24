@@ -49,7 +49,6 @@ func (pmm *PMM) PingClickhouse(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	defer db.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
