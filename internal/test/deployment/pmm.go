@@ -39,8 +39,6 @@ import (
 	"pmm-dump/internal/test/util"
 	grafanaClient "pmm-dump/pkg/grafana/client"
 	pkgUtil "pmm-dump/pkg/util"
-
-	click "github.com/ClickHouse/clickhouse-go/v2"
 )
 
 const (
@@ -188,31 +186,6 @@ func (p *PMM) ClickhouseURL() string {
 	u.Host += ":" + *p.clickhousePort
 
 	return u.String()
-}
-
-func (p *PMM) ClickhouseOptions(clickUrl string) (*click.Options, error) {
-	url, err := url.Parse(clickUrl)
-	if err != nil {
-		return nil, fmt.Errorf("sql open: %w", err)
-	}
-
-	options := &click.Options{
-		Addr: []string{url.Host},
-		Auth: click.Auth{
-			Database: url.Path[1:],
-		},
-		Settings: click.Settings{
-			"session_timezone": "UTC",
-		},
-	}
-
-	if pkgUtil.CheckVer(p.GetVersion(), "> 3.1.0") {
-		pass, _ := url.User.Password()
-		options.Auth.Password = pass
-		options.Auth.Username = url.User.Username()
-	}
-
-	return options, nil
 }
 
 func (p *PMM) MongoURL() string {

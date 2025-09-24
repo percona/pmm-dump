@@ -52,13 +52,9 @@ func TestQANWhere(t *testing.T) {
 
 	var b util.Binary
 	testDir := util.CreateTestDir(t, "qan-where")
-	options, err := pmm.ClickhouseOptions(pmm.ClickhouseURL())
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
-		Options: *options,
+		ConnectionURL: pmm.ClickhouseURL(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -305,13 +301,8 @@ func TestQANEmptyChunks(t *testing.T) {
 
 	startTime := time.Now()
 
-	options, err := pmm.ClickhouseOptions(pmm.ClickhouseURL())
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	cSource, err := clickhouse.NewSource(ctx, clickhouse.Config{
-		Options: *options,
+		ConnectionURL: pmm.ClickhouseURL(),
 	})
 	if err != nil {
 		t.Fatal("failed to create clickhouse source", err)

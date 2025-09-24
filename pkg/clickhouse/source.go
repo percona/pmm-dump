@@ -105,6 +105,7 @@ func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 		return nil, err
 	}
 	defer rows.Close() //nolint:errcheck
+
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, err
@@ -114,7 +115,6 @@ func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 		var ei interface{}
 		values[i] = &ei
 	}
-
 	var buf bytes.Buffer
 	writer := tsv.NewWriter(&buf)
 	for rows.Next() {
@@ -133,6 +133,7 @@ func (s Source) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
 	if err = writer.Error(); err != nil {
 		return nil, err
 	}
+
 	return []*dump.Chunk{{
 		ChunkMeta: m,
 		Content:   buf.Bytes(),
