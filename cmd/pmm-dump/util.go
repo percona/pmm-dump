@@ -558,3 +558,7 @@ func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, 
 	customPath += encpath
 	return customPath, nil
 }
+
+func ptr[T any](d T) *T {
+	return &d
+}
