@@ -217,6 +217,9 @@ func readOverClickChunk(tr *tar.Reader, columnTypes []*sql.ColumnType) ([]byte, 
 			}
 			return nil, fmt.Errorf("failed to read next tsv entry: %w", err)
 		}
+		if len(records) == 0 {
+			return nil, errors.New("no records inside click chunk")
+		}
 		records, err = convertTimeToRandomTimeZone(records)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert time to a random time zone: %w", err)
