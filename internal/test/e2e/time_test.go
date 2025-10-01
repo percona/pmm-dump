@@ -17,26 +17,32 @@
 package e2e
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"context"
 	"crypto/rand"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
+	"os"
+	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"pmm-dump/internal/test/deployment"
+	"pmm-dump/internal/test/util"
 
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
-	"pmm-dump/pkg/transferer"
 )
 
 const (
-	trytime     = 30
-	chunkRowLen = 10000
+	trytime = 3
 )
 
 func TestClickHouseTime(t *testing.T) {
@@ -54,134 +60,223 @@ func TestClickHouseTime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	start := time.Now()
-	time.Sleep(time.Second * trytime)
-	end := time.Now()
-	var isEmpty bool
-	for {
-		chunkMetas, err := cSource.SplitIntoChunks(start, end, chunkRowLen)
+	pmm.Log("Waiting for QAN data for", trytime, "minutes")
+	tCtx, cancel := context.WithTimeout(ctx, trytime)
+	defer cancel()
+	if err := util.RetryOnError(tCtx, func() error {
+		rowsCount, err := cSource.Count("", nil, nil)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-
-		for _, meta := range chunkMetas {
-			chunks, err := cSource.ReadChunks(meta)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			isEmpty = checkClickChunks(t, chunks, pmm, cSource)
+		if rowsCount == 0 {
+			return errors.New("no qan data")
 		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-		if isEmpty {
-			time.Sleep(time.Second * trytime)
-			end = time.Now()
-		} else {
-			break
-		}
+	var b util.Binary
+	tmpDir := util.CreateTestDir(t, "time-test")
+	dumpPathOriginal := filepath.Join(tmpDir, "dumpOrg.tar.gz")
+
+	pmm.Log("Exporting data to", dumpPathOriginal)
+	stdout, stderr, err := b.Run(
+		"export",
+		"--ignore-load",
+		"-d", dumpPathOriginal,
+		"--pmm-url", pmm.PMMURL(),
+		"--dump-qan",
+		"--click-house-url", pmm.ClickhouseURL(),
+		"--no-encryption",
+		"-v")
+	if err != nil {
+		t.Fatal("failed to export", err, stdout, stderr)
+	}
+
+	dumpPathCopy := filepath.Join(tmpDir, "dumpCopy.tar.gz")
+	pmm.Log("Overwriting time in a dump to have a random time zone and then copying an old dump to a new dump: ", dumpPathCopy)
+	err = overwriteClickChunks(dumpPathOriginal, dumpPathCopy, cSource.ColumnTypes())
+	if err != nil {
+		t.Fatal("failed to overwrite", err, stdout, stderr)
+	}
+
+	pmm.Log("Importing data from", dumpPathCopy)
+	stdout, stderr, err = b.Run(
+		"import",
+		"-d", dumpPathCopy,
+		"--pmm-url", pmm.PMMURL(),
+		"--dump-qan",
+		"--click-house-url", pmm.ClickhouseURL(),
+		"--no-encryption",
+		"-v")
+	if err != nil {
+		t.Fatal("failed to import", err, stdout, stderr)
 	}
 }
 
-func checkClickChunks(t *testing.T, chunks []*dump.Chunk, pmm *deployment.PMM, cSource *clickhouse.Source) bool {
-	t.Helper()
-	var buf bytes.Buffer
-	tsvWriter := tsv.NewWriter(&buf)
-	for j, chunk := range chunks {
-		if len(chunk.Content) == 0 {
-			pmm.Log(fmt.Sprintf("Clickhouse chunk content is empty, waiting another %d seconds", trytime))
-			return true
+// Go over the dump and change the ClickHouse time values to a different random time zone.
+// This allows us to test a feature in the import process that converts all time zones to UTC.
+// Since we can't change the values inside a formed TAR archive, we copy everything to a new archive.
+func overwriteClickChunks(filename, filename2 string, columnTypes []*sql.ColumnType) error {
+	oldDump, err := os.Open(filename) //nolint:gosec
+	if err != nil {
+		return fmt.Errorf("failed to open old dump: %w", err)
+	}
+	defer oldDump.Close() //nolint:errcheck
+
+	newDump, err := os.Create(filename2) //nolint:gosec
+	if err != nil {
+		return fmt.Errorf("failed to open new dump: %w", err)
+	}
+	defer newDump.Close() //nolint:errcheck
+
+	gzr, err := gzip.NewReader(oldDump)
+	if err != nil {
+		return fmt.Errorf("failed to open old dump as gzip: %w", err)
+	}
+	defer gzr.Close() //nolint:errcheck
+
+	gzw := gzip.NewWriter(newDump)
+	defer gzw.Close() //nolint:errcheck
+
+	tr := tar.NewReader(gzr)
+	tw := tar.NewWriter(gzw)
+	defer tw.Close() //nolint:errcheck
+
+	for {
+		header, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to read next entry: %w", err)
 		}
 
-		r := tsv.NewReader(bytes.NewBuffer(chunk.Content), cSource.ColumnTypes())
-		values, err := r.Read()
+		dir, filename := path.Split(header.Name)
+		switch filename {
+		case dump.MetaFilename, dump.LogFilename:
+			if err := tw.WriteHeader(header); err != nil {
+				return fmt.Errorf("failed to write meta or log header: %w", err)
+			}
+			if _, err := io.Copy(tw, tr); err != nil { //nolint:gosec
+				return fmt.Errorf("failed to copy meta or log entry: %w", err)
+			}
+			continue
+		}
+
+		if len(dir) == 0 {
+			return fmt.Errorf("corrupted dump: found unknown file %s", filename)
+		}
+
+		st := dump.ParseSourceType(dir[:len(dir)-1])
+		if st == dump.UndefinedSource {
+			return fmt.Errorf("corrupted dump: found undefined source: %s", dir)
+		}
+
+		if st == dump.ClickHouse {
+			content, err := readOverClickChunk(tr, columnTypes)
+			if err != nil {
+				return fmt.Errorf("failed to read over Click chunk: %w", err)
+			}
+			chunkSize := int64(len(content))
+			header.Size = chunkSize
+			err = tw.WriteHeader(header)
+			if err != nil {
+				return fmt.Errorf("failed to write file header: %w", err)
+			}
+			if _, err = tw.Write(content); err != nil {
+				return fmt.Errorf("failed to write chunk content: %w", err)
+			}
+		} else {
+			if err := tw.WriteHeader(header); err != nil {
+				return fmt.Errorf("failed to write header: %w", err)
+			}
+			if _, err := io.Copy(tw, tr); err != nil { //nolint:gosec
+				return fmt.Errorf("failed to copy tar entry: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// Reads over ClickHouse chunks and returns content as byte array but converts all time values to a random time zone.
+func readOverClickChunk(tr *tar.Reader, columnTypes []*sql.ColumnType) ([]byte, error) {
+	content, err := io.ReadAll(tr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read chunk content: %w", err)
+	}
+	b := new(bytes.Buffer)
+	readerTSV := tsv.NewReader(bytes.NewReader(content), columnTypes)
+	writerTSV := tsv.NewWriter(b)
+	for {
+		records, err := readerTSV.Read()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			t.Fatal(err)
+			return nil, fmt.Errorf("failed to read next tsv entry: %w", err)
 		}
-
-		for i := range values {
-			time := convertTimeToRandomTimeZone(t, pmm, values[i])
-			if time != nil {
-				values[i] = time
-			}
-		}
-
-		err = tsvWriter.Write(toStringSlice(values))
+		records, err = convertTimeToRandomTimeZone(records)
 		if err != nil {
-			t.Fatal(err)
+			return nil, fmt.Errorf("failed to convert time to a random time zone: %w", err)
 		}
-
-		tsvWriter.Flush()
-		if tsvWriter.Error() != nil {
-			t.Fatal(tsvWriter.Error())
-		}
-
-		pmm.Log("Testing the ability to convert clickhouse chunks time")
-		chunks[j].Content = buf.Bytes()
-
-		err = cSource.WriteChunk("", bytes.NewBuffer(chunks[j].Content))
-		if err == nil {
-			t.Fatal("no error when parsing bad time zone")
-		}
-		pmm.Log("Got an intentional time conversion error", err)
-		err = transferer.ConvertTimeToUTC(cSource, chunks[j])
+		err = writerTSV.Write(toStringSlice(records))
 		if err != nil {
-			t.Fatal(err)
+			return nil, fmt.Errorf("failed to write tsv: %w", err)
 		}
-
-		err = cSource.WriteChunk("", bytes.NewBuffer(chunks[j].Content))
-		if err != nil {
-			t.Fatal(err)
-		}
-		pmm.Log("Succesfully parsed chunk as UTC")
 	}
-	return false
+	writerTSV.Flush()
+	err = writerTSV.Error()
+	if err != nil {
+		return nil, fmt.Errorf("failed to flush tsv writer: %w", err)
+	}
+	content = b.Bytes()
+	return content, nil
 }
 
-func convertTimeToRandomTimeZone(t *testing.T, pmm *deployment.PMM, cont any) any {
-	t.Helper()
-	timeCh, ok := cont.(time.Time)
-	if !ok {
-		return nil
-	}
+func convertTimeToRandomTimeZone(records []any) ([]any, error) {
+	for i, record := range records {
+		timeCh, ok := record.(time.Time)
+		if !ok {
+			continue
+		}
+		newYork, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			return nil, err
+		}
+		los_angeles, err := time.LoadLocation("America/Los_Angeles")
+		if err != nil {
+			return nil, err
+		}
+		moscow, err := time.LoadLocation("Europe/Moscow")
+		if err != nil {
+			return nil, err
+		}
+		beijing, err := time.LoadLocation("Asia/Shanghai")
+		if err != nil {
+			return nil, err
+		}
+		tokyo, err := time.LoadLocation("Asia/Tokyo")
+		if err != nil {
+			return nil, err
+		}
+		locationMap := map[int]*time.Location{
+			0: newYork,
+			1: los_angeles,
+			2: moscow,
+			3: beijing,
+			4: tokyo,
+		}
 
-	newYork, err := time.LoadLocation("America/New_York")
-	if err != nil {
-		t.Fatal("failed to load location", err)
+		num, err := rand.Int(rand.Reader, big.NewInt(4))
+		if err != nil {
+			return nil, err
+		}
+		loc := locationMap[int(num.Int64())]
+		records[i] = timeCh.In(loc)
 	}
-	los_angeles, err := time.LoadLocation("America/Los_Angeles")
-	if err != nil {
-		t.Fatal("failed to load location", err)
-	}
-	moscow, err := time.LoadLocation("Europe/Moscow")
-	if err != nil {
-		t.Fatal("failed to load location", err)
-	}
-	beijing, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		t.Fatal("failed to load location", err)
-	}
-	tokyo, err := time.LoadLocation("Asia/Tokyo")
-	if err != nil {
-		t.Fatal("failed to load location", err)
-	}
-	locationMap := map[int]*time.Location{
-		0: newYork,
-		1: los_angeles,
-		2: moscow,
-		3: beijing,
-		4: tokyo,
-	}
-
-	num, err := rand.Int(rand.Reader, big.NewInt(4))
-	if err != nil {
-		t.Fatal("failed to generate random number")
-	}
-	loc := locationMap[int(num.Int64())]
-	pmm.Log("Changed Clickhouse time to:", loc)
-	return timeCh.In(loc)
+	return records, nil
 }
 
 func toStringSlice(iSlice []any) []string {

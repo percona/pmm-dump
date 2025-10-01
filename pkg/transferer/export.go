@@ -18,20 +18,15 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"path"
-	"reflect"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
-	"pmm-dump/pkg/clickhouse"
-	"pmm-dump/pkg/clickhouse/tsv"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/encryption"
 )
@@ -169,13 +164,6 @@ func (t Transferer) writeChunksToFile(meta dump.Meta, chunkC <-chan *dump.Chunk,
 
 		s, _ := t.sourceByType(c.Source) // there is no need to check for error as incoming chunk always has correct source
 
-		if c.Source == dump.ClickHouse {
-			err := ConvertTimeToUTC(s, c)
-			if err != nil {
-				return fmt.Errorf("failed to convert timezones for Clickhouse chunks %w", err)
-			}
-		}
-
 		log.Info().
 			Stringer("source", c.Source).
 			Str("filename", c.Filename).
@@ -221,58 +209,6 @@ func writeLog(tw *tar.Writer, logBuffer *bytes.Buffer) error {
 	if _, err = tw.Write(byteLog); err != nil {
 		return fmt.Errorf("failed to write dump log content: %w", err)
 	}
-
-	return nil
-}
-
-func ConvertTimeToUTC(s dump.Source, c *dump.Chunk) error {
-	var columnTypes []*sql.ColumnType
-	switch chS := s.(type) {
-	case clickhouse.Source:
-		columnTypes = chS.ColumnTypes()
-	case *clickhouse.Source:
-		columnTypes = chS.ColumnTypes()
-	default:
-		typeName := reflect.TypeOf(s).String()
-		if typeName == "*transferer.fakeSource" {
-			return nil
-		}
-		return fmt.Errorf("type of source in dump specified as Clickhouse but got error when casting, wanted clickhouse.Source got %s", typeName)
-	}
-
-	var chunkRead bytes.Buffer
-	var chunkWrite bytes.Buffer
-	chunkRead.Write(c.Content)
-	reader := tsv.NewReader(&chunkRead, columnTypes)
-	writer := tsv.NewWriter(&chunkWrite)
-
-	for {
-		records, err := reader.Reader.Read()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return fmt.Errorf("failed to read Clickhouse chunk: %w", err)
-		}
-		for i, record := range records {
-			if columnTypes[i].ScanType().Name() == "Time" {
-				timeParsed, err := time.Parse("2006-01-02 15:04:05 -0700 MST", record)
-				if err != nil {
-					return fmt.Errorf("failed to parse time from Clickhouse chunk: %w", err)
-				}
-				records[i] = timeParsed.UTC().String()
-			}
-		}
-		err = writer.Write(records)
-		if err != nil {
-			return fmt.Errorf("failed to write records to buffer: %w", err)
-		}
-	}
-	writer.Flush()
-	if writer.Error() != nil {
-		return fmt.Errorf("failed to flush records to buffer: %w", writer.Error())
-	}
-	c.Content = chunkWrite.Bytes()
 
 	return nil
 }
