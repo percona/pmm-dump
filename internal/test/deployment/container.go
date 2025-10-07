@@ -84,7 +84,7 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 	} else {
 		ports = []string{defaultHTTPPortv3, defaultHTTPSPortv3, defaultClickhousePort, defaultClickhouseHTTPPort}
 	}
-	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, env, mounts, networkID, nil, pmmServerMemoryLimit)
+	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, env, mounts, nil, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
@@ -97,6 +97,10 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	tCtx, cancel := context.WithTimeout(ctx, getTimeout)
 	defer cancel()
+
+	if err := getUntilOk(tCtx, pmm.PMMURL()+"/ping"); err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("failed waiting for the API to be ready: %w", err)
+	}
 
 	pmm.Log("Ping VictoriaMetrics")
 	pmmConfig, err := pkgUtil.GetPMMConfig(pmm.PMMURL(), "", "", nil)
@@ -247,7 +251,7 @@ func (pmm *PMM) CreatePMMClient(ctx context.Context, dockerCli *client.Client, n
 			Target: "/srv",
 		},
 	}
-	_, err = pmm.createContainer(ctx, dockerCli, pmm.ClientContainerName(), pmm.ClientImage(), nil, envs, mounts, networkID, nil, pmmClientMemoryLimit)
+	_, err = pmm.createContainer(ctx, dockerCli, pmm.ClientContainerName(), pmm.ClientImage(), nil, envs, mounts, nil, networkID, nil, pmmClientMemoryLimit)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
@@ -298,22 +302,16 @@ func (pmm *PMM) CreateMongo(ctx context.Context, dockerCli *client.Client, netwo
 			Source: vol.Name,
 			Target: "/data/db",
 		},
-		{
-			Type:     mount.TypeBind,
-			Source:   filepath.Join(util.RepoPath, "setup", "mongo", "init.js"),
-			Target:   "/docker-entrypoint-initdb.d/init.js",
-			ReadOnly: true,
-		},
-		{
-			Type:   mount.TypeBind,
-			Source: filepath.Join(util.RepoPath, "setup", "mongo", "mongod.conf"),
-			Target: "/etc/mongod.conf",
-		},
+	}
+
+	binds := []string{
+		filepath.Join(util.RepoPath, "setup", "mongo", "mongod.conf") + ":/etc/mongod.conf:ro,z",
+		filepath.Join(util.RepoPath, "setup", "mongo", "init.js") + ":/docker-entrypoint-initdb.d/init.js:ro,z",
 	}
 
 	cmd := []string{"--config", "/etc/mongod.conf"}
 
-	id, err := pmm.createContainer(ctx, dockerCli, pmm.MongoContainerName(), pmm.MongoImage(), ports, envs, mounts, networkID, cmd, mongoMemoryLimit)
+	id, err := pmm.createContainer(ctx, dockerCli, pmm.MongoContainerName(), pmm.MongoImage(), ports, envs, mounts, binds, networkID, cmd, mongoMemoryLimit)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
@@ -355,6 +353,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 	ports []string,
 	env []string,
 	mounts []mount.Mount,
+	binds []string,
 	networkid string,
 	cmd []string,
 	memoryLimit int64,
@@ -389,6 +388,7 @@ func (pmm *PMM) createContainer(ctx context.Context,
 			Memory: memoryLimit,
 		},
 		PortBindings: s,
+		Binds:        binds,
 	}
 
 	networkConfig := &network.NetworkingConfig{

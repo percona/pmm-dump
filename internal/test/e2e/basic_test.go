@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -54,6 +55,28 @@ func TestExportImport(t *testing.T) {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
 	checkDumpFiltering(t, filepath.Join(testDir, "filter-dump.tar.gz"), "pmm-server")
+
+	pmm.Log("Checking export with `--export-services-info` flag")
+	args = []string{"-d", filepath.Join(testDir, "export-services-info.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-core", "--click-house-url", pmm.ClickhouseURL(), "--export-services-info", "-v"}
+	stdout, stderr, err = b.Run(append([]string{"export", "--ignore-load", "--no-encryption"}, args...)...)
+	if err != nil {
+		t.Fatal("failed to export", err, stdout, stderr)
+	}
+
+	stdout, stderr, err = b.Run("show-meta", "--no-encryption", "-d", filepath.Join(testDir, "export-services-info.tar.gz"))
+	if err != nil {
+		t.Fatal(err, stdout, stderr)
+	}
+
+	pattern := `(?s)Services:
+.*- Name: pmm-server-postgresql
+\s+Node ID: pmm-server
+.*`
+	re := regexp.MustCompile(`(?s)` + pattern)
+
+	if !re.MatchString(stdout) {
+		t.Fatalf("pattern %s did not match %s", pattern, stdout)
+	}
 
 	args = []string{"-d", filepath.Join(testDir, "dump.tar.gz"), "--pmm-url", pmm.PMMURL(), "--dump-qan", "--click-house-url", pmm.ClickhouseURL(), "-v"}
 
