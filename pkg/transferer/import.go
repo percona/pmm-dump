@@ -177,7 +177,7 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 			}
 
 			if c.Source == dump.ClickHouse {
-				err := ConvertTimeToUTC(s, c)
+				err := convertTimeToUTC(s, c)
 				if err != nil {
 					return fmt.Errorf("failed to convert timezones for Clickhouse chunks %w", err)
 				}
@@ -192,7 +192,9 @@ func (t Transferer) writeChunksToSource(ctx context.Context, chunkC <-chan *dump
 	}
 }
 
-func ConvertTimeToUTC(s dump.Source, c *dump.Chunk) error {
+// If ClickHouse has a time in a time zone other than UTC, the import will throw an error: "Cannot parse 'CDT' as 'UTC.'"
+// To resolve this issue, we will convert all time values in each ClickHouse chunk to UTC and then write them back into the chunk.
+func convertTimeToUTC(s dump.Source, c *dump.Chunk) error {
 	var columnTypes []*sql.ColumnType
 	switch chS := s.(type) {
 	case clickhouse.Source:
