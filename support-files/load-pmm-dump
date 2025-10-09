@@ -6,7 +6,7 @@
 
 # Exit codes:
 #  0 - no error
-#  1 - arg issues
+#  1 - arg and pmm-dump issues
 #  2 - container name already used
 #  3 - pmm-dump file does not exist
 #  4 - at least one pmm-dump import was not successful (error)
@@ -17,7 +17,7 @@
 [[ -z ${1} ]] && {
   echo "ERROR: Arguments expected."
   echo " 1st argument: Ticket number"
-  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using perconalab/pmm-server"
+  echo " 2nd argument (optional): PMM-dump tar.gz file, or version for container using percona/pmm-server"
   exit 1
 }
 
@@ -49,47 +49,64 @@ else
   fi
 fi
 
-# If the second argument was a tar.gz file and pmm-dump exists in path, extract PMM server version from file.
-if [[ -n ${2} ]] && [[ arg_is_pmm_dump_file -eq 1 ]] && which pmm-dump > /dev/null 2>&1; then
+if [[ $arg_is_pmm_dump_file -eq 1 ]]; then
+  PMM_DUMP=$(which pmm-dump 2>/dev/null)
+  if [[ -z ${PMM_DUMP} ]]; then
+    echo "ERROR: pmm-dump not found in PATH. Please install pmm-dump and make sure it's in PATH."
+    exit 1
+  fi
+fi
+
+# If the second argument was a tar.gz file, extract PMM server version from file.
+if [[ -n ${2} ]] && [[ $arg_is_pmm_dump_file -eq 1 ]]; then
   if [[ ! -f ${2} ]]; then
     echo "ERROR: PMM dump file (${2}) does not exist."
     exit 3
   fi
+
   echo "## Getting PMM version from \`pmm-dump show-meta\` outputs (this can take a while if the dump file is large)..."
-  pmm_version=`pmm-dump show-meta --dump-path=${2}|grep "PMM Version"|awk '{print $3}'|cut -d '-' -f1`
+  pmm_version=$(${PMM_DUMP} show-meta --dump-path=${2}|grep "PMM Version"|awk '{print $3}'|cut -d '-' -f1)
+  if [[ -z ${pmm_version} ]]; then
+    echo "ERROR: Could not get PMM version from pmm-dump show-meta outputs."
+    exit 1
+  fi
+
   # Fix for https://jira.percona.com/browse/SE-83
   if [[ ${pmm_version} == "2.33.0" ]]; then
     echo "## Detected version 2.33.0. Using 2.32.0 instead, due to SE-83."
     pmm_version="2.32.0"
   fi
-elif [[ -n ${2} ]] && [[ arg_is_pmm_version -eq 1 ]]; then
+elif [[ -n ${2} ]] && [[ $arg_is_pmm_version -eq 1 ]]; then
   # If the second argument was a string like N[.N[.N]], we set that as version number.
   pmm_version=${2}
 else
-  # Otherwise, PMM server version defaults to latest v2.
-  pmm_version="2"
+  # Otherwise, PMM server version defaults to latest v3.
+  pmm_version="3"
 fi
 
 echo "## Using version: $pmm_version"
+major_pmm_version=$(echo "$pmm_version" | cut -d. -f1)
 
-if [ $(echo "$pmm_version" | cut -d. -f1) != "2" ]; then
-  docker pull perconalab/pmm-server:${pmm_version}
-  docker run --detach --publish 443:8443 --name pmm-server-${ticket_number} perconalab/pmm-server:${pmm_version}
-else
-  docker pull percona/pmm-server:${pmm_version}
+docker pull percona/pmm-server:${pmm_version}
+if [ ${major_pmm_version} -eq "1" ]; then
+  docker run --detach --publish 443:8443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+elif [ ${major_pmm_version} -eq "2" ]; then
   docker run --detach --publish :443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
+else
+  docker run --detach --publish :8443 --name pmm-server-${ticket_number} percona/pmm-server:${pmm_version}
 fi
 
-pmm_port_443=`docker ps --format "{{.Ports}} {{.Names}}"|grep ${ticket_number}|cut -d ':' -f2|cut -d '-' -f1`
+# Get the mapped port for 443
+pmm_port_443=$(docker ps --format "{{.Ports}} {{.Names}}" | grep "pmm-server-${ticket_number}" | grep -oP '(\d+)->8?443/tcp' | head -n1 | cut -d'>' -f1 | cut -d'-' -f1)
 
 # Waiting for PMM server to fully start
-echo -n "## Waiting for PMM sever's Nginx to start"
+echo -n "## Waiting for PMM server's Nginx to start"
 while true; do
   docker exec pmm-server-${ticket_number} supervisorctl status nginx | grep RUNNING >/dev/null 2>&1
   nginx_status=$?
   if [[ ${nginx_status} -eq 0 ]]; then
     echo
-    echo "## PMM sever's Nginx service started"
+    echo "## PMM server's Nginx service started"
     break
   else
     echo -n "."
@@ -103,17 +120,18 @@ docker exec pmm-server-${ticket_number} sed -i.bak -e 's/client_max_body_size 10
 docker exec pmm-server-${ticket_number} supervisorctl restart nginx
 
 # Wait for PMM server to restart
-echo -n "## Waiting for PMM sever to restart"
+echo -n "## Waiting for PMM server to restart"
 while true; do
-
-  if [$(echo "$pmm_version" | cut -d. -f1) != "2"]; then 
+  if [ ${major_pmm_version} -eq "1" ]; then
     pmm_status=$(docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:${pmm_port_443}/v1/server/readyz)
-  else 
-    pmm_status=`docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:443/v1/readyz`
+  elif [ ${major_pmm_version} -eq "2" ]; then 
+    pmm_status=$(docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:443/v1/readyz)
+  else
+    pmm_status=$(docker exec pmm-server-${ticket_number} curl -s -k -u admin:admin https://127.0.0.1:8443/v1/readyz)
   fi
   if [[ ${pmm_status} == "{}" ]]; then
     echo
-    echo "## PMM sever started"
+    echo "## PMM server started"
     break
   else
     echo -n "."
@@ -128,14 +146,18 @@ done
 # Discard first argument (it was the name for containers)
 shift
 
+# Initialize mktemp failed flags
+mktemp1_failed=0
+mktemp2_failed=0
+
 # Create empty outputs debug file
 pmm_dump_import_global_outputs_file=$(mktemp /tmp/load-pmm-dump-import-global-outputs.XXXXXXXXXX) || mktemp1_failed=1
-if [[ ${mktemp1_failed} -eq 1 ]]; then
+if [[ $mktemp1_failed -eq 1 ]]; then
   echo "## ERROR: mktemp failed. Using /tmp/load-pmm-dump-import-global-outputs.out"
   pmm_dump_import_global_outputs_file="/tmp/load-pmm-dump-import-global-outputs.out"
 fi
 pmm_dump_import_local_outputs_file=$(mktemp /tmp/load-pmm-dump-import-iter-outputs.XXXXXXXXXX) || mktemp2_failed=1
-if [[ ${mktemp2_failed} -eq 1 ]]; then
+if [[ $mktemp2_failed -eq 1 ]]; then
   echo "## ERROR: mktemp failed. Using /tmp/load-pmm-dump-import-iter-outputs.out"
   pmm_dump_import_local_outputs_file="/tmp/load-pmm-dump-import-iter-outputs.out"
 fi
@@ -150,16 +172,16 @@ if [[ ${arg_is_pmm_dump_file} -eq 1 ]]; then
   while (( $# )); do
     echo "## Trying to pmm-dump import: "${1}
     echo "## Importing: "${1} >> ${pmm_dump_import_global_outputs_file}
-    pmm-dump import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=${1} > ${pmm_dump_import_local_outputs_file} 2>&1
+    ${PMM_DUMP} import --allow-insecure-certs --pmm-url=https://admin:admin@127.0.0.1:${pmm_port_443} --dump-path=${1} > ${pmm_dump_import_local_outputs_file} 2>&1
     pmm_dump_result=$?
 
     cat ${pmm_dump_import_local_outputs_file} >> ${pmm_dump_import_global_outputs_file}
 
     if [[ ${pmm_dump_result} -eq 0 ]]; then
       echo "## Sample imported successfully."
-      first_sample_date=`grep "Processing" ${pmm_dump_import_local_outputs_file} | head -n1 | cut -d '/' -f 2 | cut -d '-' -f 1 | xargs -I{} date -d @{}`
-      last_sample_date_seconds_epoch=`grep "Processing" ${pmm_dump_import_local_outputs_file} | tail -n1 | cut -d '/' -f 2 | cut -d '-' -f 2 | cut -d '.' -f 1`
-      last_sample_date=`date -d @${last_sample_date_seconds_epoch}`
+      first_sample_date=$(grep "Processing" ${pmm_dump_import_local_outputs_file} | head -n1 | cut -d '/' -f 2 | cut -d '-' -f 1 | xargs -I{} date -d @{})
+      last_sample_date_seconds_epoch=$(grep "Processing" ${pmm_dump_import_local_outputs_file} | tail -n1 | cut -d '/' -f 2 | cut -d '-' -f 2 | cut -d '.' -f 1)
+      last_sample_date=$(date -d @${last_sample_date_seconds_epoch})
       echo "## First sample date: "${first_sample_date}
       echo "## Last sample date: "${last_sample_date}
       # Print warning if samples are older than 30 days
@@ -170,7 +192,7 @@ if [[ ${arg_is_pmm_dump_file} -eq 1 ]]; then
       fi
     else
       echo "## Issues detected with pmm-dump import command for "${1}
-      echo "## Check /tmp/load-pmm-dump-import-outputs.out for outputs."
+      echo "## Check ${pmm_dump_import_global_outputs_file} for outputs."
       pmm_dump_import_err=1
     fi
     shift
@@ -198,11 +220,11 @@ echo
 echo "## To destroy docker PMM server container:"
 echo "docker rm -vf pmm-server-${ticket_number}"
 
-if [[ ${pmm_dump_import_warn} -eq '1' && ${pmm_dump_import_err} -eq '1' ]]; then
+if [[ ${pmm_dump_import_warn} -eq 1 && ${pmm_dump_import_err} -eq 1 ]]; then
   exit 6
-elif [[ ${pmm_dump_import_warn} -eq '1' ]]; then
+elif [[ ${pmm_dump_import_warn} -eq 1 ]]; then
   exit 5
-elif [[ ${pmm_dump_import_err} -eq '1' ]]; then
+elif [[ ${pmm_dump_import_err} -eq 1 ]]; then
   exit 4
 else
   exit 0

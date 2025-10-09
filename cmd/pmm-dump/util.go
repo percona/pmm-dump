@@ -188,12 +188,37 @@ func getPMMServices(pmmURL string, c *client.Client, version *version.Version) (
 	return services, nil
 }
 
-func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, version *version.Version) (string, error) {
-	type nodeRespStruct struct {
-		Generic struct {
-			Name string `json:"node_name"`
-		} `json:"generic"`
+type GenericNode struct {
+	Name string `json:"node_name"`
+}
+
+type GenericNodeList []GenericNode
+
+// Custom function to unmarshal the response of the /inventory/nodes endpoint which returns a different type (array vs single object) depending on the api version used (v3 vs v2).
+func (g *GenericNodeList) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as array (v3)
+	var arr []GenericNode
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*g = arr
+		return nil
 	}
+
+	// Fallback: try as single object (v2)
+	var single GenericNode
+	if err := json.Unmarshal(data, &single); err != nil {
+		return err
+	}
+
+	*g = []GenericNode{single}
+	return nil
+}
+
+// Now the full response struct.
+type nodeRespStruct struct {
+	Generic GenericNodeList `json:"generic"`
+}
+
+func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, version *version.Version) (string, error) {
 	var (
 		statusCode int
 		body       []byte
@@ -217,7 +242,11 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, versi
 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	return nodeResp.Generic.Name, nil
+	if len(nodeResp.Generic) == 0 {
+		return "", errors.New("no nodes found in response")
+	}
+
+	return nodeResp.Generic[0].Name, nil
 }
 
 func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, version *version.Version) ([]string, error) {
@@ -557,4 +586,8 @@ func getDumpFilepath(customPath string, ts time.Time, encrypted *bool) (string, 
 	}
 	customPath += encpath
 	return customPath, nil
+}
+
+func ptr[T any](d T) *T {
+	return &d
 }
