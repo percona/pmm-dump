@@ -49,16 +49,16 @@ func NewReader(r io.Reader, columnTypes []*sql.ColumnType) *Reader {
 	return &Reader{reader, columnTypes}
 }
 
-func (r *Reader) Read() ([]interface{}, error) {
+func (r *Reader) Read() ([]any, error) {
 	records, err := r.Reader.Read()
 	if err != nil {
 		return nil, err
 	}
 	if len(r.columnTypes) != len(records) {
-		return nil, errors.New("amount of columns mismatch")
+		return nil, errors.Errorf("amount of columns mismatch: expected %d, got %d", len(r.columnTypes), len(records))
 	}
 
-	values := make([]interface{}, 0, len(records))
+	values := make([]any, 0, len(records))
 	for i, record := range records {
 		st := r.columnTypes[i].ScanType()
 		value, err := parseElement(record, st)
@@ -71,10 +71,10 @@ func (r *Reader) Read() ([]interface{}, error) {
 	return values, nil
 }
 
-func parseSlice(slice string, st reflect.Type) (interface{}, error) {
+func parseSlice(slice string, st reflect.Type) (any, error) {
 	slice = strings.TrimSpace(slice[1 : len(slice)-1])
 	elements := strings.Split(slice, ",")
-	result := make([]interface{}, 0, len(elements))
+	result := make([]any, 0, len(elements))
 	if slice == "" {
 		return result, nil
 	}
@@ -88,8 +88,8 @@ func parseSlice(slice string, st reflect.Type) (interface{}, error) {
 	return result, nil
 }
 
-func parseElement(record string, st reflect.Type) (interface{}, error) {
-	var value interface{}
+func parseElement(record string, st reflect.Type) (any, error) {
+	var value any
 	var err error
 	switch st.Kind() {
 	case reflect.Slice:

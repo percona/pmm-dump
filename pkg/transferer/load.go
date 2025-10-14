@@ -262,13 +262,13 @@ type Threshold struct {
 	CriticalLoad float64
 }
 
-func ParseThresholdList(max, critical string) ([]Threshold, error) {
-	maxV, err := parseThresholdValues(max)
+func ParseThresholdList(maxStr, criticalStr string) ([]Threshold, error) {
+	maxV, err := parseThresholdValues(maxStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid max load list")
 	}
 
-	criticalV, err := parseThresholdValues(critical)
+	criticalV, err := parseThresholdValues(criticalStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid critical load list")
 	}

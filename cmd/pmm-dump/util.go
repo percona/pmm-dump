@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"path"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -37,6 +39,7 @@ import (
 	"pmm-dump/pkg/clickhouse"
 	"pmm-dump/pkg/dump"
 	"pmm-dump/pkg/grafana/client"
+	"pmm-dump/pkg/util"
 	"pmm-dump/pkg/victoriametrics"
 )
 
@@ -85,9 +88,12 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 		DistributionMethod string `json:"distribution_method"`
 	}
 
-	statusCode, body, err := c.Get(pmmURL + "/v1/server/version")
+	statusCode, body, err := c.Get(pmmURL + "/v1/version")
 	if err != nil {
-		return "", "", err
+		statusCode, body, err = c.Get(pmmURL + "/v1/server/version")
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get version from API: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", "", fmt.Errorf("non-ok status: %d", statusCode)
@@ -99,7 +105,15 @@ func getPMMVersion(pmmURL string, c *client.Client) (string, string, error) {
 	return resp.Server.Version, resp.Server.FullVersion, nil
 }
 
-func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, error) {
+func getStructuredVer(vers string) (*version.Version, error) {
+	v1, err := version.NewVersion(vers)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get major version")
+	}
+	return v1, nil
+}
+
+func getPMMServices(pmmURL string, c *client.Client, version *version.Version) ([]dump.PMMServerService, error) {
 	type servicesResp map[string][]struct {
 		ID     string `json:"service_id"`
 		Name   string `json:"service_name"`
@@ -107,10 +121,18 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 	}
 
 	// Services
-
-	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/services")
+	var (
+		statusCode int
+		body       []byte
+		err        error
+	)
+	if util.CheckIsVer2(version) {
+		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Services/List")
+	} else {
+		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/services")
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get services: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
@@ -128,13 +150,13 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 				NodeID: service.NodeID,
 			}
 
-			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID)
+			nodeName, err := getPMMServiceNodeName(pmmURL, c, service.NodeID, version)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get pmm service node name")
 			}
 			newService.NodeName = nodeName
 
-			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID)
+			agentsIds, err := getPMMServiceAgentsIds(pmmURL, c, service.ID, version)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get pmm service agents ids")
 			}
@@ -146,16 +168,26 @@ func getPMMServices(pmmURL string, c *client.Client) ([]dump.PMMServerService, e
 	return services, nil
 }
 
-func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (string, error) {
+func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string, version *version.Version) (string, error) {
 	type nodeRespStruct struct {
 		Generic struct {
 			Name string `json:"node_name"`
 		} `json:"generic"`
 	}
-
-	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
+	var (
+		statusCode int
+		body       []byte
+		err        error
+	)
+	if util.CheckIsVer2(version) {
+		statusCode, body, err = c.PostJSON(pmmURL+"/v1/inventory/Nodes/Get", struct {
+			NodeID string `json:"node_id"`
+		}{nodeID})
+	} else {
+		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/nodes?node_id=" + nodeID)
+	}
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get pmm nodes name: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return "", fmt.Errorf("non-ok status: %d", statusCode)
@@ -168,15 +200,23 @@ func getPMMServiceNodeName(pmmURL string, c *client.Client, nodeID string) (stri
 	return nodeResp.Generic.Name, nil
 }
 
-func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string) ([]string, error) {
+func getPMMServiceAgentsIds(pmmURL string, c *client.Client, serviceID string, version *version.Version) ([]string, error) {
 	type agentsRespStruct map[string][]struct {
 		ServiceID *string `json:"service_id"`
 		AgentID   *string `json:"agent_id"`
 	}
-
-	statusCode, body, err := c.Get(pmmURL + "/v1/inventory/agents")
+	var (
+		statusCode int
+		body       []byte
+		err        error
+	)
+	if util.CheckIsVer2(version) {
+		statusCode, body, err = c.Post(pmmURL + "/v1/inventory/Agents/List")
+	} else {
+		statusCode, body, err = c.Get(pmmURL + "/v1/inventory/agents")
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get agents: %w", err)
 	}
 	if statusCode != fasthttp.StatusOK {
 		return nil, fmt.Errorf("non-ok status: %d", statusCode)
@@ -221,19 +261,24 @@ func getPMMTimezone(pmmURL string, c *client.Client) (string, error) {
 }
 
 func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *kingpin.Application, vmNativeData bool) (*dump.Meta, error) {
-	_, pmmVer, err := getPMMVersion(pmmURL, c)
+	pmmShortVer, pmmVer, err := getPMMVersion(pmmURL, c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PMM version")
+	}
+	structuredVer, err := getStructuredVer(pmmShortVer)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get major PMM version")
 	}
 
 	var pmmTz *string
 	pmmTzRaw, err := getPMMTimezone(pmmURL, c)
-	if err != nil {
+	switch {
+	case err != nil:
 		log.Err(err).Msg("failed to get PMM timezone")
 		pmmTz = nil
-	} else if pmmTzRaw == "" || pmmTzRaw == "browser" {
+	case pmmTzRaw == "", pmmTzRaw == "browser":
 		pmmTz = nil
-	} else {
+	default:
 		pmmTz = &pmmTzRaw
 	}
 
@@ -259,7 +304,7 @@ func composeMeta(pmmURL string, c *client.Client, exportServices bool, cli *king
 
 	pmmServices := []dump.PMMServerService(nil)
 	if exportServices {
-		pmmServices, err = getPMMServices(pmmURL, c)
+		pmmServices, err = getPMMServices(pmmURL, c, structuredVer)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get PMM services")
 		}
@@ -359,28 +404,24 @@ func checkVersionSupport(c *client.Client, pmmURL, victoriaMetricsURL string) {
 	}
 }
 
-func prepareVictoriaMetricsSource(grafanaC *client.Client, dumpCore bool, url string, selectors []string, nativeData bool, contentLimit uint64) (*victoriametrics.Source, bool) {
-	if !dumpCore {
-		return nil, false
+func prepareVictoriaMetricsSource(grafanaC *client.Client, url string, selectors []string, nativeData bool, contentLimit uint64) *victoriametrics.Source {
+	if contentLimit > math.MaxInt {
+		log.Fatal().Msgf("`--vm-content-limit` can't have a value greater than %d", math.MaxInt)
 	}
 
 	c := &victoriametrics.Config{
 		ConnectionURL:       url,
 		TimeSeriesSelectors: selectors,
 		NativeData:          nativeData,
-		ContentLimit:        contentLimit,
+		ContentLimit:        int(contentLimit),
 	}
 
 	log.Debug().Msgf("Got Victoria Metrics URL: %s", c.ConnectionURL)
 
-	return victoriametrics.NewSource(grafanaC, *c), true
+	return victoriametrics.NewSource(grafanaC, c)
 }
 
-func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where string) (*clickhouse.Source, bool) {
-	if !dumpQAN {
-		return nil, false
-	}
-
+func prepareClickHouseSource(ctx context.Context, url, where string) (*clickhouse.Source, error) {
 	c := &clickhouse.Config{
 		ConnectionURL: url,
 		Where:         where,
@@ -388,12 +429,12 @@ func prepareClickHouseSource(ctx context.Context, dumpQAN bool, url, where strin
 
 	clickhouseSource, err := clickhouse.NewSource(ctx, *c)
 	if err != nil {
-		log.Fatal().Msgf("Failed to create ClickHouse source: %s", err.Error())
+		return nil, errors.Wrap(err, "failed to create ClickHouse source")
 	}
 
 	log.Debug().Msgf("Got ClickHouse URL: %s", c.ConnectionURL)
 
-	return clickhouseSource, true
+	return clickhouseSource, nil
 }
 
 func parseURL(pmmURL, pmmHost, pmmPort, pmmUser, pmmPassword *string) {

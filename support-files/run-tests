@@ -4,7 +4,7 @@
 
 set -o errexit
 
-timeout="15m"
+timeout="20m"
 build_tag="$1"
 
 trap exit 1 SIGINT
@@ -12,16 +12,33 @@ trap exit 1 SIGINT
 go clean -testcache
 
 run_e2e_tests() {
+	rm -f test/.env.test
+	rm -f test/.env2.test
+	./support-files/destroy-test-resources
+
+	PMM_CLIENT_IMAGE="perconalab/pmm-client"  PMM_SERVER_IMAGE="perconalab/pmm-server" PMM_VERSION="3" ./setup/test/init-test-configs.sh test
 	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v
 }
+run_e2e_tests_v2() {
+	rm -f test/.env.test
+	rm -f test/.env2.test
+	./support-files/destroy-test-resources
 
+	PMM_CLIENT_IMAGE="percona/pmm-client"  PMM_SERVER_IMAGE="percona/pmm-server" PMM_VERSION="2" ./setup/test/init-test-configs.sh test
+	go test -timeout "$timeout" -tags e2e ./internal/test/e2e/... -v
+}
 run_unit_tests() {
+	rm -f test/.env.test
+	rm -f test/.env2.test
 	go test -timeout "$timeout" ./... -v \
 		| grep -v '\[no test files\]' # Filtering lines like `? pmm-dump/pkg/victoriametrics [no test files]`
 }
 
-if [[ -n $build_tag ]]; then
+if [[ ${build_tag} == "v2"  ]]; then
+	run_e2e_tests_v2
+elif [[ -n $build_tag ]]; then
 	run_e2e_tests
 else
+
 	run_unit_tests
 fi

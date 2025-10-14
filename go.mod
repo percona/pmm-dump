@@ -1,28 +1,29 @@
 module pmm-dump
 
-go 1.24.0
+go 1.24.1
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.27.1
-	github.com/VictoriaMetrics/metricsql v0.76.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.33.0
+	github.com/VictoriaMetrics/metricsql v0.84.3
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
-	github.com/docker/docker v27.1.1+incompatible
+	github.com/docker/docker v28.0.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
 	github.com/grafana/grafana-plugin-sdk-go v0.269.1
+	github.com/hashicorp/go-version v1.7.0
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/valyala/fasthttp v1.55.0
-	go.mongodb.org/mongo-driver v1.16.0
+	github.com/valyala/fasthttp v1.59.0
+	go.mongodb.org/mongo-driver v1.17.3
 	golang.org/x/sync v0.17.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/ClickHouse/ch-go v0.61.5 // indirect
+	github.com/ClickHouse/ch-go v0.65.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/metrics v1.34.0 // indirect
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9 // indirect
@@ -71,7 +72,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jszwedko/go-datemath v0.1.1-0.20230526204004-640a500621d6 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magefile/mage v1.15.0 // indirect
@@ -94,7 +95,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
-	github.com/pierrec/lz4/v4 v4.1.21 // indirect
+	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
@@ -119,7 +120,7 @@ require (
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
-	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
+	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
@@ -128,13 +129,13 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.34.0 // indirect
 	go.opentelemetry.io/contrib/samplers/jaegerremote v0.28.0 // indirect
-	go.opentelemetry.io/otel v1.34.0 // indirect
+	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.27.0 // indirect
-	go.opentelemetry.io/otel/metric v1.34.0 // indirect
+	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
-	go.opentelemetry.io/otel/trace v1.34.0 // indirect
+	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 // indirect

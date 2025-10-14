@@ -16,6 +16,7 @@ package transferer
 
 import (
 	"io"
+	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -34,12 +35,12 @@ func (s fakeSource) Type() dump.SourceType {
 	return s.sourceType
 }
 
-func (s fakeSource) ReadChunk(m dump.ChunkMeta) (*dump.Chunk, error) {
-	return &dump.Chunk{
+func (s fakeSource) ReadChunks(m dump.ChunkMeta) ([]*dump.Chunk, error) {
+	return []*dump.Chunk{{
 		ChunkMeta: m,
 		Content:   []byte("content"),
 		Filename:  m.String() + ".bin",
-	}, nil
+	}}, nil
 }
 
 func (s fakeSource) WriteChunk(_ string, r io.Reader) error {
@@ -66,4 +67,5 @@ func (s fakeSource) FinalizeWrites() error {
 func TestMain(m *testing.M) {
 	log.Logger = zerolog.Nop()
 	m.Run()
+	os.Exit(0)
 }

@@ -17,7 +17,6 @@
 package e2e
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +29,7 @@ import (
 )
 
 func TestPMMCompatibility(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	pmmVersions, err := getVersions()
 	if err != nil {
@@ -55,7 +54,7 @@ func TestPMMCompatibility(t *testing.T) {
 		}
 		if dumpPath != "" {
 			pmm.Log("Importing data from", dumpPath)
-			stdout, stderr, err := b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())
+			stdout, stderr, err := b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "-v")
 			if err != nil {
 				t.Fatal("failed to import", err, stdout, stderr)
 			}
@@ -64,13 +63,13 @@ func TestPMMCompatibility(t *testing.T) {
 		testDir := t.TempDir()
 		dumpPath = filepath.Join(testDir, "dump.tar.gz")
 		pmm.Log("Exporting data to", dumpPath)
-		stdout, stderr, err := b.Run("export", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "--ignore-load")
+		stdout, stderr, err := b.Run("export", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "-v", "--ignore-load")
 		if err != nil {
 			t.Fatal("failed to export", err, stdout, stderr)
 		}
 
 		pmm.Log("Importing data from", dumpPath)
-		stdout, stderr, err = b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL())
+		stdout, stderr, err = b.Run("import", "-d", dumpPath, "--pmm-url", pmm.PMMURL(), "-v")
 		if err != nil {
 			t.Fatal("failed to import", err, stdout, stderr)
 		}
