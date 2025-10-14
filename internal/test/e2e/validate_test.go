@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -44,7 +43,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c := deployment.NewController(t)
 	pmm := c.NewPMM("validate", ".env.test")
@@ -75,7 +74,8 @@ func TestValidate(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339),
 		"--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String())
+		"--chunk-time-range", chunkTimeRange.String(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
@@ -93,7 +93,8 @@ func TestValidate(t *testing.T) {
 		"-d", xDumpPath,
 		"--pmm-url", newPMM.PMMURL(),
 		"--dump-qan",
-		"--click-house-url", newPMM.ClickhouseURL())
+		"--click-house-url", newPMM.ClickhouseURL(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -110,7 +111,8 @@ func TestValidate(t *testing.T) {
 		"--dump-qan",
 		"--click-house-url", newPMM.ClickhouseURL(),
 		"--start-ts", start.Format(time.RFC3339), "--end-ts", end.Format(time.RFC3339),
-		"--chunk-time-range", chunkTimeRange.String())
+		"--chunk-time-range", chunkTimeRange.String(),
+		"-v")
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
@@ -367,12 +369,30 @@ func readChunks(filename string) (chunkMap, error) {
 	return chunkMap, nil
 }
 
-func vmParseChunk(data []byte) ([]vmMetric, error) {
-	r, err := gzip.NewReader(bytes.NewBuffer(data))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create reader")
+func isGzip(data []byte) bool {
+	reader := bytes.NewReader(data)
+	r, err := gzip.NewReader(reader)
+	if r != nil {
+		err = r.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
-	defer r.Close() //nolint:errcheck
+	return err == nil
+}
+
+func vmParseChunk(data []byte) ([]vmMetric, error) {
+	var r io.Reader
+	var err error
+	r = bytes.NewBuffer(data)
+	if isGzip(data) {
+		gr, err := gzip.NewReader(bytes.NewBuffer(data))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create reader")
+		}
+		defer gr.Close() //nolint:errcheck
+		r = gr
+	}
 	metrics, err := victoriametrics.ParseMetrics(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse metrics")

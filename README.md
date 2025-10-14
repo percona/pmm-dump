@@ -74,6 +74,10 @@ Service name: mongo
 
 So the value of `ts-selector` would be: `{service_name="mongo"}` or `{service_id="6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11"}`.
 The same for `where` QAN filter: `service_name='mongo'` or `service_id='6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11'`.
+Note: On version 2 value of `ts-selector` would be: 
+`{service_name="mongo"}` or `{service_id="/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11"}` 
+and QAN filter: 
+`service_name='mongo'` or `service_id='/service_id/6d7fbaa0-6b21-4c3f-a4a7-4be1e4f58b11'`.
 Also, you can use `instance` option which filters QAN and core metrics by service name
 
 ```
@@ -150,6 +154,7 @@ You will need to have Go 1.21+ and Docker installed.
 | make export-all     | Runs export from local PMM   |
 | make run-tests      | Runs all tests               |
 | make run-e2e-tests  | Runs all e2e tests           |
+| make run-e2e-tests-v2| Runs all e2e tests for version 2|
 | make run-unit-tests | Runs all unit tests          |
 
 Read `Makefile` for more.

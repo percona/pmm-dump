@@ -19,9 +19,9 @@ ADMIN_MONGO_USERNAME?=admin
 ADMIN_MONGO_PASSWORD?=admin
 DUMP_FILENAME=dump.tar.gz
 
-BRANCH:=$(shell git branch --show-current)
-COMMIT:=$(shell git rev-parse --short HEAD)
-VERSION:=$(shell git describe --tags --abbrev=0)
+BRANCH?=$(shell git branch --show-current)
+COMMIT?=$(shell git rev-parse --short HEAD)
+VERSION?=$(shell git describe --tags --abbrev=0)
 
 all: build re mongo-reg mongo-insert export-all re import-all
 
@@ -75,11 +75,11 @@ export-all:
 
 export-vm:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-core
+		--pmm-url=$(PMM_URL) --dump-core 
 
 export-ch:
 	./$(PMMD_BIN_NAME) export -v --dump-path $(DUMP_FILENAME) \
-		--pmm-url=$(PMM_URL) --dump-qan
+		--pmm-url=$(PMM_URL) --dump-qan --no-dump-core
 
 import-all:
 	./$(PMMD_BIN_NAME) import -v --dump-path $(DUMP_FILENAME) \
@@ -91,6 +91,11 @@ clean:
 
 run-e2e-tests: export PMM_DUMP_MAX_PARALLEL_TESTS=3
 
+run-e2e-tests-v2: export PMM_DUMP_MAX_PARALLEL_TESTS=3
+
+run-e2e-tests-v2: init-e2e-tests
+	./support-files/run-tests v2
+
 run-e2e-tests: init-e2e-tests
 	./support-files/run-tests e2e
 
@@ -100,5 +105,5 @@ run-unit-tests:
 init-e2e-tests: init build
 	./setup/test/init-test-configs.sh test
 
-run-tests: run-unit-tests run-e2e-tests
+run-tests: run-unit-tests run-e2e-tests run-e2e-tests-v2
 

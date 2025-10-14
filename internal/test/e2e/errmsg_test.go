@@ -90,6 +90,17 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 							w.WriteHeader(http.StatusOK)
 							_, _ = fmt.Fprint(w, `{"server":{"version":"`+tt.version+`"}}`)
 						}
+					case "/v1/version":
+						switch {
+						case tt.internalError:
+							w.WriteHeader(http.StatusInternalServerError)
+						case tt.emptyJSON:
+							w.WriteHeader(http.StatusOK)
+							_, _ = fmt.Fprint(w, `{}`)
+						case tt.returnVersion:
+							w.WriteHeader(http.StatusOK)
+							_, _ = fmt.Fprint(w, `{"server":{"version":"`+tt.version+`"}}`)
+						}
 					}
 				},
 			))
