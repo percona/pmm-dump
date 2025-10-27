@@ -9,7 +9,7 @@ require (
 	github.com/reviewdog/reviewdog v0.21.0
 	golang.org/x/tools v0.38.0
 	gopkg.in/reform.v1 v1.5.1
-	mvdan.cc/gofumpt v0.9.1
+	mvdan.cc/gofumpt v0.9.2
 )
 
 require (
