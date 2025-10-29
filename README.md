@@ -99,7 +99,7 @@ To filter by multiple dashboards, you can use `dashboard` flag multiple times:
 In some cases you would need to override default configuration for VM/CH processing:
 
 | Command | Flag                 | Description                                         | Example                                               |
-| ------- | -------------------- | --------------------------------------------------- | ---------------------------------------------- -------|
+| ------- | -------------------- | --------------------------------------------------- | ------------------------------------------------------|
 | any     | victoria-metrics-url | URL of Victoria Metrics                             | `http://admin:admin@localhost:8282/prometheus`        |
 | any     | click-house-url      | URL of Click House                                  | `clickhouse://default:clickhouse@172.19.0.4:9000/pmm` |
 | export  | chunk-time-range     | Time range to be fit into a single chunk (VM only)  | `45s`, `5m`, `1h`                                     |
