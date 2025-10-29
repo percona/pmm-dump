@@ -98,12 +98,12 @@ To filter by multiple dashboards, you can use `dashboard` flag multiple times:
 
 In some cases you would need to override default configuration for VM/CH processing:
 
-| Command | Flag                 | Description                                         | Example                                        |
-| ------- | -------------------- | --------------------------------------------------- | ---------------------------------------------- |
-| any     | victoria-metrics-url | URL of Victoria Metrics                             | `http://admin:admin@localhost:8282/prometheus` |
-| any     | click-house-url      | URL of Click House                                  | `http://localhost:9000?database=pmm`           |
-| export  | chunk-time-range     | Time range to be fit into a single chunk (VM only)  | `45s`, `5m`, `1h`                              |
-| export  | chunk-rows           | Amount of rows to fit into a single chunk (CH only) | `1000`                                         |
+| Command | Flag                 | Description                                         | Example                                               |
+| ------- | -------------------- | --------------------------------------------------- | ---------------------------------------------- -------|
+| any     | victoria-metrics-url | URL of Victoria Metrics                             | `http://admin:admin@localhost:8282/prometheus`        |
+| any     | click-house-url      | URL of Click House                                  | `clickhouse://default:clickhouse@172.19.0.4:9000/pmm` |
+| export  | chunk-time-range     | Time range to be fit into a single chunk (VM only)  | `45s`, `5m`, `1h`                                     |
+| export  | chunk-rows           | Amount of rows to fit into a single chunk (CH only) | `1000`                                                |
 
 ### Encryption
 By default pmm-dump encrypts everything using the AES-256-CTR algorithm and derives the key and IV from the passphrase using PBKDF2.
@@ -157,7 +157,7 @@ Available thresholds:
 Dump file is a `tar` archive compressed via `gzip`. Here is the shape of dump file:
 
 * `dump.tar.gz/meta.json` - contains metadata about the dump (JSON object)
-* `dump.tar.gz/vm/` - contains Victoria Metrics data chunks split by timeframe (in native VM format)
+* `dump.tar.gz/vm/` - contains Victoria Metrics data chunks split by timeframe (in gzipped JSON or native VM format)
 * `dump.tar.gz/ch/` - contains ClickHouse data chunks split by rows count (in TSV format)
 
 
