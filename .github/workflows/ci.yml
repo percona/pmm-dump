@@ -112,7 +112,7 @@ jobs:
       - name: Run checks/linters
         run: |
           # use GITHUB_TOKEN because only it has access to GitHub Checks API
-          bin/golangci-lint run --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} bin/reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
+          bin/golangci-lint run --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} bin/reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=added -fail-level=error
 
           # run it like that until some of those issues/PRs are resolved:
           # * https://github.com/quasilyte/go-consistent/issues/33
