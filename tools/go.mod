@@ -1,8 +1,6 @@
 module github.com/percona-platform/template/tools
 
-go 1.21.7
-
-toolchain go1.22.0
+go 1.24.9
 
 require (
 	github.com/apache/skywalking-eyes v0.6.0
@@ -12,7 +10,6 @@ require (
 	golang.org/x/tools v0.23.0
 	gopkg.in/reform.v1 v1.5.1
 	mvdan.cc/gofumpt v0.6.0
-
 )
 
 require (
