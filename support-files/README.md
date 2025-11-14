@@ -1,6 +1,6 @@
 ## How to use the load-pmm-dump script
 
-The main goal of the script is to aide in handling importing data coming from a PMM dump export file (or files). The load-pmm-dump script will:
+The main goal of the script is to aid in handling importing data coming from a PMM dump export file (or files). The load-pmm-dump script will:
 
 - Create a PMM server container
 - Disable the nginx cap for client_max_body_size
