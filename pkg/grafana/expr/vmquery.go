@@ -21,6 +21,17 @@ import (
 	"github.com/VictoriaMetrics/metricsql"
 )
 
+// escapeFilterValue escapes a label filter value for use in a MetricsQL string literal.
+// When metricsql.Parse extracts filter values, backslashes and quotes are already unescaped.
+// We need to re-escape them when reconstructing the selector string.
+func escapeFilterValue(value string) string {
+	// Escape backslashes first (must be done before escaping quotes)
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	// Escape double quotes
+	value = strings.ReplaceAll(value, `"`, `\"`)
+	return value
+}
+
 func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 	if query == "" {
 		return nil, nil
@@ -55,15 +66,15 @@ func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 				case !f.IsNegative && !f.IsRegexp:
 					s += "="
 				}
-				s += fmt.Sprintf(`"%s"`, f.Value)
+				s += fmt.Sprintf(`"%s"`, escapeFilterValue(f.Value))
 
 				filters = append(filters, s)
 			}
 		}
 		if len(p.serviceNames) == 1 {
-			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^"+p.serviceNames[0]+"$"))
+			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", escapeFilterValue("^"+p.serviceNames[0]+"$")))
 		} else if len(p.serviceNames) > 1 {
-			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", "^("+strings.Join(p.serviceNames, "|")+")$"))
+			filters = append(filters, fmt.Sprintf("%s=~\"%s\"", "service_name", escapeFilterValue("^("+strings.Join(p.serviceNames, "|")+")$")))
 		}
 		if len(filters) == 0 {
 			return

@@ -98,7 +98,26 @@ func InterpolateQuery(query string, from time.Time, to time.Time, vars []Templat
 		query = strings.ReplaceAll(query, "${"+varName+":"+varFormat+"}", str)
 	}
 
+	// Replace any remaining unresolved variables that weren't in the dashboard's templating list.
+	// Replace them with 1 to act as a neutral value in arithmetic operations.
+	query = cleanupUnresolvedVariables(query)
+
 	return query, nil
+}
+
+// cleanupUnresolvedVariables removes any remaining Grafana template variables
+// that weren't resolved during interpolation by replacing them with "1".
+// This handles cases where variables are used in arithmetic expressions or filters.
+func cleanupUnresolvedVariables(query string) string {
+	// Replace ${variable} and ${variable:format} patterns with 1
+	varPattern := regexp.MustCompile(`\$\{[^}]+\}`)
+	query = varPattern.ReplaceAllString(query, "1")
+
+	// Replace $variable patterns with 1
+	varPattern = regexp.MustCompile(`\$[a-zA-Z_][a-zA-Z0-9_]*`)
+	query = varPattern.ReplaceAllString(query, "1")
+
+	return query
 }
 
 func findVariable(name string, vars []TemplatingVariable) (TemplatingVariable, bool) {
