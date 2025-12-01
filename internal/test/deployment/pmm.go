@@ -172,7 +172,9 @@ func (p *PMM) ClickhouseURL() string {
 		p.t.Fatal(err)
 	}
 
-	u.User = url.UserPassword("default", "clickhouse")
+	if u.User == nil || u.User.Username() == "" {
+		u.User = url.UserPassword("default", "clickhouse")
+	}
 
 	u.Scheme = "clickhouse"
 	u.Path = "pmm"
