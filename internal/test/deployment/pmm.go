@@ -148,7 +148,7 @@ func (p *PMM) PMMURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	if u.User.Username() == "" {
+	if u.User == nil || u.User.Username() == "" {
 		u.User = url.UserPassword("admin", "admin")
 	}
 	if u.Scheme == "" {
