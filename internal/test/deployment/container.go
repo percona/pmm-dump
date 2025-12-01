@@ -76,7 +76,10 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	ports := []string{defaultHTTPPort, defaultHTTPSPort, defaultClickhousePort, defaultClickhouseHTTPPort}
 
-	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, nil, mounts, networkID, nil, pmmServerMemoryLimit)
+	// Enable QAN for PMM Server's internal PostgreSQL to support QAN-related tests
+	env := []string{"PMM_ENABLE_INTERNAL_PG_QAN=1"}
+
+	id, err := pmm.createContainer(ctx, dockerCli, pmm.ServerContainerName(), pmm.ServerImage(), ports, env, mounts, networkID, nil, pmmServerMemoryLimit)
 	if err != nil {
 		return errors.Wrap(err, "failed to create container")
 	}
