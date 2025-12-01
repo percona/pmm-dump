@@ -18,7 +18,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/grafana/grafana/pkg/kinds/dashboard"
+	"pmm-dump/pkg/grafana/pkg/kinds/dashboard"
+
 	"github.com/pkg/errors"
 
 	"pmm-dump/pkg/grafana/client"

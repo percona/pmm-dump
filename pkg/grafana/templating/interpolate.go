@@ -15,13 +15,13 @@
 package templating
 
 import (
+	"pmm-dump/pkg/grafana/pkg/apis/v0alpha1/template"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/experimental/macros"
-	"github.com/grafana/grafana/pkg/apis/query/v0alpha1/template"
 	"github.com/pkg/errors"
 )
 

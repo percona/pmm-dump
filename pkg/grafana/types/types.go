@@ -17,7 +17,7 @@ package types
 import (
 	"encoding/json"
 
-	"github.com/grafana/grafana/pkg/kinds/dashboard"
+	"pmm-dump/pkg/grafana/pkg/kinds/dashboard"
 )
 
 // TODO: use https://github.com/grafana/grok cli for generating these types
