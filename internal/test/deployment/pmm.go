@@ -148,7 +148,7 @@ func (p *PMM) PMMURL() string {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	if u.User == nil || u.User.Username() == "" {
+	if u.User.Username() == "" {
 		u.User = url.UserPassword("admin", "admin")
 	}
 	if u.Scheme == "" {
@@ -172,9 +172,7 @@ func (p *PMM) ClickhouseURL() string {
 		p.t.Fatal(err)
 	}
 
-	if u.User == nil {
-		u.User = url.UserPassword("default", "clickhouse")
-	}
+	u.User = url.UserPassword("default", "clickhouse")
 
 	u.Scheme = "clickhouse"
 	u.Path = "pmm"
