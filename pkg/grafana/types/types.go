@@ -51,7 +51,7 @@ type VariableModel struct {
 	Options     []VariableOption `json:"options,omitempty"`
 }
 
-// Custom unmarshal to handle Sort as number or struct
+// Custom unmarshal to handle Sort as number or struct.
 func (v *VariableModel) UnmarshalJSON(data []byte) error {
 	type Alias VariableModel
 	aux := &struct {
