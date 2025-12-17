@@ -32,25 +32,25 @@ const (
 type VariableText []string
 
 func (t *VariableText) UnmarshalJSON(data []byte) error {
-       // Try to unmarshal as a string
-       var s string
-       if err := json.Unmarshal(data, &s); err == nil {
-	       *t = []string{s}
-	       return nil
-       }
-       // Try to unmarshal as an array of strings
-       var arr []string
-       if err := json.Unmarshal(data, &arr); err == nil {
-	       *t = arr
-	       return nil
-       }
-       return json.Unmarshal(data, (*[]string)(t))
+	// Try to unmarshal as a string
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*t = []string{s}
+		return nil
+	}
+	// Try to unmarshal as an array of strings
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*t = arr
+		return nil
+	}
+	return json.Unmarshal(data, (*[]string)(t))
 }
 
 // VariableOption represents an option for a dashboard variable.
 type VariableOption struct {
-       Text  VariableText `json:"text"`
-       Value interface{}  `json:"value"`
+	Text  VariableText `json:"text"`
+	Value interface{}  `json:"value"`
 }
 
 // VariableSort represents sorting options for a variable.

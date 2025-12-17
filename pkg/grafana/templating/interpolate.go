@@ -24,8 +24,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// VariableFormat constants are now in variable_format.go
-
 func FormatVar(format VariableFormat, input []string) (string, error) {
 	switch format {
 	case FormatCSV, FormatJSON, FormatDoubleQuote, FormatSingleQuote, FormatPipe, FormatRaw:
