@@ -123,7 +123,7 @@ func applyMacro(macroKey string, queryString string, macro macroFunc) (string, e
 		if len(match) == 0 {
 			continue
 		}
-		args := []string{}
+		args := make([]string, 0)
 		if len(match) > 1 {
 			args = strings.Split(match[1], ",")
 		}
