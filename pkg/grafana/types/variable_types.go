@@ -14,6 +14,8 @@
 
 package types
 
+import "encoding/json"
+
 // VariableType is the type of a dashboard variable.
 type VariableType string
 
@@ -36,6 +38,28 @@ type VariableOption struct {
 type VariableSort struct {
 	Type int  `json:"type"`
 	Desc bool `json:"desc"`
+}
+
+// UnmarshalJSON allows VariableSort to be unmarshaled from either a number or an object.
+func (s *VariableSort) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as a number (Grafana sometimes encodes as int)
+	var asInt int
+	if err := json.Unmarshal(data, &asInt); err == nil {
+		s.Type = asInt
+		s.Desc = false
+		return nil
+	}
+	// Try to unmarshal as a struct
+	var asStruct struct {
+		Type int  `json:"type"`
+		Desc bool `json:"desc"`
+	}
+	if err := json.Unmarshal(data, &asStruct); err != nil {
+		return err
+	}
+	s.Type = asStruct.Type
+	s.Desc = asStruct.Desc
+	return nil
 }
 
 // VariableHide represents hide options for a variable.

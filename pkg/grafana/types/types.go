@@ -51,6 +51,35 @@ type VariableModel struct {
 	Options     []VariableOption `json:"options,omitempty"`
 }
 
+// Custom unmarshal to handle Sort as number or struct
+func (v *VariableModel) UnmarshalJSON(data []byte) error {
+	type Alias VariableModel
+	aux := &struct {
+		Sort json.RawMessage `json:"sort,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(v),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if len(aux.Sort) > 0 && string(aux.Sort) != "null" {
+		var sort VariableSort
+		if err := json.Unmarshal(aux.Sort, &sort); err != nil {
+			// Try as int
+			var sortInt int
+			if err2 := json.Unmarshal(aux.Sort, &sortInt); err2 == nil {
+				sort.Type = sortInt
+				sort.Desc = false
+			} else {
+				return err
+			}
+		}
+		v.Sort = &sort
+	}
+	return nil
+}
+
 type DataSourceRef struct {
 	Name string
 	Type string
