@@ -16,8 +16,6 @@ package types
 
 import (
 	"encoding/json"
-
-	"github.com/grafana/grafana/pkg/kinds/dashboard"
 )
 
 // TODO: use https://github.com/grafana/grok cli for generating these types
@@ -37,22 +35,22 @@ type DashboardPanel struct {
 
 // https://github.com/grafana/grok/blob/3e8026f90a59baa4e80dd88ac558142aafd7190e/go/kinds/core/dashboard/x/dashboard_types_gen.go#L752
 type VariableModel struct {
-	Regex       *string                    `json:"regex,omitempty"`
-	Query       *any                       `json:"query,omitempty"`
-	Datasource  *DataSourceRef             `json:"datasource,omitempty"`
-	Description *string                    `json:"description,omitempty"`
-	Sort        *dashboard.VariableSort    `json:"sort,omitempty"`
-	IncludeAll  *bool                      `json:"includeAll,omitempty"`
-	Current     *dashboard.VariableOption  `json:"current,omitempty"`
-	Label       *string                    `json:"label,omitempty"`
-	Hide        *dashboard.VariableHide    `json:"hide,omitempty"`
-	SkipURLSync *bool                      `json:"skipUrlSync,omitempty"`
-	Multi       *bool                      `json:"multi,omitempty"`
-	Refresh     *dashboard.VariableRefresh `json:"refresh,omitempty"`
-	AllValue    *string                    `json:"allValue,omitempty"`
-	Name        string                     `json:"name"`
-	Type        dashboard.VariableType     `json:"type"`
-	Options     []dashboard.VariableOption `json:"options,omitempty"`
+	Regex       *string          `json:"regex,omitempty"`
+	Query       *any             `json:"query,omitempty"`
+	Datasource  *DataSourceRef   `json:"datasource,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	Sort        *VariableSort    `json:"sort,omitempty"`
+	IncludeAll  *bool            `json:"includeAll,omitempty"`
+	Current     *VariableOption  `json:"current,omitempty"`
+	Label       *string          `json:"label,omitempty"`
+	Hide        *VariableHide    `json:"hide,omitempty"`
+	SkipURLSync *bool            `json:"skipUrlSync,omitempty"`
+	Multi       *bool            `json:"multi,omitempty"`
+	Refresh     *VariableRefresh `json:"refresh,omitempty"`
+	AllValue    *string          `json:"allValue,omitempty"`
+	Name        string           `json:"name"`
+	Type        VariableType     `json:"type"`
+	Options     []VariableOption `json:"options,omitempty"`
 }
 
 type DataSourceRef struct {
