@@ -14,9 +14,7 @@
 
 package types
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 // TODO: use https://github.com/grafana/grok cli for generating these types
 
