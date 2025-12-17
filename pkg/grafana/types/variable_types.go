@@ -25,8 +25,8 @@ type VariableOption struct {
 
 // VariableSort represents sorting options for a variable.
 type VariableSort struct {
-	Type  int  `json:"type"`
-	Desc  bool `json:"desc"`
+	Type int  `json:"type"`
+	Desc bool `json:"desc"`
 }
 
 // VariableHide represents hide options for a variable.

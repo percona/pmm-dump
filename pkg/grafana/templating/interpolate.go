@@ -18,34 +18,27 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/experimental/macros"
+
 	"github.com/pkg/errors"
 )
 
 // VariableFormat constants are now in variable_format.go
 
 func FormatVar(format VariableFormat, input []string) (string, error) {
-       switch format {
-       case FormatCSV, FormatJSON, FormatDoubleQuote, FormatSingleQuote, FormatPipe, FormatRaw:
-	       return FormatVariables(format, input), nil
-       case FormatDistributed, FormatGlob, FormatLucene, FormatPercentencode, FormatRegex, FormatSqlstring, FormatText, FormatQueryparameters:
-	       return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
-       }
-       return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
+	switch format {
+	case FormatCSV, FormatJSON, FormatDoubleQuote, FormatSingleQuote, FormatPipe, FormatRaw:
+		return FormatVariables(format, input), nil
+	case FormatDistributed, FormatGlob, FormatLucene, FormatPercentencode, FormatRegex, FormatSqlstring, FormatText, FormatQueryparameters:
+		return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
+	}
+	return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
 }
 
 func InterpolateQuery(query string, from time.Time, to time.Time, vars []TemplatingVariable) (string, error) {
-       if query == "" {
-	       return "", nil
-       }
-       query, err := macros.ApplyMacros(query, backend.TimeRange{
-	       From: from,
-	       To:   to,
-       }, backend.PluginContext{})
-       if err != nil {
-	       return "", errors.Wrap(err, "failed to apply macros")
-       }
+	if query == "" {
+		return "", nil
+	}
+	query = ApplyMacros(query, from, to)
 
 	for _, v := range vars {
 		str, err := v.Interpolate("")
@@ -80,7 +73,7 @@ func InterpolateQuery(query string, from time.Time, to time.Time, vars []Templat
 			continue
 		}
 
-			   str, err := v.Interpolate(VariableFormat(varFormat))
+		str, err := v.Interpolate(VariableFormat(varFormat))
 		if err != nil {
 			return "", err
 		}
@@ -119,9 +112,9 @@ func findVariable(name string, vars []TemplatingVariable) (TemplatingVariable, b
 }
 
 func (v TemplatingVariable) Interpolate(format VariableFormat) (string, error) {
-       if format == "" {
-	       format = FormatPipe
-       }
+	if format == "" {
+		format = FormatPipe
+	}
 	values := v.Values
 	if v.Model.Regex != nil && *v.Model.Regex != "" {
 		pattern := *v.Model.Regex
@@ -143,10 +136,10 @@ func (v TemplatingVariable) Interpolate(format VariableFormat) (string, error) {
 
 		values = filteredValues
 	}
-       if len(values) > 0 {
-	       return FormatVar(format, values)
-       }
+	if len(values) > 0 {
+		return FormatVar(format, values)
+	}
 
-       s, _ := FormatVar(format, values) // TODO: regex escape
-       return "(" + s + ")", nil
+	s, _ := FormatVar(format, values) // TODO: regex escape
+	return "(" + s + ")", nil
 }

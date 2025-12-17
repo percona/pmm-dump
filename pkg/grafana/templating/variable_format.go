@@ -8,19 +8,19 @@ package templating
 type VariableFormat string
 
 const (
-	FormatCSV            VariableFormat = "csv"
-	FormatJSON           VariableFormat = "json"
-	FormatDoubleQuote    VariableFormat = "doublequote"
-	FormatSingleQuote    VariableFormat = "singlequote"
-	FormatPipe           VariableFormat = "pipe"
-	FormatRaw            VariableFormat = "raw"
-	FormatDistributed    VariableFormat = "distributed"
-	FormatGlob           VariableFormat = "glob"
-	FormatLucene         VariableFormat = "lucene"
-	FormatPercentencode  VariableFormat = "percentencode"
-	FormatRegex          VariableFormat = "regex"
-	FormatSqlstring      VariableFormat = "sqlstring"
-	FormatText           VariableFormat = "text"
+	FormatCSV             VariableFormat = "csv"
+	FormatJSON            VariableFormat = "json"
+	FormatDoubleQuote     VariableFormat = "doublequote"
+	FormatSingleQuote     VariableFormat = "singlequote"
+	FormatPipe            VariableFormat = "pipe"
+	FormatRaw             VariableFormat = "raw"
+	FormatDistributed     VariableFormat = "distributed"
+	FormatGlob            VariableFormat = "glob"
+	FormatLucene          VariableFormat = "lucene"
+	FormatPercentencode   VariableFormat = "percentencode"
+	FormatRegex           VariableFormat = "regex"
+	FormatSqlstring       VariableFormat = "sqlstring"
+	FormatText            VariableFormat = "text"
 	FormatQueryparameters VariableFormat = "queryparam"
 )
 
