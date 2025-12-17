@@ -136,6 +136,20 @@ func (v TemplatingVariable) Interpolate(format VariableFormat) (string, error) {
 
 		values = filteredValues
 	}
+	if len(values) == 0 {
+		if v.Model.IncludeAll == nil || !*v.Model.IncludeAll {
+			return "", nil
+		}
+		if v.Model.AllValue != nil {
+			return *v.Model.AllValue, nil
+		}
+		return "", nil
+	}
+
+	if len(values) == 1 || (v.Model.Multi == nil || !*v.Model.Multi) {
+		return values[0], nil
+	}
+
 	if len(values) > 0 {
 		return FormatVar(format, values)
 	}
