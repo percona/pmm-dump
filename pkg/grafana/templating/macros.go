@@ -17,13 +17,10 @@ package templating
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
-
-func formatUnix(t time.Time) string {
-	return strings.TrimSuffix(strings.TrimPrefix(t.Format("2006-01-02T15:04:05Z07:00"), "T"), "Z")
-}
 
 type TimeRange struct {
 	From time.Time
@@ -32,21 +29,21 @@ type TimeRange struct {
 
 func FromMacro(inputString string, timeRange TimeRange) (string, error) {
 	res, err := applyMacro("$$from", inputString, func(_ string, args []string) (string, error) {
-		 return expandTimeMacro(timeRange.From, args)
+		return expandTimeMacro(timeRange.From, args)
 	})
 	return res, err
 }
 
 func ToMacro(inputString string, timeRange TimeRange) (string, error) {
 	res, err := applyMacro("$$to", inputString, func(_ string, args []string) (string, error) {
-		 return expandTimeMacro(timeRange.To, args)
+		return expandTimeMacro(timeRange.To, args)
 	})
 	return res, err
 }
 
 func expandTimeMacro(t time.Time, args []string) (string, error) {
 	if len(args) < 1 || args[0] == "" {
-		return fmt.Sprintf("%d", t.UnixMilli()), nil
+		return strconv.FormatInt(t.UnixMilli(), 10), nil
 	}
 	if args[0] == "date" {
 		if len(args) < 2 || args[1] == ":iso" {
@@ -92,15 +89,15 @@ func expandTimeMacro(t time.Time, args []string) (string, error) {
 }
 
 func ApplyMacros(input string, timeRange TimeRange) (string, error) {
-       input, err := FromMacro(input, timeRange)
-       if err != nil {
-	       return input, err
-       }
-       input, err = ToMacro(input, timeRange)
-       if err != nil {
-	       return input, err
-       }
-       return input, nil
+	input, err := FromMacro(input, timeRange)
+	if err != nil {
+		return input, err
+	}
+	input, err = ToMacro(input, timeRange)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
 type macroFunc func(string, []string) (string, error)

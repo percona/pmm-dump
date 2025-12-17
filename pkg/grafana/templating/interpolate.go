@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
 	"github.com/pkg/errors"
 )
 
@@ -36,13 +37,13 @@ func FormatVar(format VariableFormat, input []string) (string, error) {
 }
 
 func InterpolateQuery(query string, from time.Time, to time.Time, vars []TemplatingVariable) (string, error) {
-       if query == "" {
-	       return "", nil
-       }
-       query, err := ApplyMacros(query, TimeRange{From: from, To: to})
-       if err != nil {
-	       return "", errors.Wrap(err, "failed to apply macros")
-       }
+	if query == "" {
+		return "", nil
+	}
+	query, err := ApplyMacros(query, TimeRange{From: from, To: to})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to apply macros")
+	}
 	for _, v := range vars {
 		str, err := v.Interpolate("")
 		if err != nil {
