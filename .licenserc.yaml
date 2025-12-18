@@ -5,9 +5,9 @@ header:
       spdx-id: Apache-2.0
       copyright-owner: Percona LLC
       copyright-year: 2023
-# The following files are excluded because they contain code derived from Grafana,
+# The following files are ignored because they contain code derived from Grafana,
 # which is licensed under Apache 2.0 and has its own license header/notice.
-exclude:
+ignore:
   - pkg/grafana/templating/macros.go
   - pkg/grafana/templating/variable_format.go
   - pkg/grafana/types/variable_types.go
