@@ -9,6 +9,7 @@ require (
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
+	github.com/hashicorp/go-version v1.7.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil/v3 v3.24.5
