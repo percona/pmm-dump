@@ -20,8 +20,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 func FormatVar(format VariableFormat, input []string) (string, error) {
@@ -29,9 +27,9 @@ func FormatVar(format VariableFormat, input []string) (string, error) {
 	case FormatCSV, FormatJSON, FormatDoubleQuote, FormatSingleQuote, FormatPipe, FormatRaw:
 		return FormatVariables(format, input), nil
 	case FormatDistributed, FormatGlob, FormatLucene, FormatPercentencode, FormatRegex, FormatSqlstring, FormatText, FormatQueryparameters:
-		return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
+		return "", fmt.Errorf("unsupported format by pmm-dump: %s", format)
 	}
-	return "", errors.Errorf("unsupported format by pmm-dump: %s", format)
+	return "", fmt.Errorf("unsupported format by pmm-dump: %s", format)
 }
 
 func InterpolateQuery(query string, from time.Time, to time.Time, vars []TemplatingVariable) (string, error) {
@@ -40,7 +38,7 @@ func InterpolateQuery(query string, from time.Time, to time.Time, vars []Templat
 	}
 	query, err := ApplyMacros(query, TimeRange{From: from, To: to})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to apply macros")
+		return "", fmt.Errorf("failed to apply macros: %w", err)
 	}
 	for _, v := range vars {
 		str, err := v.Interpolate("")
