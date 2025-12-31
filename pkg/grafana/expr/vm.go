@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/grafana/templating"
 	"pmm-dump/pkg/grafana/types"
