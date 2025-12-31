@@ -17,6 +17,8 @@ services:
       - "${CLICKHOUSE_PORT_HTTP}:8123"
     volumes:
       - pmm-server-data:/srv
+    environment:
+      - PMM_ENABLE_INTERNAL_PG_QAN=${PMM_INTERNAL_QAN}
 
   pmm-client:
     image: ${PMM_CLIENT_IMAGE}:${PMM_VERSION}
