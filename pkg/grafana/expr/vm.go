@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/grafana/grafana/pkg/kinds/dashboard"
+	"github.com/pkg/errors"
 
 	"pmm-dump/pkg/grafana/client"
 	"pmm-dump/pkg/grafana/templating"
@@ -175,7 +175,7 @@ var errShouldIgnoreQuery = errors.New("should ignore query")
 
 func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.TemplatingVariable, error) {
 	switch v.Type {
-	case dashboard.VariableTypeQuery:
+	case types.VariableTypeQuery:
 		if v.Datasource != nil {
 			uid, err := templating.InterpolateQuery(v.Datasource.UID, p.from, p.to, p.allVariables())
 			if err != nil {
@@ -191,7 +191,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			return templating.TemplatingVariable{}, fmt.Errorf("parse templating query: %w", err)
 		}
 		return pv, nil
-	case dashboard.VariableTypeCustom:
+	case types.VariableTypeCustom:
 		vals := make([]string, 0, len(v.Options))
 		for _, opt := range v.Options {
 			s, ok := opt.Value.(string)
@@ -204,7 +204,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			Model:  v,
 			Values: vals,
 		}, nil
-	case dashboard.VariableTypeConstant:
+	case types.VariableTypeConstant:
 		val, err := templating.GetQueryFromModel(v)
 		if err != nil {
 			return templating.TemplatingVariable{}, fmt.Errorf("get query from model: %w", err)
@@ -213,9 +213,9 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			Model:  v,
 			Values: []string{val},
 		}, nil
-	case dashboard.VariableTypeAdhoc:
+	case types.VariableTypeAdhoc:
 		return templating.TemplatingVariable{}, errShouldIgnoreQuery
-	case dashboard.VariableTypeDatasource:
+	case types.VariableTypeDatasource:
 		query, err := templating.GetQueryFromModel(v)
 		if err != nil {
 			return templating.TemplatingVariable{}, fmt.Errorf("get query from model: %w", err)
@@ -227,7 +227,7 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			Model:  v,
 			Values: []string{VMDatasourceName},
 		}, nil
-	case dashboard.VariableTypeInterval:
+	case types.VariableTypeInterval:
 		return templating.TemplatingVariable{
 			Model:  v,
 			Values: []string{durationToStr(defaultInterval, "m")},

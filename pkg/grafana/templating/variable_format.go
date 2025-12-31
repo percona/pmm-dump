@@ -1,0 +1,55 @@
+// Copyright 2023 Percona LLC
+//
+// Local equivalents of Grafana template variable formats and helpers.
+// This file replaces the need for github.com/grafana/grafana/pkg/apis/query/v0alpha1/template imports.
+
+package templating
+
+type VariableFormat string
+
+const (
+	FormatCSV            VariableFormat = "csv"
+	FormatJSON           VariableFormat = "json"
+	FormatDoubleQuote    VariableFormat = "doublequote"
+	FormatSingleQuote    VariableFormat = "singlequote"
+	FormatPipe           VariableFormat = "pipe"
+	FormatRaw            VariableFormat = "raw"
+	FormatDistributed    VariableFormat = "distributed"
+	FormatGlob           VariableFormat = "glob"
+	FormatLucene         VariableFormat = "lucene"
+	FormatPercentencode  VariableFormat = "percentencode"
+	FormatRegex          VariableFormat = "regex"
+	FormatSqlstring      VariableFormat = "sqlstring"
+	FormatText           VariableFormat = "text"
+	FormatQueryparameters VariableFormat = "queryparam"
+)
+
+func FormatVariables(format VariableFormat, input []string) string {
+	switch format {
+	case FormatCSV:
+		return joinWithSep(input, ",")
+	case FormatJSON:
+		return joinWithSep(input, ",") // Simplified for now
+	case FormatDoubleQuote:
+		return joinWithSep(input, "\"")
+	case FormatSingleQuote:
+		return joinWithSep(input, "'")
+	case FormatPipe:
+		return joinWithSep(input, "|")
+	case FormatRaw:
+		return joinWithSep(input, " ")
+	default:
+		return joinWithSep(input, ",")
+	}
+}
+
+func joinWithSep(input []string, sep string) string {
+	if len(input) == 0 {
+		return ""
+	}
+	result := input[0]
+	for _, s := range input[1:] {
+		result += sep + s
+	}
+	return result
+}
