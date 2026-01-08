@@ -77,6 +77,7 @@ func TestPMMCompatibility(t *testing.T) {
 	}
 }
 
+// getVersions reads the versions.yaml file and returns the list of PMM versions to test.
 func getVersions() ([]string, error) {
 	type versionsConfig struct {
 		Versions []string `yaml:"versions"`
