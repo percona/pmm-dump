@@ -10,7 +10,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/grafana/grafana v0.0.0-20240319182150-590c657828b5
-	github.com/grafana/grafana-plugin-sdk-go v0.284.0
+	github.com/grafana/grafana-plugin-sdk-go v0.281.0
 	github.com/hashicorp/go-version v1.8.0
 	github.com/rs/zerolog v1.34.0
 	github.com/shirou/gopsutil/v3 v3.24.5
