@@ -45,7 +45,7 @@ func TestDashboard(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// this one failing, so it is skipped for now
 			if name == "PMM_HA_Health_Overview" {
-				continue
+				t.Skip()
 			}
 
 			testDir := t.TempDir()
