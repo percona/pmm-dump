@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// test
 func FormatVar(format VariableFormat, input []string) (string, error) {
 	switch format {
 	case FormatCSV, FormatJSON, FormatDoubleQuote, FormatSingleQuote, FormatPipe, FormatRaw:
