@@ -44,7 +44,7 @@ func TestDashboard(t *testing.T) {
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
 			// this one failing, so it is skipped for now
-			if name == "PMM_HA_Health_Overview" {
+			if name == "TestDashboard/PMM_HA_Health_Overview" {
 				t.Skip()
 			}
 
