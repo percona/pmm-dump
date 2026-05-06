@@ -89,7 +89,8 @@ func TestClickHouseTime(t *testing.T) {
 		"--dump-qan",
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--no-encryption",
-		"-v")
+		"-v",
+	)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
@@ -109,7 +110,8 @@ func TestClickHouseTime(t *testing.T) {
 		"--dump-qan",
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--no-encryption",
-		"-v")
+		"-v",
+	)
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}

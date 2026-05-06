@@ -112,7 +112,8 @@ func TestErrMsgCheckCompatibilityVersion(t *testing.T) {
 				"-d", "some-dumppath",
 				"--pmm-url", server.URL,
 				"--pmm-user", "some-user",
-				"--pmm-pass", "some-password")
+				"--pmm-pass", "some-password",
+			)
 			if err != nil && err.Error() != "exit status 1" {
 				t.Fatal(err)
 			}

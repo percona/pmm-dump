@@ -41,7 +41,7 @@ func TestDashboard(t *testing.T) {
 	}
 
 	importCustomDashboards(t, pmm)
-	names := getAllDashbaordNames(t, pmm)
+	names := getAllDashboardsNames(t, pmm)
 
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
@@ -145,7 +145,7 @@ func importCustomDashboards(t *testing.T, pmm *deployment.PMM) {
 	}
 }
 
-func getAllDashbaordNames(t *testing.T, pmm *deployment.PMM) []string {
+func getAllDashboardsNames(t *testing.T, pmm *deployment.PMM) []string {
 	t.Helper()
 
 	grafanaClient, err := pmm.NewClient()

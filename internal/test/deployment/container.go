@@ -79,6 +79,10 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 
 	var ports []string
 	var env []string
+
+	// the default value is 0, but leaving it as 0 will cause the QAN test to fail.
+	env = append(env, "PMM_ENABLE_INTERNAL_PG_QAN=1")
+
 	if pkgUtil.CheckVer(pmm.GetVersion(), "< 3.0.0") {
 		ports = []string{defaultHTTPPortv2, defaultHTTPSPortv2, defaultClickhousePort, defaultClickhouseHTTPPort}
 	} else {
