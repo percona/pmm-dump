@@ -47,7 +47,7 @@ func TestDashboard(t *testing.T) {
 
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
-			if name == "PMM Health" && (pkgUtil.CheckVer(pmm.GetVersion(), "<= 3.7.1") || pkgUtil.CheckVer(pmm.GetVersion(), ">= 3.5.0")) {
+			if name == "PMM Health" && (pkgUtil.CheckVer(pmm.GetVersion(), ">= 3.5.0") && pkgUtil.CheckVer(pmm.GetVersion(), "<= 3.7.1")) {
 				// PMM health has broken panel `Clickhouse Read backoff` so we skip this test. https://github.com/percona/pmm/issues/5329
 				return
 			}

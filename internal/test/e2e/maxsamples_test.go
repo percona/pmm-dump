@@ -72,7 +72,7 @@ func TestMaxSamples(t *testing.T) {
 	}
 
 	pmm.Logf("Sleeping for %d seconds to generate chunks", sleepTime)
-	time.Sleep(sleepTime)
+	time.Sleep(sleepTime * time.Second)
 
 	var stdout, stderr string
 

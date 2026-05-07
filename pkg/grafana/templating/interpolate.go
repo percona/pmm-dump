@@ -131,10 +131,5 @@ func (v TemplatingVariable) Interpolate(format VariableFormat) (string, error) {
 		return values[0], nil
 	}
 
-	if len(values) > 0 {
-		return FormatVar(format, values)
-	}
-
-	s, _ := FormatVar(format, values) // TODO: regex escape
-	return "(" + s + ")", nil
+	return FormatVar(format, values)
 }
