@@ -55,7 +55,7 @@ func (p *VMExprParser) parseQuery(query string) ([]string, error) {
 				case !f.IsNegative && !f.IsRegexp:
 					s += "="
 				}
-				s += fmt.Sprintf(`"%s"`, f.Value)
+				s += fmt.Sprintf("%q", f.Value)
 
 				filters = append(filters, s)
 			}

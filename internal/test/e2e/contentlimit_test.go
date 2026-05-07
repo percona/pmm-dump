@@ -71,7 +71,8 @@ func TestContentLimit(t *testing.T) {
 		"import",
 		"--no-encryption",
 		"-d", dumpPath,
-		"--pmm-url", pmm.PMMURL())
+		"--pmm-url", pmm.PMMURL(),
+	)
 	if err != nil {
 		if !strings.Contains(stderr, "413 Request Entity Too Large") {
 			t.Fatal("expected `413 Request Entity Too Large` error, got", err, stdout, stderr)
@@ -87,7 +88,8 @@ func TestContentLimit(t *testing.T) {
 		"--no-encryption",
 		"-d", dumpPath,
 		"--pmm-url", pmm.PMMURL(),
-		"--vm-content-limit", "10024")
+		"--vm-content-limit", "10024",
+	)
 	if err != nil {
 		t.Fatal("failed to import", err, stdout, stderr)
 	}
