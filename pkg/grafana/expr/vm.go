@@ -230,6 +230,22 @@ func (p *VMExprParser) parseTemplatingVar(v types.VariableModel) (templating.Tem
 			Model:  v,
 			Values: []string{durationToStr(defaultInterval, "m")},
 		}, nil
+	case types.VariableTypeTextbox:
+		var val string
+		if v.Current != nil {
+			if s, ok := v.Current.Value.(string); ok {
+				val = s
+			}
+		}
+		if val == "" && v.Query != nil {
+			if s, ok := (*v.Query).(string); ok {
+				val = s
+			}
+		}
+		return templating.TemplatingVariable{
+			Model:  v,
+			Values: []string{val},
+		}, nil
 	}
 	return templating.TemplatingVariable{}, fmt.Errorf("not supported type by pmm-dump: %s", string(v.Type))
 }

@@ -29,6 +29,7 @@ const (
 	VariableTypeAdhoc      VariableType = "adhoc"
 	VariableTypeDatasource VariableType = "datasource"
 	VariableTypeInterval   VariableType = "interval"
+	VariableTypeTextbox    VariableType = "textbox"
 )
 
 // VariableText can be a string or an array of strings in JSON.

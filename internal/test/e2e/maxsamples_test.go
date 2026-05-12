@@ -37,6 +37,7 @@ import (
 const (
 	getTimeout     = 60
 	rowsToSubtract = 10
+	sleepTime      = 120
 )
 
 func TestMaxSamples(t *testing.T) {
@@ -69,6 +70,9 @@ func TestMaxSamples(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failde to deploy pmm", err)
 	}
+
+	pmm.Logf("Sleeping for %d seconds to generate chunks", sleepTime)
+	time.Sleep(sleepTime * time.Second)
 
 	var stdout, stderr string
 
@@ -199,7 +203,8 @@ func TestMaxSamples(t *testing.T) {
 		"--click-house-url", pmm.ClickhouseURL(),
 		"--dump-core",
 		"--dump-qan",
-		"--ignore-load")
+		"--ignore-load",
+	)
 	if err != nil {
 		t.Fatal("failed to export", err, stdout, stderr)
 	}
