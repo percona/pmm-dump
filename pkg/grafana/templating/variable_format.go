@@ -17,6 +17,11 @@
 
 package templating
 
+import (
+	"encoding/json"
+	"strings"
+)
+
 type VariableFormat string
 
 const (
@@ -39,29 +44,38 @@ const (
 func FormatVariables(format VariableFormat, input []string) string {
 	switch format {
 	case FormatCSV:
-		return joinWithSep(input, ",")
-	case FormatJSON:
-		return joinWithSep(input, ",") // Simplified for now
-	case FormatDoubleQuote:
-		return joinWithSep(input, "\"")
-	case FormatSingleQuote:
-		return joinWithSep(input, "'")
-	case FormatPipe:
-		return joinWithSep(input, "|")
-	case FormatRaw:
-		return joinWithSep(input, " ")
-	default:
-		return joinWithSep(input, ",")
-	}
-}
+		return strings.Join(input, ",")
 
-func joinWithSep(input []string, sep string) string {
-	if len(input) == 0 {
-		return ""
+	case FormatJSON:
+		b, err := json.Marshal(input)
+		if err != nil {
+			return "[]"
+		}
+		return string(b)
+
+	case FormatDoubleQuote:
+		var escaped []string
+		for _, s := range input {
+			clean := strings.ReplaceAll(s, `"`, `\"`)
+			escaped = append(escaped, `"`+clean+`"`)
+		}
+		return strings.Join(escaped, ",")
+
+	case FormatSingleQuote:
+		var escaped []string
+		for _, s := range input {
+			clean := strings.ReplaceAll(s, `'`, `\'`)
+			escaped = append(escaped, `'`+clean+`'`)
+		}
+		return strings.Join(escaped, ",")
+
+	case FormatPipe:
+		return strings.Join(input, "|")
+
+	case FormatRaw:
+		return strings.Join(input, " ")
+
+	default:
+		return strings.Join(input, ",")
 	}
-	result := input[0]
-	for _, s := range input[1:] {
-		result += sep + s
-	}
-	return result
 }
