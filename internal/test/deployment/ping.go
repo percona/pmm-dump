@@ -22,14 +22,14 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const pingTimeout = time.Second * 5
 
 func (pmm *PMM) PingMongo(ctx context.Context) error {
-	cl, err := mongo.Connect(ctx, options.Client().ApplyURI(pmm.MongoURL()))
+	cl, err := mongo.Connect(options.Client().ApplyURI(pmm.MongoURL()))
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
