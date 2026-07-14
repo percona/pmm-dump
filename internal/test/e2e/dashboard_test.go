@@ -173,6 +173,7 @@ func getAllDashboardsNames(t *testing.T, pmm *deployment.PMM) []string {
 	}
 
 	type dashboardResp struct {
+		Type  string `json:"type"`
 		Title string `json:"title"`
 	}
 	var s []dashboardResp
@@ -181,6 +182,10 @@ func getAllDashboardsNames(t *testing.T, pmm *deployment.PMM) []string {
 	}
 	names := make([]string, 0, len(s))
 	for _, v := range s {
+		// The search endpoint returns folders too; only dashboards can be exported.
+		if v.Type != "dash-db" {
+			continue
+		}
 		names = append(names, v.Title)
 	}
 	return names
