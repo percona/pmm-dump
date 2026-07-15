@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/rs/zerolog v1.35.1
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/valyala/fasthttp v1.71.0
+	github.com/valyala/fasthttp v1.72.0
 	go.mongodb.org/mongo-driver/v2 v2.8.0
 	golang.org/x/sync v0.22.0
 	gopkg.in/yaml.v2 v2.4.0
