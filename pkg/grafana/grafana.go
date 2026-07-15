@@ -90,6 +90,9 @@ func findDashboardUID(c *client.Client, pmmURL, name string) (string, error) {
 	defer fasthttp.ReleaseArgs(q)
 
 	q.Add("query", name)
+	// Restrict to dashboards; otherwise a folder sharing the name may be
+	// picked, and fetching it by UID as a dashboard returns 404.
+	q.Add("type", "dash-db")
 	link := fmt.Sprintf("%s/graph/api/search?%s", pmmURL, q.String())
 	status, data, err := c.Get(link)
 	if err != nil {
