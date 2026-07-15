@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
-	github.com/VictoriaMetrics/metricsql v0.87.0
+	github.com/VictoriaMetrics/metricsql v0.87.3
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/docker/docker v28.5.2+incompatible
