@@ -34,7 +34,10 @@ const (
 	envVarUseExistingPMM = "USE_EXISTING_PMM"
 )
 
-const defaultPMMURL = "http://admin:admin@localhost" //nolint:gosec
+// Docker publishes container ports on IPv4, so address them explicitly:
+// localhost also resolves to ::1, where nothing listens, and clients that do
+// not fall back to IPv4 fail with "connection refused".
+const defaultPMMURL = "http://admin:admin@127.0.0.1"
 
 func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 	envs, err := dotenv.GetEnvFromFile(make(map[string]string), "", []string{filepath})

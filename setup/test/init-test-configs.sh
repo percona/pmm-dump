@@ -30,7 +30,7 @@ env_vars=(
     "MONGO_IMAGE=mongo"
     "MONGO_TAG=latest"
 	"USE_EXISTING_PMM=false # use existing pmm-server container"
-	"PMM_URL=http://admin:admin@localhost # pmm-server url (used only while USE_EXISTING_PMM=true)"
+	"PMM_URL=http://admin:admin@127.0.0.1 # pmm-server url (used only while USE_EXISTING_PMM=true)"
 )
 
 env_file="$test_dir/.env.test"

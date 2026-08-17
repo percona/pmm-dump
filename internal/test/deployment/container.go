@@ -123,7 +123,18 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return fmt.Errorf("failed to ping clickhouse: %w", err)
 	}
 
-	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
+	// Clickhouse listens on loopback only, so it is unreachable through the
+	// published port. Drop in a config override instead of editing the shipped
+	// config: clickhouse merges <config-file>.d/*.xml, and which config file it
+	// loads changed in PMM 3.9.0, so derive the directory from supervisord.
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sh", "-c",
+		`set -e; `+
+			`cfg=$(sed -n 's/^command *= *.*--config-file=\([^ ]*\).*/\1/p' /etc/supervisord.d/pmm.ini | head -1); `+
+			`[ -n "$cfg" ]; `+
+			`dir="${cfg%.xml}.d"; `+
+			`mkdir -p "$dir"; `+
+			`printf '%s\n' '<clickhouse><listen_host replace="replace">0.0.0.0</listen_host></clickhouse>' `+
+			`> "$dir/99-pmm-dump-listen.xml"`); err != nil {
 		return fmt.Errorf("failed to update clickhouse config: %w", err)
 	}
 
