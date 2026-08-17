@@ -123,7 +123,14 @@ func (pmm *PMM) CreatePMMServer(ctx context.Context, dockerCli *client.Client, n
 		return fmt.Errorf("failed to ping clickhouse: %w", err)
 	}
 
-	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sed", "-i", "s#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g", "/etc/clickhouse-server/config.xml"); err != nil {
+	// PMM 3.9.0 points clickhouse-server at default-config.xml directly, so the
+	// config.xml symlink it used before is no longer read. Patch every config
+	// that is present to cover all supported PMM versions.
+	if err := pmm.Exec(ctx, pmm.ServerContainerName(), "sh", "-c",
+		`for f in /etc/clickhouse-server/config.xml /etc/clickhouse-server/default-config.xml; do `+
+			`if [ -f "$f" ]; then `+
+			`sed -i 's#<!-- <listen_host>0.0.0.0</listen_host> -->#<listen_host>0.0.0.0</listen_host>#g' "$f"; `+
+			`fi; done`); err != nil {
 		return fmt.Errorf("failed to update clickhouse config: %w", err)
 	}
 
