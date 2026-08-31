@@ -3,7 +3,7 @@ module github.com/percona-platform/template/tools
 go 1.26.6
 
 require (
-	github.com/apache/skywalking-eyes v0.8.0
+	github.com/apache/skywalking-eyes v0.9.0
 	github.com/golangci/golangci-lint v1.64.8
 	github.com/quasilyte/go-consistent v0.6.2
 	github.com/reviewdog/reviewdog v0.21.0
@@ -74,7 +74,7 @@ require (
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
-	github.com/go-git/go-git/v5 v5.19.1 // indirect
+	github.com/go-git/go-git/v5 v5.19.2 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
