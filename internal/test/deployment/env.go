@@ -34,7 +34,7 @@ const (
 	envVarUseExistingPMM = "USE_EXISTING_PMM"
 )
 
-const defaultPMMURL = "http://admin:admin@localhost" //nolint:gosec
+const defaultPMMURL = "http://admin:admin@127.0.0.1"
 
 func getEnvFromDotEnv(filepath string) (map[string]string, error) {
 	envs, err := dotenv.GetEnvFromFile(make(map[string]string), "", []string{filepath})
