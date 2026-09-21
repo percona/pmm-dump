@@ -14,7 +14,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valyala/fasthttp v1.74.0
 	go.mongodb.org/mongo-driver/v2 v2.9.1
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
