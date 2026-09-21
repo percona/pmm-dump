@@ -9,7 +9,7 @@ require (
 	github.com/reviewdog/reviewdog v0.21.0
 	golang.org/x/tools v0.49.0
 	gopkg.in/reform.v1 v1.5.1
-	mvdan.cc/gofumpt v0.10.0
+	mvdan.cc/gofumpt v0.12.0
 )
 
 require (
@@ -180,7 +180,7 @@ require (
 	github.com/reviewdog/errorformat v0.0.0-20250320004447-223c26dbe212 // indirect
 	github.com/reviewdog/go-bitbucket v0.0.0-20201024094602-708c3f6a7de0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/ryancurrah/gomodguard v1.3.5 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.5.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
@@ -235,7 +235,7 @@ require (
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.39.0 // indirect
+	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.32.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
