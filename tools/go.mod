@@ -1,6 +1,6 @@
 module github.com/percona-platform/template/tools
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/apache/skywalking-eyes v0.9.0
